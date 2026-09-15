@@ -1,0 +1,918 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Happy Drops Manager</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f3f7fb;color:#17324d}.head{background:#087fc1;color:#fff;padding:14px 18px;display:flex;gap:12px;align-items:center;position:sticky;top:0;z-index:5}.menu{font-size:27px;cursor:pointer}.brand{font-size:20px;font-weight:700}.wrap{max-width:920px;margin:auto;padding:14px}.card{background:#fff;border-radius:14px;padding:16px;margin-bottom:14px;box-shadow:0 3px 12px #0001}.profile-card{border-top:5px solid #087fc1;padding:10px 12px}.profile-card h2{margin:2px 0 7px!important}.profile-card>div:nth-child(2){padding-top:8px!important}.profile-card>div:nth-child(2)>div{margin-bottom:6px!important}.section-bill{border-top:5px solid #1769aa;padding:10px 12px}.section-bill h3{margin:2px 0 7px!important}.section-cans{border-top:5px solid #16a34a}.section-activity{border-top:5px solid #8b5cf6}.section-status{border-top:5px solid #f59e0b}.hero{background:linear-gradient(135deg,#078bd1,#005b9a);color:#fff;border-radius:16px;padding:22px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.compact{display:grid;grid-template-columns:1.25fr .7fr .75fr .85fr;gap:7px;align-items:end}.three{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-top:7px}.btn{border:0;border-radius:8px;padding:11px 14px;background:#087fc1;color:#fff;font-weight:700;cursor:pointer}.secondary{background:#e8f3fa;color:#087fc1}.danger{background:#ffe9e9;color:#c62828;padding:7px 9px}input,select{width:100%;padding:9px;border:1px solid #ccd8e2;border-radius:7px;font-size:16px;margin-top:4px}label{font-size:11px;font-weight:700;color:#60788a}.prod,.customer{border:1px solid #dce7ef;border-radius:10px;padding:10px;margin:9px 0}.ph{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px}.amt{font-weight:800;color:#087fc1;padding-top:8px}.summary{background:#eef8fd;padding:12px;border-radius:10px;margin-top:12px;font-weight:800;font-size:17px;line-height:1.55}.total{display:flex;justify-content:space-between;border-top:2px solid #e5edf3;margin-top:12px;padding-top:12px;font-size:20px;font-weight:800}.small{font-size:12px;color:#6c8292}.drawer{display:none;position:fixed;inset:0;background:#0007;z-index:9}.drawer.open{display:block}.side{background:#fff;width:290px;max-width:85%;height:100%;padding:18px}.nav{padding:13px;margin:6px 0;border-radius:8px;cursor:pointer}.nav:hover{background:#eaf6fc}.moneyrow{display:grid;grid-template-columns:55px 20px minmax(0,1fr) 20px 90px;gap:7px;align-items:center;margin:6px 0}.moneyden{font-weight:800}.period{border-left:4px solid #087fc1;padding:10px;background:#f7fbfd;margin-top:9px;border-radius:6px}.table{width:100%;border-collapse:collapse}.table th,.table td{padding:8px;border-bottom:1px solid #e3ebf0;text-align:center}.table th{font-size:11px;color:#60788a}@media(max-width:600px){.compact{grid-template-columns:1.2fr .65fr .7fr .8fr}.grid{grid-template-columns:1fr}.moneyrow{grid-template-columns:50px 18px minmax(0,1fr) 18px 80px}}
+.btcc-hero{padding:12px 18px;margin-bottom:8px;position:relative;min-height:88px;padding-right:185px}.btcc-hero .btcc-kicker{font-size:10px;opacity:.85}.btcc-hero h2{margin:2px 0 0;font-size:22px}.btcc-hero p{display:none}.btcc-hero .btn{padding:8px 11px;position:absolute;right:16px;top:50%;transform:translateY(-50%);white-space:nowrap;font-size:13px}.btcc-controls{padding:7px 9px;margin-bottom:12px}.btcc-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.btcc-tabs button{border:0;border-radius:9px;padding:8px 5px;font-weight:700;min-height:52px}.btcc-sortbar{display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid #e5edf3;margin-top:7px;padding:7px 3px 1px}.btcc-sortbar label{margin:0;font-size:11px;font-weight:800;color:#31566f}.btcc-sortbar select{width:auto;min-width:145px;padding:7px 9px;margin:0;border:1px solid #cbdbe6;border-radius:8px;background:#fff;font-weight:700;color:#31566f}@media(max-width:600px){.btcc-hero{padding:11px 16px;min-height:78px;padding-right:165px}.btcc-hero h2{font-size:20px}.btcc-hero .btn{right:12px;top:50%;font-size:12px;padding:7px 9px}.btcc-controls{padding:6px 8px}.btcc-tabs button{min-height:49px;padding:7px 3px}.btcc-sortbar{padding-top:6px}.btcc-sortbar select{min-width:138px}}
+.btcc-title-icon{width:42px;height:42px;object-fit:contain;vertical-align:middle;margin-right:7px;display:inline-block;}
+</style><style>
+.btcc-card-number{font-size:18px!important;font-weight:900!important;line-height:1.1;display:inline;margin-top:0;white-space:nowrap}
+.btcc-card-label{font-size:15px!important;font-weight:400!important;line-height:1.1;white-space:nowrap}.btcc-card-number{vertical-align:baseline}
+#rentList .btcc-card-number{letter-spacing:.2px}
+@media(max-width:600px){.btcc-card-number{font-size:18px!important}}
+</style>
+<style id="btcc-compact-layout">
+/* Compact BT/CC Rentals controls */
+.btcc-controls{padding:5px 7px!important;margin-bottom:8px!important}
+.btcc-tabs{gap:5px!important}
+.btcc-tabs button{min-height:42px!important;padding:5px 3px!important;border-radius:8px!important;font-size:12px!important;line-height:1.15!important}
+.btcc-tabs button span{font-size:10px!important}
+.btcc-sortbar{margin-top:5px!important;padding:5px 2px 0!important;gap:6px!important}
+.btcc-sortbar label{font-size:10px!important}
+.btcc-sortbar select{min-width:118px!important;padding:5px 7px!important;border-radius:7px!important;font-size:12px!important}
+@media(max-width:600px){
+  .btcc-controls{padding:4px 6px!important;margin-bottom:8px!important}
+  .btcc-tabs{gap:4px!important}
+  .btcc-tabs button{min-height:40px!important;padding:4px 2px!important;font-size:11px!important}
+  .btcc-tabs button span{font-size:10px!important}
+  .btcc-sortbar{margin-top:4px!important;padding:4px 1px 0!important}
+  .btcc-sortbar select{min-width:112px!important;padding:5px 6px!important;font-size:11px!important}
+}
+
+.btcc-list-tools{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:6px}.btcc-search-wrap{flex:1;min-width:0}.btcc-search-wrap input{width:100%;box-sizing:border-box;padding:6px 9px;border:1px solid #cbdbe6;border-radius:7px;background:#fff;font-size:12px;color:#31566f;outline:none}.btcc-search-wrap input:focus{border-color:#198754;box-shadow:0 0 0 2px rgba(25,135,84,.08)}.btcc-list-tools .btcc-sortbar{border:0;margin:0;padding:0;flex:0 0 auto}.btcc-list-tools .btcc-sortbar select{min-width:112px!important}@media(max-width:600px){.btcc-list-tools{gap:6px}.btcc-search-wrap input{font-size:11px;padding:5px 8px}.btcc-list-tools .btcc-sortbar select{min-width:108px!important;font-size:11px!important;padding:5px 6px!important}}
+
+.voice-name-wrap{display:flex;align-items:center;gap:6px}.voice-name-wrap input{flex:1;min-width:0}.voice-mic-btn{width:48px;height:42px;margin-top:4px;border:0;border-radius:8px;background:#087fc1;color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center}.voice-mic-btn.listening{background:#c62828;animation:voicePulse 1s infinite}.voice-status{min-height:15px;margin-top:3px;color:#087fc1}@keyframes voicePulse{50%{opacity:.55}}
+@media(max-width:600px){.voice-mic-btn{width:46px;height:40px;font-size:19px}}
+</style>
+<style id="btcc-screenshot-typography">
+.btcc-hero h2{font-size:22px!important}
+.btcc-hero .btn{font-size:13px!important}
+.btcc-tabs button{font-size:14px!important}
+.btcc-tabs button span{font-size:12px!important}
+.btcc-search-wrap input{font-size:13px!important}
+.btcc-list-tools .btcc-sortbar select{font-size:13px!important}
+</style>
+<style id="btcc-customer-list-compact">
+/* Keep the larger numbers while reducing each customer card height */
+#rentList .card{padding:10px!important;margin-bottom:10px!important}
+#rentList .card > div:first-child{min-height:28px}
+#rentList .card > div:nth-child(2){margin-top:6px!important}
+#rentList .card > div:nth-child(2) > div{padding:5px!important}
+#rentList .btcc-card-number{line-height:1!important;margin-top:1px!important}
+</style>
+</head><body>
+<header class="head"><span class="menu" onclick="openMenu()">☰</span><span class="brand">💧 Happy Drops Manager</span></header>
+<div class="drawer" id="drawer" onclick="closeMenu(event)"><div class="side"><h2>Happy Drops</h2>
+<div class="nav" onclick="home()">🏠 Home</div><div class="nav" onclick="dealers()">👥 Dealers</div><div class="nav" onclick="rentals()">🧊 BT/CC Rentals</div><div class="nav" onclick="window.open(&quot;https://t.me/+i8hTI9o6OyIwNzg1&quot;,&quot;_blank&quot;)">📋 Orders</div><div class="nav" onclick="sales()">💰 Sales</div><div class="nav" onclick="money()">🧮 Money Calculator</div><div class="nav" onclick="attendance()">👥 Staff Attendance</div><div class="nav" onclick="owner()">👑 Owner</div>
+</div></div><main class="wrap" id="app"></main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style id="cloudAuthStyles">
+#cloudAuthOverlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;padding:18px;z-index:10000}
+#cloudAuthBox{background:#fff;border-radius:16px;max-width:390px;width:100%;padding:22px;box-shadow:0 14px 45px rgba(0,0,0,.25)}
+#cloudAuthBox h3{margin:0 0 6px;color:#1769aa;text-align:center}
+#cloudAuthBox p{margin:0 0 16px;color:#667781;font-size:13px}
+#cloudAuthBox input{width:100%;box-sizing:border-box;margin:6px 0;padding:11px 12px;border:1px solid #ccd7df;border-radius:9px;font-size:15px}
+#cloudAuthMsg{min-height:20px;margin-top:10px;font-size:13px;white-space:pre-line;text-align:center}
+.cloud-user-badge{position:fixed;right:12px;bottom:12px;z-index:9000;background:#fff;border:1px solid #dce6ec;border-radius:999px;padding:7px 11px;box-shadow:0 4px 16px rgba(0,0,0,.12);font-size:12px;color:#1769aa;display:none}
+</style>
+<script>
+const HAPPY_DROPS_SUPABASE_URL='https://gyrdmfnyypqoxhueqsjo.supabase.co';
+const HAPPY_DROPS_SUPABASE_PUBLISHABLE_KEY='sb_publishable_M1kXdYZnF8xjILQ_nzMbFQ_MIlblTa0';
+let hdSupabase=null, hdSession=null, hdCloudBusy=false;
+function hdCloudMessage(text,color){const e=document.getElementById('cloudAuthMsg');if(e){e.textContent=text;e.style.color=color||'#1769aa';}}
+function hdShowAuth(){let old=document.getElementById('cloudAuthOverlay');if(old)old.remove();const e=document.createElement('div');e.id='cloudAuthOverlay';e.innerHTML=`<div id="cloudAuthBox"><h3>🔐 Happy Drops</h3><p>Enter your PIN to open Happy Drops Manager.</p><input id="hdLoginPin" type="password" inputmode="numeric" maxlength="4" placeholder="Enter PIN" autocomplete="off" onkeydown="if(event.key==='Enter')hdSignIn()"><button class="btn" style="width:100%;margin-top:8px" onclick="hdSignIn()">Login</button><div id="cloudAuthMsg"></div></div>`;document.body.appendChild(e);e.style.display='flex';setTimeout(()=>document.getElementById('hdLoginPin')?.focus(),50);}
+async function hdSignIn(){if(!hdSupabase)return;const pin=(document.getElementById('hdLoginPin')?.value||'').trim();if(pin!=='8009'){hdCloudMessage('Wrong OTP/PIN\nPlease enter correct OTP/PIN.','#c62828');return;}hdCloudMessage('Connecting to cloud…');try{let data=(await hdSupabase.auth.getSession()).data;let session=data?.session||null;if(!session){const r=await hdSupabase.auth.signInAnonymously();if(r.error)throw r.error;session=r.data.session;}hdSession=session;const ov=document.getElementById('cloudAuthOverlay');if(ov)ov.remove();await hdCloudBootstrap();}catch(e){console.error('Cloud PIN login error',e);hdCloudMessage('Cloud login is not enabled yet. Please enable Anonymous Sign-Ins in Supabase Authentication settings.','#c62828');}}
+function hdCloudBadge(){let e=document.getElementById('hdCloudUser');if(e)e.remove();}
+function hdUuid(){return (crypto&&crypto.randomUUID)?crypto.randomUUID():('00000000-0000-4000-8000-'+Math.random().toString(16).slice(2).padStart(12,'0'));}
+function hdRentalBase(id,c){return {id,name:id,phone:c.phone||'',rental_date:c.rentalDate||localDateKey(new Date()),rental_time:c.rentalTime||null,return_date:c.returnDate||null,bt_quantity:Number(c.pbt)||0,cc_quantity:Number(c.cc)||0,bt_price:Number.isFinite(+c.pbtPrice)?+c.pbtPrice:20,cc_price:Number.isFinite(+c.ccPrice)?+c.ccPrice:50,security_deposit:Number(c.deposit)||0,status:c.closed?'closed':(c.pending?'pending':'active'),closed:!!c.closed,refund_completed:!!c.refundCompleted};}
+async function hdDeleteChildren(id){for(const table of ['rental_additions','rental_returns','rental_refills','rental_deposit_transactions','rental_activity']){const {error}=await hdSupabase.from(table).delete().eq('rental_customer_id',id);if(error)throw error;}}
+async function hdPushRental(id,c){const cloudId=c.cloudId||hdUuid();c.cloudId=cloudId;const {error:baseErr}=await hdSupabase.from('rental_customers').upsert(hdRentalBase(cloudId,c),{onConflict:'id'});if(baseErr)throw baseErr;await hdDeleteChildren(cloudId);
+ const adds=(c.additions||[]).map(x=>({rental_customer_id:cloudId,bt_quantity:Number(x.pbt)||0,cc_quantity:Number(x.cc)||0,deposit_amount:Number(x.deposit)||0,note:x.note||null,created_at:new Date(Number(x.ts)||Date.now()).toISOString()})).filter(x=>x.bt_quantity||x.cc_quantity);
+ if(adds.length){const {error}=await hdSupabase.from('rental_additions').insert(adds);if(error)throw error;}
+ const rets=(c.returns||[]).map(x=>({rental_customer_id:cloudId,bt_quantity:Number(x.pbt)||0,cc_quantity:Number(x.cc)||0,note:x.note||null,created_at:new Date(Number(x.ts)||Date.now()).toISOString()})).filter(x=>x.bt_quantity||x.cc_quantity);
+ if(rets.length){const {error}=await hdSupabase.from('rental_returns').insert(rets);if(error)throw error;}
+ const refs=(c.refills||[]).map(x=>({rental_customer_id:cloudId,bt_quantity:Number(x.pbt)||0,cc_quantity:Number(x.cc)||0,bt_rate:15,cc_rate:30,created_at:new Date(Number(x.ts)||Date.now()).toISOString()})).filter(x=>x.bt_quantity||x.cc_quantity);
+ if(refs.length){const {error}=await hdSupabase.from('rental_refills').insert(refs);if(error)throw error;}
+ const dr=(c.depositRefunds||[]).flatMap(x=>{const out=[];if(Number(x.deposit)>0)out.push({rental_customer_id:cloudId,transaction_type:'deposit',amount:Number(x.deposit),created_at:new Date(Number(x.ts)||Date.now()).toISOString()});if(Number(x.refund)>0)out.push({rental_customer_id:cloudId,transaction_type:'refund',amount:Number(x.refund),created_at:new Date(Number(x.ts)||Date.now()).toISOString()});return out;});
+ if(dr.length){const {error}=await hdSupabase.from('rental_deposit_transactions').insert(dr);if(error)throw error;}
+ const acts=(c.activity||[]).map(x=>({rental_customer_id:cloudId,activity_type:String(x.type||'activity'),description:JSON.stringify(x),bt_quantity:Number(x.pbt)||null,cc_quantity:Number(x.cc)||null,amount:Number(x.amount)||null,details:x,created_at:new Date(Number(x.ts)||Date.now()).toISOString()}));
+ if(acts.length){const {error}=await hdSupabase.from('rental_activity').insert(acts);if(error)throw error;}
+}
+async function hdLoadRentals(){const {data:rows,error}=await hdSupabase.from('rental_customers').select('*').order('rental_date',{ascending:false}).order('rental_time',{ascending:false});if(error)throw error;const result={};for(const row of (rows||[])){const c={phone:row.phone,deposit:Number(row.security_deposit)||0,pbt:Number(row.bt_quantity)||0,cc:Number(row.cc_quantity)||0,pbtPrice:Number(row.bt_price)||20,ccPrice:Number(row.cc_price)||50,rentalDate:row.rental_date,rentalTime:row.rental_time||'',returnDate:row.return_date||'',rentalSequence:1,returns:[],additions:[],refills:[],depositRefunds:[],activity:[],pending:row.status==='pending',closed:row.status==='closed',refundCompleted:!!row.refund_completed,cloudId:row.id};result[row.name]=c;}
+ const ids=Object.values(result).map(c=>c.cloudId);if(!ids.length)return result;
+ const tables=['rental_additions','rental_returns','rental_refills','rental_deposit_transactions','rental_activity'];
+ for(const table of tables){const {data,error}=await hdSupabase.from(table).select('*').in('rental_customer_id',ids).order('created_at',{ascending:true});if(error)throw error;for(const row of (data||[])){const c=Object.values(result).find(x=>x.cloudId===row.rental_customer_id);if(!c)continue;const ts=new Date(row.created_at).getTime()||Date.now();if(table==='rental_additions')c.additions.push({date:row.created_at?.slice(0,10)||'',pbt:row.bt_quantity,cc:row.cc_quantity,deposit:Number(row.deposit_amount)||0,ts});else if(table==='rental_returns')c.returns.push({date:row.created_at?.slice(0,10)||'',pbt:row.bt_quantity,cc:row.cc_quantity,ts});else if(table==='rental_refills')c.refills.push({date:row.created_at?.slice(0,10)||'',pbt:row.bt_quantity,cc:row.cc_quantity,amount:(Number(row.bt_quantity)||0)*15+(Number(row.cc_quantity)||0)*30,ts});else if(table==='rental_deposit_transactions'){c.depositRefunds=c.depositRefunds||[];let last=c.depositRefunds.find(x=>x.ts===ts);if(!last){last={deposit:0,refund:0,ts};c.depositRefunds.push(last);}if(row.transaction_type==='deposit')last.deposit+=Number(row.amount)||0;else last.refund+=Number(row.amount)||0;}else if(table==='rental_activity'){let x=row.details||{};if(typeof x==='string'){try{x=JSON.parse(x)}catch(_){x={type:row.activity_type,amount:row.amount}}}c.activity.push({...x,ts});}}}
+ return result;}
+async function hdCloudBootstrap(){if(!hdSupabase||!hdSession)return;try{const cloud=await hdLoadRentals();const cloudCount=Object.keys(cloud).length;const localCount=typeof R!=='undefined'?Object.keys(R).length:0;if(cloudCount===0&&localCount>0){for(const [n,c] of Object.entries(R)){await hdPushRental(n,c);} }else if(cloudCount>0){R=Object.assign({},cloud,R);ensureRentalSequences();}else{R={};}hdCloudBadge();}catch(e){console.error('Cloud load error',e);alert('Cloud connection error: '+(e.message||e));}}
+async function hdCloudSyncRentals(){if(!hdSupabase||!hdSession||hdCloudBusy)return;hdCloudBusy=true;try{const {data:existing,error}=await hdSupabase.from('rental_customers').select('id,name');if(error)throw error;const localIds=new Set();for(const [n,c] of Object.entries(R||{})){await hdPushRental(n,c);localIds.add(c.cloudId);}for(const row of (existing||[])){if(!localIds.has(row.id)){const {error:e}=await hdSupabase.from('rental_customers').delete().eq('id',row.id);if(e)throw e;}}localStorage.setItem('happyDropsCloudLastSync',new Date().toISOString());}catch(e){console.error('Cloud sync error',e);}finally{hdCloudBusy=false;}}
+function hdInitCloud(){try{if(!window.supabase||!window.supabase.createClient)return;hdSupabase=window.supabase.createClient(HAPPY_DROPS_SUPABASE_URL,HAPPY_DROPS_SUPABASE_PUBLISHABLE_KEY);hdSupabase.auth.getSession().then(async ({data})=>{hdSession=data.session||null;if(hdSession){await hdCloudBootstrap();}else hdShowAuth();});hdSupabase.auth.onAuthStateChange((_event,session)=>{hdSession=session||null;});}catch(e){console.error('Supabase init error',e);}}
+</script>
+<script>
+let saved=null;try{const raw=localStorage.getItem("happyDropsManagerV12")||localStorage.getItem("happyDropsManagerV9")||localStorage.getItem("happyDropsManagerV8")||localStorage.getItem("happyDropsManagerV7");saved=raw?JSON.parse(raw):null}catch(e){saved=null;try{localStorage.removeItem("happyDropsManagerV12");localStorage.removeItem("happyDropsManagerV9");}catch(_){} }
+const P={BT:{s:"BT",r:5},PBT:{s:"PBT",r:5},C:{s:"C",r:15},CC:{s:"CC",r:20},WB:{s:"WB",r:60},"250":{s:"250ML",r:5,b:45},"300":{s:"300ML",r:5.25,b:40},"500":{s:"500ML",r:5.5,b:32},"1000":{s:"1000ML",r:8,b:15}};
+let productSettings=saved?.productSettings||{
+ BT:{name:"BT",shortcut:"BT",dealerRate:5,customerRate:15,hidden:false},
+ PBT:{name:"PBT",shortcut:"PBT",dealerRate:5,customerRate:15,hidden:false},
+ C:{name:"C",shortcut:"C",dealerRate:15,customerRate:15,hidden:false},
+ CC:{name:"CC",shortcut:"CC",dealerRate:20,customerRate:30,hidden:false},
+ WB:{name:"WB",shortcut:"WB",dealerRate:60,customerRate:60,hidden:false},
+ "250":{name:"250ML",shortcut:"250ML",dealerRate:5,customerRate:5,hidden:false,cases:45},
+ "300":{name:"300ML",shortcut:"300ML",dealerRate:5.25,customerRate:5.25,hidden:false,cases:40},
+ "500":{name:"500ML",shortcut:"500ML",dealerRate:5.5,customerRate:5.5,hidden:false,cases:32},
+ "1000":{name:"1000ML",shortcut:"1000ML",dealerRate:8,customerRate:8,hidden:false,cases:15}
+};
+
+let syncQueue=JSON.parse(localStorage.getItem("happyDropsSyncQueue")||"[]");
+function ensureSyncBadge(){}
+function updateSyncBadge(){}
+function markSync(){
+  syncQueue.push({id:Date.now()+"_"+Math.random().toString(16).slice(2),time:new Date().toISOString()});
+  localStorage.setItem("happyDropsSyncQueue",JSON.stringify(syncQueue));
+}
+function syncNow(){
+  if(!navigator.onLine){updateSyncBadge();return}
+  if(syncQueue.length){
+    const server={dealers:D,staff:staff,staffOrder:staffOrder,attendance:attendanceData,
+      rentals:typeof R!=="undefined"?R:{},
+      dealerTransactions:typeof dealerTransactions!=="undefined"?dealerTransactions:{},
+      savedAt:new Date().toISOString()};
+    localStorage.setItem("happyDropsServerMock",JSON.stringify(server));
+    syncQueue=[];localStorage.setItem("happyDropsSyncQueue","[]");
+  }
+  updateSyncBadge();
+}
+window.addEventListener("online",syncNow);
+window.addEventListener("offline",updateSyncBadge);
+setInterval(syncNow,5000);
+
+function syncProducts(){
+ Object.keys(productSettings).forEach(k=>{
+   let x=productSettings[k];
+   P[k]={s:x.shortcut||x.name,r:+x.dealerRate||0};
+   if(x.cases)P[k].b=+x.cases;
+ });
+}
+syncProducts();
+
+const O=["BT","PBT","C","CC","WB","250","300","500","1000"];
+let D=saved?.dealers||{Naresh:{phone:"",rates:Object.fromEntries(O.map(k=>[k,P[k].r]))}};
+let dealerTransactions=saved?.dealerTransactions||{};
+let dealerOrder=saved?.dealerOrder||Object.keys(D);
+let staff=saved?.staff||{};
+let staffOrder=saved?.staffOrder||Object.keys(staff);
+let attendanceData=saved?.attendanceData||{};
+Object.keys(D).forEach(n=>{D[n].hidden=!!D[n].hidden;D[n].deleted=!!D[n].deleted;});
+let R=saved?.rentals||{};
+let cur="",items=[];
+function save(){
+ saved=saved||{};
+ saved.dealers=D;
+ saved.rentals=typeof R!=="undefined"?R:{};
+ saved.dealerTransactions=typeof dealerTransactions!=="undefined"?dealerTransactions:{};
+ saved.staff=staff;
+ saved.staffOrder=staffOrder;
+ saved.attendanceData=attendanceData;
+ localStorage.setItem("happyDropsManagerV12",JSON.stringify(saved));
+ localStorage.setItem("happyDropsManagerV9",JSON.stringify(saved));
+ markSync();syncNow();
+ if(typeof hdCloudSyncRentals==="function"&&hdSession) hdCloudSyncRentals();
+}
+function openMenu(){drawer.classList.add("open")}function closeMenu(e){if(e.target.id=="drawer")drawer.classList.remove("open")}
+
+
+function attendance(){drawer.classList.remove("open");ensureSyncBadge();renderAttendance(todayDateKey())}
+function todayDateKey(){return localDateKey(new Date())}
+function localDateKey(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+function rentalDateLabel(ds){if(!ds)return '';let a=ds.split('-').map(Number);if(a.length!==3||!a[0]||!a[1]||!a[2])return '';let taken=new Date(a[0],a[1]-1,a[2]);taken.setHours(0,0,0,0);let today=new Date();today.setHours(0,0,0,0);let diff=Math.round((today-taken)/86400000);let rel=diff===0?'Today':diff===1?'Yesterday':diff>1?diff+' days':'';let short=String(a[2]).padStart(2,'0')+'-'+String(a[1]).padStart(2,'0');return short+(rel?' ('+rel+')':'')}
+function ensureRentalSequences(){let byDate={};Object.keys(R).forEach(n=>{let c=R[n];if(!c)return;let d=String(c.rentalDate||'');if(!byDate[d])byDate[d]=[];byDate[d].push(n)});let changed=false;Object.keys(byDate).forEach(d=>{let used=byDate[d].map(n=>Number(R[n].rentalSequence)).filter(Number.isFinite).map(Number);let next=used.length?Math.max(...used)+1:1;byDate[d].forEach(n=>{if(!Number.isFinite(Number(R[n].rentalSequence))){R[n].rentalSequence=next++;changed=true}})});if(changed)save()}
+function rentalDateSeqLabel(c){let ds=c&&c.rentalDate;if(!ds)return '';let base=rentalDateLabel(ds);let seq=Number(c&&c.rentalSequence);return base?base.replace(' (','/'+(Number.isFinite(seq)?seq:'')+' ('):base}
+function dateFromKey(k){const p=k.split("-").map(Number);return new Date(p[0],p[1]-1,p[2])}
+function addDaysKey(k,n){const d=dateFromKey(k);d.setDate(d.getDate()+n);return localDateKey(d)}
+function fmtDate(d){return String(d.getDate()).padStart(2,"0")+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+d.getFullYear()}
+function attendanceNavDate(d){const t=dateFromKey(todayDateKey()),x=dateFromKey(localDateKey(d)),diff=Math.round((t-x)/86400000);const tag=diff===0?"(Today)":diff===1?"(Yesterday)":diff>1?"("+diff+" days back)":"";return fmtDate(d)+" "+d.toLocaleDateString("en-IN",{weekday:"short"})+" "+tag}
+function shiftDuration(a,b){if(!a||!b)return"";let x=a.split(":"),y=b.split(":"),m1=+x[0]*60+(+x[1]||0),m2=+y[0]*60+(+y[1]||0);if(m2<m1)m2+=1440;let m=m2-m1;return String(Math.floor(m/60)).padStart(2,"0")+" Hours "+String(m%60).padStart(2,"0")+" Minutes"}
+function formatTime(v){if(!v)return"";let [h,m]=v.split(":").map(Number),ap=h>=12?"PM":"AM",hh=h%12||12;return String(hh).padStart(2,"0")+":"+String(m).padStart(2,"0")+" "+ap}
+function compareLogin(def,act){if(!def||!act)return null;let a=def.split(":"),b=act.split(":"),d=(+b[0]*60+(+b[1]||0))-(+a[0]*60+(+a[1]||0));if(!d)return null;let m=Math.abs(d),h=Math.floor(m/60),mi=m%60;return{type:d>0?"late":"early",text:(h?h+" Hour"+(h>1?"s":"")+" ":"")+(mi?mi+" Minute"+(mi>1?"s":""):"")}}
+function showDutyPopup(n,info){if(!info)return;let old=document.getElementById("dutyPopup");if(old)old.remove();let e=document.createElement("div");e.id="dutyPopup";e.style.cssText="position:fixed;left:50%;top:18px;transform:translateX(-50%);z-index:9999;background:#fff;border-radius:14px;padding:13px 18px;box-shadow:0 8px 30px rgba(0,0,0,.2);font-weight:700;text-align:center";e.textContent=(info.type==="late"?"🟠 ":"🟢 ")+n+" was "+info.type+" to duty by "+info.text;document.body.appendChild(e);setTimeout(()=>e.remove(),3000)}
+function advanceValue(key,n){return attendanceData[key]?.[n]?.advance??""}
+function saveAdvance(key,n){const i=document.getElementById("adv_"+key+"_"+n);if(!i||i.value==="")return alert("Please enter salary advance amount.");attendanceData[key]=attendanceData[key]||{};attendanceData[key][n]={...(attendanceData[key][n]||{}),advance:Number(i.value)};save();renderAttendance(key)}
+function editAdvance(key,n){const i=document.getElementById("adv_"+key+"_"+n);if(i){i.disabled=false;i.focus()}}
+function deleteAdvance(key,n){if(!attendanceData[key]?.[n])return;delete attendanceData[key][n].advance;save();renderAttendance(key)}
+function renderAttendance(key){
+ const todayKey=todayDateKey();
+ if(key>todayKey)key=todayKey;
+ if(!attendanceData[key])attendanceData[key]={};
+ const d=dateFromKey(key),rec=attendanceData[key],active=staffOrder.filter(n=>staff[n]&&!staff[n].hidden&&!staff[n].deleted),nextDisabled=key===todayKey;
+ document.getElementById("app").innerHTML=`<div class="card"><div style="display:flex;align-items:center;gap:8px">
+ <button class="btn secondary" onclick="changeAttDate('${key}',-1)">‹</button>
+ <div style="flex:1;text-align:center"><h2 style="margin:0">👥 Staff Attendance</h2><b>${attendanceNavDate(d)}</b></div>
+ <button class="btn secondary" onclick="changeAttDate('${key}',1)" ${nextDisabled?"disabled":""}>›</button></div></div>
+ <div class="card">${active.map(n=>{const st=staff[n],r=rec[n]||{},li=r.login||"",lo=r.logout||"",sl=st.shiftLogin||"",so=st.shiftLogout||"",dur=shiftDuration(li,lo);
+ return `<div class="prod"><div style="display:flex;justify-content:space-between;align-items:center"><div><b>${n}</b><div class="small">📱 ${st.phone||"—"}</div>
+<div style="margin-top:7px;display:flex;align-items:center;gap:5px;flex-wrap:wrap"><label style="margin:0">Salary Advance ₹</label><input id="adv_${key}_${n}" type="number" min="0" step="1" value="${advanceValue(key,n)}" style="width:105px" ${advanceValue(key,n)!==""?"disabled":""}>${advanceValue(key,n)===""?`<button class="iconBtn" title="Save" onclick='saveAdvance("${key}",${JSON.stringify(n)})'>💾</button>`:`<button class="iconBtn" title="Edit" onclick='editAdvance("${key}",${JSON.stringify(n)})'>✏️</button><button class="iconBtn" title="Delete" onclick='deleteAdvance("${key}",${JSON.stringify(n)})'>🗑️</button>`}</div></div><div style="text-align:right">${li?(lo?`🟢 <b>Present</b><div class="small">${dur}</div>`:"🟡 <b>Working</b>"):"🔴 <b>Absent</b>"}</div></div>
+ <div class="three"><div><label>Login ${sl?`<span class="small">(Shift ${formatTime(sl)})</span>`:""}</label>
+ <input id="li_${key}_${n}" type="time" value="${li}" ${li?"disabled":""}>
+ <div class="icons">${li?`<button title="Edit" onclick='editLogin("${key}",${JSON.stringify(n)})'>✏️</button><button title="Delete" onclick='deleteLogin("${key}",${JSON.stringify(n)})'>🗑️</button>`:`<button title="Save" onclick='saveLogin("${key}",${JSON.stringify(n)})'>💾</button>`}</div></div>
+ <div><label>Logout ${so?`<span class="small">(Shift ${formatTime(so)})</span>`:""}</label>
+ <input id="lo_${key}_${n}" type="time" value="${lo}" ${li?"":"disabled"} ${lo?"disabled":""}>
+ <div class="icons">${lo?`<button title="Edit" onclick='editLogout("${key}",${JSON.stringify(n)})'>✏️</button><button title="Delete" onclick='deleteLogout("${key}",${JSON.stringify(n)})'>🗑️</button>`:li?`<button title="Save" onclick='saveLogout("${key}",${JSON.stringify(n)})'>💾</button>`:`<button title="Save" disabled>💾</button>`}</div></div>
+ <div><label>Worked Time</label><div class="amt">${dur||"—"}</div></div></div></div>`}).join("")||'<p class="small">No active staff. Add staff from Owner → Manage Staff.</p>'}</div>`;
+}
+function changeAttDate(key,dir){const next=addDaysKey(key,dir);if(dir>0&&next>todayDateKey())return;renderAttendance(next)}
+function saveLogin(key,n){const i=document.getElementById("li_"+key+"_"+n);if(!i||!i.value)return alert("Please enter actual login time.");if(!attendanceData[key])attendanceData[key]={};attendanceData[key][n]={...(attendanceData[key][n]||{}),login:i.value,logout:""};save();const info=compareLogin(staff[n].shiftLogin,i.value);renderAttendance(key);showDutyPopup(n,info)}
+function editLogin(key,n){const i=document.getElementById("li_"+key+"_"+n);if(i){i.disabled=false;i.focus()}}
+function deleteLogin(key,n){if(!confirm("Delete this login time?"))return;if(attendanceData[key]?.[n]){delete attendanceData[key][n].login;delete attendanceData[key][n].logout}save();renderAttendance(key)}
+function saveLogout(key,n){if(!attendanceData[key]?.[n]?.login)return alert("Please save login time first.");const i=document.getElementById("lo_"+key+"_"+n);if(!i||!i.value)return alert("Please enter actual logout time.");attendanceData[key][n].logout=i.value;save();renderAttendance(key)}
+function deleteLogout(key,n){if(!attendanceData[key]?.[n])return;if(!confirm("Delete this logout time?"))return;delete attendanceData[key][n].logout;save();renderAttendance(key)}
+function editLogout(key,n){const i=document.getElementById("lo_"+key+"_"+n);if(i){i.disabled=false;i.focus()}}
+
+function owner(){
+ ensureSyncBadge(); drawer.classList.remove("open");
+ document.getElementById("app").innerHTML=`<div class="card" style="max-width:520px;margin:20px auto">
+ <div style="text-align:center;font-size:42px">👑</div><h2 style="text-align:center">Owner Access</h2>
+ <p style="text-align:center;color:#60788a">Administrative access required.</p>
+ <label>Owner OTP / PIN</label><input id="ownerPin" type="tel" inputmode="numeric" maxlength="4" placeholder="Enter OTP / PIN">
+ <br><br><button class="btn" onclick="verifyOwner()">🔓 Unlock</button></div>`;
+}
+function verifyOwner(){
+ const pin=document.getElementById("ownerPin");
+ if(pin && pin.value==="8009"){ownerDashboard()}
+ else alert("Wrong OTP/PIN\nPlease enter correct OTP/PIN");
+}
+function ownerLogout(){
+ document.getElementById("app").innerHTML=`<div class="card" style="max-width:520px;margin:20px auto;text-align:center">
+ <div style="font-size:42px">🔒</div><h2>Owner Locked</h2><p class="small">Owner access has been locked.</p>
+ <button class="btn" onclick="owner()">🔐 Unlock Owner</button>
+ <button class="btn secondary" onclick="home()">← Home</button></div>`;
+}
+function ownerDashboard(){
+ ensureSyncBadge();
+ document.getElementById("app").innerHTML=`<div class="card"><div style="display:flex;justify-content:space-between;align-items:center">
+ <div><h2>👑 Owner Dashboard</h2><span class="small">Complete administrative control</span></div>
+ <button class="btn danger" onclick="ownerLogout()">🔒 Logout</button></div></div>
+ <div class="card"><h3>👥 Manage Dealers</h3><p class="small">Add, edit, hide, delete and rearrange dealers.</p><button class="btn" onclick="showDealerManager()">✏️ Manage Dealers</button></div>
+ <div class="card"><h3>📦💰 Manage Products & Rates</h3><p class="small">Manage product names, rates, visibility and order.</p><button class="btn" onclick="manageProducts()">📦💰 Manage Products & Rates</button></div>
+ <div class="card"><h3>👥 Manage Staff</h3><p class="small">Add, edit, hide, delete and rearrange staff.</p><button class="btn" onclick="manageStaff()">👥 Manage Staff</button></div>
+ <div class="card"><h3>☁️ Data Sync</h3><p class="small">Local-first storage with cloud synchronization when connected.</p><div class="amt">📱 Local + ☁️ Cloud</div></div>
+ <div class="card"><h3>⚙️ Settings</h3><p class="small">Administrative settings.</p></div>`;
+ updateSyncBadge();
+}
+
+function home(){drawer.classList.remove("open");document.getElementById("app").innerHTML='<div class="hero"><h1>Happy Drops</h1><p>(Packaged Drinking Water)</p></div><div class="card"><h3>Quick Access</h3><div class="grid"><button class="btn" onclick="dealers()">👥 Dealers</button><button class="btn secondary" onclick="rentals()">🧊 Can Rentals</button><button class="btn secondary" onclick="window.open(&quot;https://t.me/+i8hTI9o6OyIwNzg1&quot;,&quot;_blank&quot;)">📋 Orders</button><button class="btn secondary" onclick="sales()">💰 Sales</button><button class="btn secondary" onclick="money()">🧮 Money Calculator</button><button class="btn secondary" onclick="owner()">👑 Owner</button></div></div>'}
+function dealers(){
+ drawer.classList.remove("open");
+ document.getElementById("app").innerHTML='<div class="card"><h2>Dealers</h2><span class="small">Company → Dealer</span><div id="dealerList" style="margin-top:8px"></div></div>';
+ renderDealerList();
+}
+function renderDealerList(){
+ dealerOrder=dealerOrder.filter(n=>D[n]&&!D[n].hidden&&!D[n].deleted);
+ dealerList.innerHTML=dealerOrder.map(n=>`<div class="prod" onclick='openDealer(${JSON.stringify(n)})' style="cursor:pointer"><b>${D[n].name||n}</b><div class="small">📱 ${D[n].phone||"No mobile number"}</div></div>`).join("") || '<div class="small">No active dealers.</div>';
+}
+function dealerAdmin(){
+ drawer.classList.remove("open");
+ document.getElementById("app").innerHTML=`<div class="card" style="max-width:520px;margin:20px auto"><div style="text-align:center;font-size:42px">🔐</div><h2 style="text-align:center">Administrative Lock</h2><p style="text-align:center;color:#60788a">Administrator verification is required to add, edit or rearrange dealers.</p><label>Administrator OTP</label><input id="dealerAdminOtp" type="tel" inputmode="numeric" maxlength="4" placeholder="Enter OTP"><br><br><button class="btn" onclick="verifyDealerAdmin()">Unlock</button> <button class="btn secondary" onclick="dealers()">Cancel</button></div>`;
+}
+function verifyDealerAdmin(){if(dealerAdminOtp.value==="8009")showDealerManager();else alert("Incorrect administrator OTP.");}
+function showDealerManager(){
+ document.getElementById("app").innerHTML=`<div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><div><h2>Dealer Management</h2><span class="small">Administrator access</span></div><button class="btn secondary" onclick="ownerDashboard()">← Back</button></div><br><button class="btn" onclick="showAddDealerForm()">＋ Add New Dealer</button><div id="manageList" style="margin-top:12px"></div></div>`;
+ renderManageList();
+}
+function renderManageList(){
+ dealerOrder=dealerOrder.filter(n=>D[n]).concat(Object.keys(D).filter(n=>!dealerOrder.includes(n)));
+ manageList.innerHTML=dealerOrder.map((n,i)=>{let d=D[n];return `<div class="prod" style="display:flex;align-items:center;gap:7px;opacity:${d.deleted?.45:d.hidden?.6:1}">
+ <div style="flex:1"><b>${d.name||n}</b><div class="small">📱 ${d.phone||"No mobile number"}${d.hidden?" · HIDDEN":""}${d.deleted?" · DELETED":""}</div></div>
+ <button class="btn secondary" onclick="moveDealer(${i},-1)">↑</button>
+ <button class="btn secondary" onclick="moveDealer(${i},1)">↓</button>
+ <button class="btn secondary" onclick='editDealer(${JSON.stringify(n)})'>✏️ Edit</button>
+ </div>`}).join("") || '<div class="small">No dealers.</div>';
+}
+function toggleDealerHidden(n){
+ D[n].hidden=!D[n].hidden;
+ save();
+ showDealerManager();
+}
+function deleteDealer(n){
+ if(!confirm("Delete dealer "+n+"? The dealer will be removed from the active dealer list. Existing records are retained for Owner records."))return;
+ D[n].deleted=true;D[n].hidden=true;
+ save();
+ showDealerManager();
+}
+function moveDealer(i,dir){
+ let j=i+dir;if(j<0||j>=dealerOrder.length)return;
+ [dealerOrder[i],dealerOrder[j]]=[dealerOrder[j],dealerOrder[i]];
+ save();showDealerManager();
+}
+function addDealer(){dealerAdmin();}
+function showAddDealerForm(){
+ document.getElementById("app").innerHTML='<div class="card"><h2>＋ Add New Dealer</h2><div class="grid"><div><label>Dealer Name</label><input id="dn"></div><div><label>Mobile Number</label><input id="dp" type="tel"></div></div><br><button class="btn" onclick="saveDealer()">💾 Save Dealer</button> <button class="btn secondary" onclick="showDealerManager()">Cancel</button></div>';
+}
+function saveDealer(){
+ let n=dn.value.trim();if(!n)return alert("Enter dealer name");if(D[n])return alert("Dealer already exists. Use Edit.");
+ D[n]={phone:dp.value,rates:Object.fromEntries(O.map(k=>[k,P[k].r]))};
+ dealerTransactions[n]=dealerTransactions[n]||{};dealerOrder.push(n);save();
+ alert("Dealer Saved Successfully. Cloud database simulation updated.");
+ showDealerManager();
+}
+function editDealer(n){
+ document.getElementById("app").innerHTML=`<div class="card"><h2>✏️ Edit Dealer</h2><div class="grid"><div><label>Dealer Name</label><input id="edn" value="${n}"></div><div><label>Mobile Number</label><input id="edp" type="tel" value="${D[n].phone||""}"></div></div><br><button class="btn" onclick='saveEditedDealer(${JSON.stringify(n)})'>💾 Save Changes</button> <button class="btn secondary" onclick='toggleDealerHidden(${JSON.stringify(n)})'>${D[n].hidden?"👁️ Unhide Dealer":"👁️ Hide Dealer"}</button> <button class="btn danger" onclick='deleteDealer(${JSON.stringify(n)})'>🗑️ Delete Dealer</button> <button class="btn secondary" onclick="showDealerManager()">Cancel</button></div>`;
+}
+function saveEditedDealer(oldName){
+ let n=edn.value.trim();if(!n)return alert("Enter dealer name");
+ if(n!==oldName&&D[n])return alert("A dealer with this name already exists.");
+ if(n!==oldName){
+   D[n]=D[oldName];delete D[oldName];
+   dealerTransactions[n]=dealerTransactions[oldName]||[];delete dealerTransactions[oldName];
+   dealerOrder=dealerOrder.map(x=>x===oldName?n:x);
+ }
+ D[n].name=n;D[n].phone=edp.value;D[n].deleted=false;
+ save();
+ alert("Dealer Profile Saved Successfully.");
+ showDealerManager();
+}
+function openDealer(n){cur=n;items=[];let d=D[n];document.getElementById("app").innerHTML=`<div class="card" style="padding:12px 14px"><div style="display:flex;justify-content:space-between;align-items:center"><div><div class="small">DEALER</div><div style="font-size:24px;font-weight:800;color:#087fc1">${n}</div><div>📱 ${d.phone||"No mobile number"} ${d.phone?`<a href="tel:${d.phone}" style="text-decoration:none;font-size:22px">📞</a> <a href="https://wa.me/91${String(d.phone).replace(/\\D/g,"").replace(/^91/,"")}" target="_blank" style="text-decoration:none;font-size:22px">💬</a>`:""}</div></div><button class="btn secondary" onclick="ownerDashboard()">← Back</button></div></div><div class="card"><h3>Dealer Transaction</h3><div id="ia"></div><button class="btn" onclick="addProduct()">＋ Add Sale</button><div id="sum" class="summary">No products selected</div><div id="saveMsg" class="small" style="margin-top:8px"></div></div>`;render()}
+function saveDealerTransaction(){
+ if(!items.length || !items.some(x=>x.k)){alert("Please add at least one product.");return;}
+ let lines=[],total=0;
+ items.forEach(x=>{if(!x.k)return;let p=P[x.k],n=p.b?(x.last=="c"?(+x.c||0)*p.b:(+x.b||0)):(+x.q||0),amt=n*(+x.r||0);if(n)lines.push({product:x.k,quantity:n,rate:+x.r||0,amount:amt});total+=amt;});
+ if(!lines.length){alert("Please enter a quantity.");return;}
+ dealerTransactions[cur]=dealerTransactions[cur]||[];
+ dealerTransactions[cur].push({id:Date.now(),date:new Date().toLocaleString("en-IN"),items:lines,total});
+ save();document.getElementById("saveMsg").textContent="✓ Transaction saved successfully.";alert("Transaction Saved Successfully.");
+}
+function addProduct(){items.push({k:"",q:"",r:"",prev:"",ret:"",c:"",b:"",last:""});render()}
+function change(i,k){items[i]={k,q:"",r:k?D[cur].rates[k]: "",prev:"",ret:"",c:"",b:"",last:""};render()}
+function render(){ia.innerHTML=items.map((x,i)=>{if(!x.k)return `<div class="prod"><div class="ph"><b>Select Product</b><button class="btn danger" onclick="items.splice(${i},1);render()">Remove</button></div><select onchange="change(${i},this.value)"><option value="">Select Product</option>${O.map(k=>`<option value="${k}">${P[k].s}</option>`).join("")}</select></div>`;let p=P[x.k],b=!!p.b,asset=x.k=="PBT"||x.k=="CC",n=b?(x.last=="c"?(+x.c||0)*p.b:(+x.b||0)):(+x.q||0),a=n*(+x.r||0),bal=asset?Math.max(0,(+x.prev||0)+(+x.q||0)-(+x.ret||0)):0,cv=b&&n?`${Math.floor(n/p.b)} Cases + ${n%p.b} Bottles`:b?p.b+" bottles/case":"";return `<div class="prod"><div class="ph"><b>${p.s}</b><button class="btn danger" onclick="items.splice(${i},1);render()">Remove</button></div><div class="compact"><div><label>Product</label><select onchange="change(${i},this.value)">${O.map(k=>`<option value="${k}" ${k==x.k?"selected":""}>${P[k].s}</option>`).join("")}</select></div><div><label>Qty</label><input type="number" value="${x.q}" placeholder="" oninput="items[${i}].q=this.value;assetUpdate(${i});summary()"></div><div><label>Rate ₹</label><input type="number" step=".01" value="${x.r}" oninput="items[${i}].r=this.value;summary()"></div><div><label>Amount</label><div id="a${i}" class="amt">₹${a.toFixed(2)}</div></div></div>${b?`<div class="three"><div><label>Cases</label><input type="number" value="${x.last=="c"?x.c:""}" placeholder="" oninput="items[${i}].c=this.value;items[${i}].last='c';bottleUpdate(${i})"></div><div><label>Bottles</label><input type="number" value="${x.last=="b"?x.b:""}" placeholder="" oninput="items[${i}].b=this.value;items[${i}].last='b';bottleUpdate(${i})"></div><div><label>Conversion</label><div id="cv${i}" class="small" style="padding-top:10px">${cv}</div></div></div>`:""}${asset?`<div class="three"><div><label>Previous ${x.k}</label><input type="number" value="${x.prev}" placeholder="" oninput="items[${i}].prev=this.value;assetUpdate(${i})"></div><div><label>Returned Today</label><input type="number" value="${x.ret}" placeholder="" oninput="items[${i}].ret=this.value;assetUpdate(${i})"></div><div><label>Total ${x.k} In Hand</label><div id="bal${i}" class="amt">${bal}</div></div></div>`:""}</div>`}).join("");summary()}
+function bottleUpdate(i){let x=items[i],p=P[x.k],n=x.last=="c"?(+x.c||0)*p.b:(+x.b||0),c=Math.floor(n/p.b),r=n%p.b;document.getElementById("cv"+i).textContent=n?`${c} Cases + ${r} Bottles`:`${p.b} bottles/case`;summary()}
+function assetUpdate(i){let x=items[i],b=Math.max(0,(+x.prev||0)+(+x.q||0)-(+x.ret||0));let e=document.getElementById("bal"+i);if(e)e.textContent=b}
+function summary(){let totals={},total=0;items.forEach((x,i)=>{if(!x.k)return;let p=P[x.k],n=p.b?(x.last=="c"?(+x.c||0)*p.b:(+x.b||0)):(+x.q||0),a=n*(+x.r||0);if(n)totals[x.k]=(totals[x.k]||0)+n;total+=a;let e=document.getElementById("a"+i);if(e)e.textContent="₹"+a.toFixed(2)});let parts=O.filter(k=>totals[k]).map(k=>`${totals[k]} ${P[k].s}`);sum.innerHTML=parts.length?`${parts.join(" + ")} = ₹${total.toFixed(2)}`:"No products selected"}
+function rentals(){drawer.classList.remove("open");document.getElementById("app").innerHTML=`<div class="hero btcc-hero"><div class="btcc-kicker">HAPPY DROPS</div><h2><img class="btcc-title-icon" src="data:image/png;base64,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" alt="BT/CC Rentals"> BT/CC Rentals</h2><p>Manage rental customers, returns and deposits</p><button class="btn" onclick="newRental()">＋ New Rental Customer</button></div><div class="card btcc-controls"><div id="btccTabs" class="btcc-tabs"></div><div class="btcc-list-tools"><div class="btcc-search-wrap"><input id="btccSearch" type="search" placeholder="Search name or mobile" oninput="setBTCCRentalSearch(this.value)" autocomplete="off"></div><div class="btcc-sortbar"><select id="btccSort" onchange="setBTCCRentalSort(this.value)"><option value="newest">Newest First</option><option value="oldest">Oldest First</option></select></div></div></div><div id="rentList"></div>`;renderBTCCRentsStatus()}
+function btccCustomerStatus(c){if(c.closed===true)return "closed";if(c.pending===true)return "pending";return "active"}
+function switchBTCCRentalStatus(status){window.btccRentalStatus=status;renderBTCCRentsStatus()}
+function setBTCCRentalSort(sort){window.btccRentalSort=sort==='oldest'?'oldest':'newest';renderBTCCRentsStatus()}
+function setBTCCRentalSearch(value){window.btccRentalSearch=String(value||'').trim().toLowerCase();renderBTCCRentsStatus()}
+function rentalSortTimestamp(c){let d=c&&c.rentalDate?String(c.rentalDate):'';let t=c&&c.rentalTime?String(c.rentalTime):'00:00';let ts=Date.parse(d+'T'+t);return Number.isFinite(ts)?ts:0}
+const BTCC_ICON_DATA='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';
+function renderBTCCRentsStatus(){ensureRentalSequences();let status=window.btccRentalStatus||"active", sort=window.btccRentalSort||"newest", all=Object.keys(R), counts={active:0,closed:0,pending:0}, totals={active:{bt:0,cc:0},closed:{bt:0,cc:0},pending:{bt:0,cc:0}};all.forEach(n=>{let st=btccCustomerStatus(R[n]);counts[st]++;totals[st].bt+=rentalTotals(R[n]).pendingBT;totals[st].cc+=rentalTotals(R[n]).pendingCC});let tabs=document.getElementById("btccTabs");if(tabs)tabs.innerHTML=[["active","Active","#198754","#eaf8ed"],["closed","Closed","#1769aa","#eaf3ff"],["pending","Pending","#d32f2f","#fff0f0"]].map(x=>`<button onclick="switchBTCCRentalStatus('${x[0]}')" style="border:0;border-radius:9px;padding:8px 5px;font-weight:700;background:${status==x[0]?x[2]:x[3]};color:${status==x[0]?'#fff':x[2]};line-height:1.2">${x[1]} (${counts[x[0]]})<br><span style="font-size:11px;font-weight:700">${x[0]==='closed'?'': `BT: ${totals[x[0]].bt} &nbsp;|&nbsp; CC: ${totals[x[0]].cc}`}</span></button>`).join("");let sortBox=document.getElementById('btccSort');if(sortBox)sortBox.value=sort;let searchBox=document.getElementById('btccSearch');if(searchBox)searchBox.value=window.btccRentalSearch||'';let list=document.getElementById("rentList");if(!list)return;let search=window.btccRentalSearch||'', names=all.filter(n=>{if(btccCustomerStatus(R[n])!==status)return false;if(!search)return true;return String(n).toLowerCase().includes(search)||String(R[n].phone||'').toLowerCase().includes(search)});names.sort((a,b)=>{let diff=rentalSortTimestamp(R[b])-rentalSortTimestamp(R[a]);return sort==='oldest'?-diff:diff});list.innerHTML=names.length?names.map(n=>{let c=R[n],t=rentalTotals(c);return `<div class="card" onclick='openRental(${JSON.stringify(n)})' style="cursor:pointer;padding:13px"><div style="display:flex;justify-content:space-between;align-items:center"><div><div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap"><b style="font-size:18px;color:#087fc1">${escapeHtml(n)}</b><span style="font-size:13px;color:#6b7f8f;font-weight:700">${rentalDateSeqLabel(c)}</span></div></div><div style="display:flex;align-items:center;gap:8px"><span class="small" style="white-space:nowrap;font-size:13px">📱 ${escapeHtml(c.phone||"")}</span><a href="tel:${c.phone||''}" onclick="event.stopPropagation()" style="text-decoration:none;font-size:24px">📞</a></div></div><div style="display:grid;grid-template-columns:0.8fr 0.8fr 1.4fr;gap:7px;margin-top:10px"><div style="background:#eaf8ed;padding:8px;border-radius:8px;color:#16803c"><span class="btcc-card-label">BT :</span> <b class="btcc-card-number">${t.pendingBT}</b></div><div style="background:#fff0f0;padding:8px;border-radius:8px;color:#c62828"><span class="btcc-card-label">CC :</span> <b class="btcc-card-number">${t.pendingCC}</b></div><div style="background:#eef4ff;padding:8px;border-radius:8px;color:#1769aa;white-space:nowrap;display:flex;align-items:center;gap:4px"><span class="btcc-card-label">${t.deposit<=0?'Bill :':'Refund :'}</span> <b class="btcc-card-number" style="color:${t.deposit<=0?'#d32f2f':'#1769aa'}">₹${t.deposit<=0?t.totalBill:t.refund}</b></div></div></div>`}).join(""):`<div class="card" style="text-align:center;padding:28px"><div><img class="btcc-empty-icon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAAsa0lEQVR42u2da5Bl13XXf2vvc869/ZruntHM6GHJkqyHLdlOHJlKUhhLdkI5gQSnnIwMITxCFQYqFKFsIK+ipElBCPCBKkNROFQIgRASiQRjJ7GxwZJix3Ecy09J1sPSaEbSaN7T6td9nLP34sM+j33OvT0yqahHvtWn6s503z733nPPWnut//qvtdeCvWPv2Dv2jr1j79g79o69Y+/YO/aOvWPv2Dv2jr1j79g7Zv+Q2fouCvfcK3AvPIZwBHh0h+94O3rJd7vU6+4HbkO5Fw1nie4pwK4dKtyDwIPmTu4C4K578T9vxHdFqn+CL69/khsnwo/8prdnSqV56HaUR1GOoq925Xj1K4CqcDeG2xAeQ+V+cTsKav/n9vHtVy9xRbrKgd4BkmQFo6tGdMmYZEkyu4C6RRHTR0zq0L5zmqESrIfik0TG1vhcvA7Bb6uToYpsWZFNX+j6aDy+QM4FtkcXOD26wP8+9xK8dXunG6v3PJCEn+7yr0aFkFersI/cjt5/dxB2W8hP7uN7l2/Irs5uXl5Ob5rL5OaFjGvnMq7u9+yB1OhSmsj84nxP5ucgS2Ahg34GiYGegV4KVqBw4D1IeRdMWMw4DY/CwcjB2MPYwTCHwQiGY9gejP14rFvDMWu507ODghcGub6wPfDHLm6MHx8/tfkYH732GRDfuv571NwJ5qHw22VXisuvAPeoAQxHpZj25wN/6/jV6cG5m2xi3zAc6V03Xr3w9kOr5qrV/ZksLcJ8CvsymE+gbyDBs5jhFzL1Cym6mKHzaVCC+TQ8elbIwrn193dA4WHkhZFDR4UwKpStHAY5bI1hKxe2c5VBITLIMSMnZuyFoYehgzGwOYKLa7C+Ph4+cyp/6tz57Y/tW557ePvc1uNu8+Kx8//pDRtT78HtCHfjd1sZ5LIL/6h4C3hA/+qzV11z24HXm/nFtzD2bxGXv8kmcoPNsn0+hWIMqXiyxHkj4qxVzVJLlhrpW6SXItYXzFsvmTH0E+glSi+Bni0FbyERpWcgyWx9B7xAoYZiVDAYKyMHhQYlGDlh5ErlyJXCKaPcMyDVwikjh6q1OhgUOiqgyBGxJLlLxGaQCOh2rt77k8XYPyX9uUcMPLx1fu0r575y9mn78VvWfeXWVAXZPSWQyy389Bf19vz49l8m2XrXweuWbzF5ujw4fRZvU+avWmUu8zilGDl87lTGDpMrkjtF0gS9uAFffwRWD4EksG8eVlahsic+uHdUG1vvPKQWzp2CCxuwvBTOKQbwmmsB2747rf8VUgMb63D8RPjM8QgOXwGvvRaGBaSCNaJZqpoa8T1B+qmxopjtizmDF0+RLK/QW51nXIxPrj2+9jAHD/wWNxz/DX7ylhGo7JYlkMsp/OQnz/4UW6Off+/NRXZi7gBf/OLzbH3hjwtS5+2d7yZZnDdYI96KqAlySVOwBq5YSdh46hTnf+eTyLmvogduZ/473sjSd307RVHdP8FION+aIPMERdTRW+7x/G99grU/+Bzmxrfg8xGJf4kb/vaPse5SCucpCvBecICWS9SUdyxJLXLyBC996g/RwQY4Yf673841f/ZmTpwpUBXyMTBySFFAUWCKXMU7nz/9pPLEF4Qbb7dzt7zR/IO3OH7v2DyPvJQ9vGLX33Pxg9ecqO7RKy2KZNeFf0QtR8Wtvu8bf3drbvkXb7TH3E/8yFXjf/pJY8bnz8l8/7jR177FFPNLFINtyHpIYpBUwAbwllllcRHGW2fIkjXsa6/D51scvGmFxdUE8hybGPCKIjhX+vdC2XKgzrC9BYsrGe66a9Brr0LHWyzKAst9z+mz4b57Ba8KpfEQAWOCUlE45OrXMH/A4jYMgmdufIGlzJEYwCkGBXFAgeoY9WNRj82uOYzZytBkjWJUuNfddsC/K7voH/3D7I7xYP1/cfhfv42jbO+GJdh9C3DnAwkPvaNYePfv//Jw+eof1wMrY69ZKosJ80sWSQVjgrCNCSsuTSAp3bUBEiskVukbT5ZAlib0rGM+BWuFxAQrbQGnwW+PXbDOowJyL2yMg4CMTRkUIAZ84ci9R70JHybgnYbPTAVrSg+QgJWgXOI9BQaDUBSOcSGoCoVTvAPnIC/C+zinuEJxhUOc4McOHQwozm5CMVbZPCPp5pnxosjNFx764efhHgNH/WxZgPIw6nIdbIs/p2LmF/G+z9aoV9p4gTRIW2z5kCB8U8omsUJqLX0r9BNPP7OkothywXgfQNy4gGEhDItSAfIQ0uEBb0BdWGRarYdgOZoLFTAatMmES7MGBClXjwkvV8WrxRWK9wHLkWt4OA2a4Bz4otGKfASjEdYN0e0N/MZLIlo4nyZ2t+Sw+wpw6K4AdvE9jAGboCIBn0lE8ZQCEQkyEBQjwfzWD8DgERFQj5hgp6vXWA/WQuoVb4Mv9wEa4LyUfl0Bo2iJFkWC5W14x9r8Syn8cD3lc6qIBIUzJUgQDZ+jlckqv5MqiErgj0ttlsTiXfnlraBjbzUfzbACcH+Jzl2f4F9FKW+6V1BFCDepAu3qG7mo1qx/9fJaWWJn6VVx5UpUEbwPfllr4WpJ5EutFVoqWv3BpexKwr9c6cF4mHCFtbUJp0r9zuEC69/KNwo/C4qW2EKr7ywCYlSM2MRqtmuW+LKFgWm6gLEl/aalyBXxirrqTpc/VyZZw42rblpDCDc30/vSBEfhn/rOuTWqq5GQBE2MBKeVwKrzy5+r5xsNDG/jQYPtR7R9rviScqxf27kWADGCJIoxqUH7IVqaSQtQfvXx4CTJGHQOTIqmPUizEKulwe9jAzij+rkyvbYJ7YwFmwZTn5TPlx4B5wMI98bjjKEwYIsgC+9LkrZiYNSjmPBarXM8UJl/E/1eYYHqHI3kW+IL8aCmohgJft968A6MgyIPJq0owhdSp/iRYbx90S+6MwAcvVfh6IwpwG2PKoDr9VU2TiCbCSQ9SHuQ9kslSNAkBWPRxCKJxVmDscG5G2sorCHPhNwYRgbSQL5gKK0pEvh8jzovjB2MciX3kDsa0++rTHJYjcG6lE9JAA0lWV2aasXY8LJCFXUedWFVe+fwhQ9/zIsQexYuaGNRQDFG8EH4xQjNR+ByxDnINyAfeZ8tuIEsHgJOcs+9EnIFM6MAKhwVf+tf+vDSs8nyEXfdrcjinDEJiPEYcRgtEHEYUYx3iBQYcqzxGPWIcyRiEfWYkWIlIIYkMyR4saqYIEkBwbtgxJ1XClW888FNIDjvwRg8BnU+nKta6oTUJj0ASwsoRhRrbQCcxmBVQzLRgGqB71sKTXCpQprixOJ8gvd9VAWvgseWuMEE65AX6DgXNjcLt71xRTZ68XuAL/PgXbMWBt4rgG4zv2Q0T9jehCTFz81D0qOwCdIDsmBmTWn2ExtMvASgjJbcfpbCXBoSQXMppAZNS/PsFXUOGfsQ+g1yGBQwcCEMLBwUWuPO8PCN+yeKDKUMPa0p+QjThKO+NP/ehZ8LB+NA/IX39qBF8yB3pTXIIc8hH8OoQEYDdLSB+EIl6S/MZhRwD3AUBgkLXmUeaxVrSydahP/HwRyrEXwAxhQGnCljAxFGogxF6KUwSmGUwJZpwsUQBQiFokVJ/lQk0NhBXuIDNMIAtcQjfCY0MR9gTAj5kjg0bPBprUwVAaSuxo+BC/ABEGqlMXhEKgtiApgpnOBZndEw8F7gKKrZipokxVjXxFgSnHdFttcoXUogpoiY4IMRxEq9Eq2AtRpkJSZw9qoYDbyBlljM0wAz8eXqNJSo3ETLv8QERhoQKAFcGAl8hFRBZBlHBR5AqsCgVkR1DecqtVZJjSg1UqAmaNQDMWcyOwrw2P2B6hFdDsi3zNjUNyW+WVNWpgQYoSZarNqYYaRZsJUgvLaJPfXRzRaikKx6/4qxKX82jcyauhUtA+iKH9CaOvB11ChBmD7itipf0yLj2+FoCIbZHwAzM6YAZw4KgFVZRRLivLdqaQpKFK51GCbtmx/9qtHK8RUtI5VPl1IxtHxLKf/XjjTLN63j8fIza+WTJkio1mdMFEUkkI/0VaXhFLR0A1Kt+K4SVMyg2Ip4Wg5h4CuvAJeFCPJGD6hJIwXQxh/70my6JhyrSB5tuJTyucb3UvHxXoO7rXUpJGe811oxahn4doDSMiuqNfXYUMbSAEZtrEyHO2oUyzfGQzsZuHaOr+KNEVWHUb9y35H7bJ3TnjkiKJ1fsInFxUuZ5iZX5l99CMG8DSZVtPYCrRteKYGUlkCpkjNS07SUgq+QOYEmLvlgKam9iE+uzH+5/LXyS5UV8WWoqDWR2LCVMcFUPtewg6Veqw/MY0UpiwY8YSypsHT3/fd30OgsWIBDZ1W/8KEUt/mdw02P94l4NXhtwJAYwUggdaxIAHit5E/zkMivVxm4WrheInfS8PE1eJOQ5jWiGLwYKe8/Eh6mBHwhVRRApQejoqKiplRUg9bXYkqgWF1zYpsQ1hpIjGDLNLeYSlGDkvrC4MZG3Kbza0N/xQ/9/R+6o4ycXlELsGv1AA888EDyjne8o/jdT33hJy7mq//uw19x+bHxkj07Slgbp2xrQmFsA6sr3rWSdlJeqm0e1kLfUtb+QWoEKwGQOR8yfrlTRmU6eOwV56uy3w4OiKl57fzB05QMS6R91eL0UeRQlCFH7IeKCAwEaYMvEJ/T0zHzpmCfzVm2Q67sDfwdN9nk1iuGz3zwF/7rmx5++JcGlc34FncBd5Xhklx/11sO6rvuKLTwhtwZtnLCo/CsjxybOWyNhc2RspULm4UyxjCuYnktmVYN91pKFseF5DC+TL+PiyCHvCztLlRKJQilXtqN+b02dQeqZdpZwio3odbAipIYyCySWsEKmphQbJpaIRUlM56+haxSUNtUJPetMp8qPSPMpwl9Y+ilnsx40D6ii7I1GPH0ie2VO+68Zf7hh9mukoWzgQHUFRfXh2IMzPUy0gQOLFquSi2JNaTWkBgwSRcgTLxRC4VH+WGcSk3p1gRNiQuqdLCiZQEueK8tnFbdbKn4iXoHmNSwwFTZY2nFDA0OkDI7Wfp+LSMS55XcefJCGecwzpXRuGA4LhiNc0aDMZuDAd7jF5eWZi8b6D1YY0hs4NVVYewUp4oYRcTXhEuZ1akZwDhKE2kKPqsCkep8LZlAX4eD2iiBtPBmWQ9Sp+cjRk9b9QAaZ44b5xnwYJke9qqo92VysUkJV+8VAKvDO8V7j3Plw0v5faSsdBJE1OTjocycAoCvIVlV8SNRFY8p067hZyWuzRGpEvdlQUa5IuviDG2KKJsIoaohaBmJVvTZOj/6m0wFS9rZFxhchi9BoEqwPhrzWKVFUgk5KjFVSCn4UvjBlASGMMQjSpr1Z48HEBGVKUhUpln8mJuBKlQrw6eYIKqED3FEthPcrcK2lvCnOBuliSC6lxVzORX1K9AuVKmVSmWCDGh9N524VBO0hJlTAEKFf7RKpH1XOkxfyymXlqBm4lrsiugkrN8p2OkKiBYnr3FMH5kN7VxOnABSmuKvuqpMIoa3xfU3oL55nW9dt/deYGMGFUDFa1R3Fy+Mys+3/W1jUkVEI9Lmm/u4KSqglwqCJRLwDlFyN30wzXppdGKcb5BqvbcMhXRMV0V3Lc2eAogEzy0dIahOM8HasZo65edW8K5NefeENa6Xr0xA/c6vU/sM6I5MyjT3EV9H9+lK6b3qVDUL2WHrs9F49jCABmKtzozVJVgdv9j46ngNV95SOtYiLt6LwVpDwEjHsVRWZaqwpStjmSBkY5DX1QBtqa9OmA9tWQ5pSV7qB4x7I5k5BTBMQTzShuUaRVld+/qyHVkihdHWCtVWTkA6bmdSsm0gKJ0/SVdPZFJzpONnmq/SsWxa0dNNKbz3anrZqsygBTAaL3WZ5oPb4m5Wv2qEDTRK7Wpn+WrHMkRhnWjncybDOp0qVNmZO5fmmqbqQoRZq1Cva/Kr56pNzEZgNC5mMR3spzh73QGvR8KJiCG6pEws4dbdj7NtbYXTScs8gfKbt5RvMjEvbQzX/Q7tsDa2DSWZ5GveAiOa9WYRAwTmY0efqztaY4mYG915Req0SFA7QpYOtTPFpL9MIPn/e0IbwFbfW6asg/JMrzIeZbPnAsQYrXyvxLYRncAFXZg3WVoxLfbqovZGtCLS8ew7um+meKBJvZqILXXq9/GRedGulkaJhPbbGads+plTAFd40da2K6bfZZ0WEEY3bCI4E3bm8xpl6mLO2KhMD+Umq4V1irXRSTQR84OdZT4ZpjZhgbxyqb9XRRRgaMfhOxMGO9paKbft6DRLEO/tmmqAY+C1s8fQ6RHe9ASBTIeJDRSdEoLuQGZJk1s0srFoZk4BvMZ7r3USedeLuROn67Sbqx03QlRNOoklVKcJbFKwU/kBvSQXFAHUOPqPohW5BPZVpUsPKuwGEXgZMABGJM6YlTnazkbdCa5VJig6KdG57mAxZJJckm/C0CidEFVqMumSdLN23IPI9NhSpO3rq2po6RaWymwmg8SU9ZWt2FmnUr9TQ4NLBmSTxEJTtSGXBPDTogDtxIe608drO2xtPyTa39LmneNKxVqlG0JTdqMe4HLkAnxtTqUjtCoMkq4/jvM/kz5WO30CJvBCTQdHHyfysskgovMm8gEyDWV0yswmue2IgZzOd2iHEZxBF1AW15dgR7rC1AlLv0MyV+tsoUyNundw2jq5knXKZ8WreJryTSSZmGb+ZSLVTIdkqoCfRi4rVDB5WVycQQVwzhnpbMlSne6jpZ1Ub0M6kWj9N/yAtli4huaZqAaq8g46Gc7XDUhkeoYyPlmmgUGdBH3a6lZClPiJHGAZHVSFJZubM6gAGBNthGzH8TLBjCmtk1tcwZRMv8iUnPx0bkc77EFLt+LPr/C8tBnI6cylRuBWdwSMXeWfUDEN/M9MWgB1JRUsbd9H98Z0JCZTEvXSUiMpO3hMWuru+6p2fLHsEPN39UqnA0h9GWwqU6INbRWLliu/tAqqJWM6WxbgwbY91A7BqzoVXPHylA7xLg2NnK3sANgmYnHflr7uIOiWFFuGSKeAwjblrC9XqFj7lLLVHaKjLJ+lZNBdANjEFq1t2BV+jsGRTGydnODUQKavRW1ze91wvFuIEdcMxAhQJz/8EqHpDqLtcsZTAG2THZZ606MA3nvTy9IZrAfwPhBBLYjGBJqXaTe6k+rVaXBcJp3DpfgEkZdlnutNoBO9BHbgh0VkxwXevZBuhUMFasXYWa0KlqYXY5wRjGJ9jeniac0ALmVGdRpYk51p4R0XcyfAmybMKWVBsmNsGNPFMvkamUIrsjiDCtAprtBWrl6nsoHSYnY7r95RKZSJ3fnSllncEGpSC9rVnjLFnXTPlykdTiaKTOJM4ES00mAY7z3ZLFYEOa/SFaCPQ7qmWgKRS61JQXVqsXenC4hOB34dt6HTLED0FnFEOlHhI1OIntaJMfWrnddo01eo3iUlGGMYZzNIBVsrOmH+YtQskyGfTuMB0HaD6R2zOjs8e4kSINVJQ9AV4yQlEO//u0RVgu7swLTFiuiukMGXIRegEvM1Ko2ZlqgJuzLNd2onOdOtzugS+VXrFdlZJ2QaWbRT3rdTStZKQUyzRhEgnEIWaM0ITjIbIqKj8UzuDbTaKvvWJgroAn6tYzSdjuw1FkpcMzi1gn/69iCdRk9IazXH5noaA9EO7/Sbxj91B3FtU8kigvMqvSyZPRfgvDNtwqXdybsV3FUFFtIyop0VSacmQL/pmF11sjlI/OHdCu5poeJkcNJRSHSqzmkTEHVcXZ2ImNEwsHah0iR76iIJmcLEScTvTHHc8f471Z0LQy5F2EyN9PRP54tOlKTLVF6grRyhV8CM7Qt4MJKZRo0ednC1HcQmHQtRCV+7JJBOBukyZTexfhOi616TvpwSdb6TTBF23fKeeBuYlN1Ho+hHmDULEKhgvL+kT50OlXZAbzGvIu29g+0q4p3zDBpBiW4XkHZjT6krdrrUcjdj3SIMZXoyqAoIpOxDFM8mqM6YSQyQZL3A9UuzN0C6iGoq9ct0Kk7agEq6G8JfDhLojmH79NBxJ+FLhFd3sBMN7dycKG0trt/IiPVZrz+LRBCbWa8n3uvUHogTdfsoU+tCukxOJ64TnRLj6fSobsfdRSLtDSw7ndZ59pux3mIMRpo2tJUb8IqmaQ+McU9/+eRgZhTgwQfv9SLCsaef/W8nn3v+9FUHFpK0l6lXofBND5+WoCd49mnJ/nhJSqcDh16S9dGXwQMSVwnIFLPejeiiMK6p65Md6YdK+FVDa7EJqyvz2s+EEydO/4df+7V/vHXfffdZeQVnCe/aeLKHHnpI77lHzU//o9sufGL7Pd9TjN3NN62O3aED82ZhoY9NUhRTtnbTCa6w60ej6tnmUd9w2ZHen2AX9dJhXrzFc0fgKju4kaigtSr6qFrF+RIAZL2Uub6ln3pGW5t8/kvPyb/878+bX/3Px98vGx8/dT9HDI/d/4opwK52CTsahCvmxx5N7vnkPv795y5w140XeOfNGd/xun289vAS+/bNk2W9ML8xuAwKB977cget1gs8jJLrbBRtFZvskBOI29FLdwVXyiHsuH9QJ0O90Iw6ekRWySYmzDUIjSURdbh8xNbmNi+8sM7Xj73EHz25yWeeGPPkSVGyZa777tfNnfitXcBku88Eimbv/by6ffs53buB33zO8JvHByx8Zpvr505z68qYN15pufVwj+sOZBxe6bO6mLEwnzLXSyFJXtZzeUKn0EKD4tS9/qLNKD76udUoStrxeAXaapbOmLo/YTXoQ4i2vFUFHa7AFQWj0Zit7RHrm0POrg154dyAp08PePK058nT8PQFy/p4AfwKiEcWN2VO19nY3N6VMPCydAv3atV5xegI6fXRdJmt5ACPJvDopue3nxjB40PmdMhKNuCKdJ0rewWH5+HQvHLFvOXQkmWlb1ieS1jowUIvYb6f0EsNWWpJktB5NEkM1hhSCVNGjIm3ibbpXo2aPmr0v/floCnnKcaOUe4YF47R2DEYFgzGBetbY9YHBWtbOefWC85sOc5ueE5tpZweJJwdpbI2zjTnAEgvDD7CwJLHuCEy2oLhGOdyCoVE59wMK0D4x5f9+MU7xAW0L5kgWQ+1c4wMnLLwosLXFNhysOFIccxJQZ9c5k3Bgsl1weT0GLCSFMyZglQI3cZR8DlhVpcGBagQt/Pl2BeD8x4REVd4CpUgdEFHBYwLIRfLsCiHTaHk3jAkY9tZRliGRY8hi4wkJfcZaAqSAClkhLn182A0R1yO5GN8PkYLhy+KcrZAFEta52dWAbBSx4RSOl4tnW+YseMR8aGbVDkzwFQDmxOLNQnYOTRDfQIuhXF5vy8aWKOc11hOCtsuYHvs2Rp5xuXUMF9183YtzKCtbuUVuiwnnNpeaP+eWsKI+HISiPMlkncgBSQONPdo7sHlrQmo3rnwAq0mYvpOllGRqp/8zCpANYeNdj+9GlzV379pmKNlPwFbD5LwoTV71RvYaxjVVg2J8mFMfO4gzwVXKOIFHBhfJmKMTOORO7uBFPEFomXvf1XENVNmagxRyVUF75rGpfH110OQq2nTEddQDywRE2Ye5MXsKoDxKj7uqlnFZCaid8uO2xLtpg0jXKWcINbsGBYjGCsYGyZ6aTnhwxCEbUw4h/j+azeX0PQY0i70Lz+vGhtQ8Q2mnBIhZVtyqaaRVMpUWolqdIxGChFm4kXUcTVVpJpOYpJZBoG+05U5gt+mqdOrhkipgCkFryUzaKou4VE1QTXOLbw2FINoRMZoZ8OfVi5mWjBvJOr11IyuI6JzG6G25wzXs226bHR3Dn1tETouR4XceTO7FgDUt7Z9RZkYP0lP1bi9GuZQjmWpu4tHZEuL35FoTJyC+Abyi03qz6mz7+X54l3Ukq7TS7DZ1ayISmtTSc1G6XR+u5w20nIxlbJVX8Ykio5IxepgVhWgzcNqs2K0TQXHxT7x4gnzAbRc/Vo/32zolNaWMPWU84XTgBFGIBtb6PomfjCEoggrupfCwiK6uISZS8J7jcJMWLES+2ytBiDWNsJIE8nE3TBtOaQyboDY3Z9WWyPCoAP1YM0MRwGiEmf/FCmnaslEUlCEMCW0jNyr4VHN4Kdqh22gV41Is0lMA9hK+ynOw+DkRYaPPkpx7El086Xgh23WzClSBWuRXg85cAh7w03YG25EFhL8qKjxa5tX1AnQaEqMoHWpb5nQKr+jdpuDRy5PK5NlZYajgPgWVl/TSAibO5nReEaT1BxgOSzCNC6AOrkSRsE4F6xEupBy8ZnzXPj0H1B842tgElg5rHLN68UurkCvh9oshKS+wOe56sYa/txp8cefRr64n+zNd9B/460oPoyHLxWyTlT4ncxbGWZK3DdSJ/NT2ilpk8j933ZEZ08BfNWwNwJX0ZTOBoBLPXbFmJJ+NSUgBEwY0Cr1yJgKLXglSWFQJBz73c+z/dmPQ9pDrnk9uv8aNcurYFOKoQaFoKjmusGSFXPwatXRjSpbG8KZ5xh99gGKY8dZfOfbyfb1yceFYKKEowkdsCWaXVgv6XJWcbdWXKLGQO3a1nI+otoZdgHlTPYm7y90ZyZU/IAx7SLKMLy5Wiw+0AXSOFdVSDPYGiU88Rsfp/jSA8g1N6NXvx5dOajSSwMxOFLefYdhXoZ8/7ct8eVjW3zx6SGPnLOcGy1hFpfwvQVlYUXk4LW4Y1/jpY/+Hst/8fvprfbIRx6x8QKuppuXYDNOTJTK0WpfX4WOpfVrgcfdaxN4eRRAymlR1aQmiWe2VFHAjok8qXFAXW9ZsYlAYpWxT3j8/gcovvpp5Oa3ogdvgIUlzNycICnX9jf5O28z/Ox7X1OO/U5573BIlhg++ukT/PT/OC9fz69USVPUGFVjRW65AznxOOv/9yFWf+B7STLBuabLiFfdodFkXNAam3xtb3lTbeqA6yHKuxKRXQbv76O4r0LDItEVdUY0maZmrpkuX4EtqeN7I56kn/DUg49TfPUzmOvfhF55E7KyH7O4D5WEJN/kd99/iJ997w1sbisbA2V9c8TIWbad5Qff8To+8v5DrGwcFx06MTYV6c/B4gp63e3o1jprf/QIYm09uTwme2J2b2KTsGibMKjQo/fRfaiMmZGZVQAxapqKXerBz62FI1UjEW35y1j4RMNF1StZz3LquW02P/0gZv9B9KpbkH2rMLeAZCmaK3d/m/LGa3sMRh71DmsMWZpgRBkOhoxyWF2d45+8q0862ghXkybQ66NLy8h1t+CPH2P75EukvaRuft7tBxTGxkUhi07WH01Mk48bZ/rB7CqAqim6Gy/r/31jImuf6bXu11MFi83qCivHGEWt4YU/fhJG6+iVt6D7VmFhAckyXKFcter54N+4llwtw+GIXi/F2HALkiSh38+4eHGdxX3L/Og7ruSQuYAfjjFiUJtC1oOVQzC/yOipY1gbRSCGdj27dnIccanQlPLhuHBMvd81WVye8fHeaWs6yJQRLWh721ULMBI1hAmTP8kyw/q5nOFjjyMrV8D+w5iFBSTrBXNtLSOnnL44QL0nSUyT9wec91hjsdbgfcFzp9YYD4bg8iAQEUhS6PWQK66kOHMevznEpqam/Vs7f00EArvNBCZ6FEbcgC9T1LbnZ9cCxKF7Gc/FsXG86XOiO1w1AVy0zA+UEWViOff8Gmyuwf6rkKVlpN9H0iSk8TAsZ46Dy70yzpaWHY4bNhUObr5+P9cfTGB7FEa9iwRFSlJYWgG1+PPr9DLb7iMY89AtLlgnmxNEeQBpMEH4YZeSQZdFAay1UacwmZimIO3sbGuDb7OVrD3HwwObp9ZC+m/lCphfQNIUMQYp08/O9lnbGJIXBcPRONwAYxARsjRlPM4ZDMcYPA994QW+8UKO2Cr9XCVxLMzNQ69HvrZFvxcllFWndxWNrFrsGqS9K5S62lGU3BczDAJr9N/M0JPOLp/uPvvm3jVzeqsZv6ZMrw/PrwU/vbCMpCkYGyqNFZJ+oidOw4f+z2kWMpjr91h7aYPhaMRonLO5tc3Fl9Y5dHA/49GAT3z+DBfXDSazoXikqhuzNhANc/Pkg5y0Y0xaLUFaTacmO0zEm0HVN10rRSCZ5Wxgt79TSfIrdnqnKI1JwopTr5LzKlgTfneDEaRz0Otj0gRJDa4ILxYfUrAn1g3rG1tsu5R9C3NsDYZ477HWsrq8xInnTzMabXB+U4MyGRu1folSuUlK4UC0HBZdF3Vo+6LjPsdS5TzazF/MBFeDp2WWk0FijYi0W6bUvi9KsMgU6xB34FLaBTZaOCTLkDRDrAlZJwPqRZxHZLHHRx9P+ee/+jB/7vZ9vPENN7G40GN9fZMrD13BI08c4+tPPctnv3yaT3z1CmR5Ho8Jq94YFFP66vCc9yUvofFW90roTVGI+KoRRnuuSHsfa7tHXV6MZrcghCpH7zutYB1NFY3pNhTfqQVD3GRaArcvJiiANKXcai3iHdvpMv/qU33+/HcdZjAc8PBXHmdza5OFxUVWlxdZXjzAL3/sGLzmANLvo0laWgETcvaVAiQJ6osASE2zC6hVE1B9p9a1StMLpbQaLU0oFSH1OrsuQESKVhmNtnnzGhfY9spp7bqTSPBVLYBzNV0oBjAa8J8I6g1qLElqKJav5djFlHe+9Ur27Vtic2MTEcP+lXl+5X8+BgvXYefncWkPej0lSyEpd3VASCPH1qnTzrY1FCUCttr6l07EUEUBLrzY9GbXBXh1Rlp7/SMyRWkP2I1HicYIW9tJmAbWGow1E51jQgKhDONsxlNnCkxiuGJ1mYW5uQAmyXnu3BhMhvT65blJ2IyS2lABVCmAKYs3abj8soixYXnja/DN99IuFVjVAPhorkE2w0QQUNQdPeoNGLGlNIrvMIQwERZUOKLp92e0ifElMjISStGrnHKWcfwlAz4MakwTCyLkheP58wJZPyD9oAAiYkJG31TvUz60w2RWPX86+FY0wjt1O/j4hA4phMJgNIM8wIMPmsAEFs+LsYovIbSPhCuAeFFtM6pVvkSjUvFKJ7yC4EFDqa2KCZXnUuceSpcQ/kYv49kNy8ZWgQK5C2Z7a3vMiQtAfx41SakAtq5WbnK6paDETGk0KW2Sx0QBTatHsu8UBmpV2QpeNwv8SQCOvrKdQnZXAQ6dVQC3sf5r5MNQy03UKXEiZzD99+qme2328DmnYYUnSQ3KKkpWbKg2kkxQm0A/47n18NXnMsvKYsL+fSneeU6uAwvzaJpFFSgSnGV3K7JrKkLrTaKqbT7AdxB/FfNXL/Ue8b5MiWsu6aJx+fhjW5/84TMcuc++0s2idhcD3H+34x41HJXP8H2f+hcyv+9nVMTXOV6d0jGiRQJJs2cvFADW/Yas7WzykLD5RiqevVqNiUEyy5nxIn/9v2zw5v3n6VthezDgS88OOCP7kYV5NEmQJIFUINF2+rbTjsYIOIJgq1rFrgILUu5kpmkIoNGUExEPaV82nj3hzp58P6hw/72vuBvYfRB4VDxH7rN6/zt/1rzzo5scuPbn2H+ox8p+MJmEgirf4czLFe81uAKjOAXrNVT5ekXF1m6kNXRJm2aRIuBN2OLjpacffrSQD6+PYLgdtnClKexbQHo9yEoMkFTVJ1GY1kojlEOtfYzvo0IAo2UoqG276yO/MBp51s4Ys3X2j9P1p3909LUPPA8vGDjqZ08BKkvwvi+k/pfe+gv84GeWWF/4Kc6+kMvy/oT9h9CFeSVBJNHWZgupmbMIOFZNln0o366FVYPMTrNoU27L8yLJ/gXY14N8jDgXFIwAEsmyUJlk4iROZbpLNtBIy7eLTGk4FE8dK4GMeI+OR7BxAS6eUsZDK1k28pvP/sjoSx84AfdZuHt2dwcD8MQdypH7LAtXf1EOXS9snYIzp+DkszA3L6xeiS4t4+bmvJ9LvaQGEp8YIE8DieIFVHxTnm8SsHiS1KtNSkE3xFLNz5T7Mp0DTIYmPSRs6Av+3ial/yfs6jWNbGsRGxs8j9E6KlAVtCpiLAoYKzj1mjsvg4Ho9paVrZfQzfPI5vmgsPsPq77mzcrWS2d55Mtnuecew9G7d60g4PIpwEM4OAJ3fvQBsvS8vPY1B7jiqpE+/bjo8ceR5x9DbWZk6XCiiwfwvQXcvkU/Xl6q/aftp9i5jF7fkFgB45WLZ5PimRMU51eCCVdpgJyJuz9oyPNX9QWVOTFxO0epxnfgq+2/zsF4DOdPweJc8dx5azbPF/i8gOEItrcC02ctmo+VC+cT2d5Ehxvw0nHPeFBIksLq1XDjm9GD13jytM+Lz3yU5z8w4DG1u2H6u4bq8hwBEHre/Zm/wKEbf0Xmlg5pXsD508jxL8OLX4H1px+T1et+WZdvukHffuTv9W9Y0UO9Qk4f35LR0ydgOIDePPTmc9bO9fj67/wB6YEPMZfMky4kGJth0gRrEzzWGBXUi3coIgZrTLnJKwAMERf+94oYT6EetABy3HhEMS4gzWXzxe/mjve8T+cXR5x8JmE8EGwK11xH77qr8b2ey887y+c/8ofm+S9/xA9OvFW8PcLBb0OvvB0O3hDSyqrIxed/X7/x8Ht4/NxFuFcvgfx36IX7raoAQQsC2Dn0M4d509vehdgb2L4Aa6fOsXnmCU585PfhsZC8/5tPf0xuufH7FhYYjwtkfL5QefIR4fknLYMNQ752Vk9+9s+w9tvHd+XS3/RvPibZoe/DrXuuutnxhjuUQyuB0ByS+aefgWOfv5XP/JUnAbj6/W8hm387SwdvZPHwHPg1xqPP8vCPfySChbqbd/9VoACRJdjpuO2+jIMHPVunruLW7/h1lva/jV4fnCIba+hzj+Zy6qkH9MSn/iGbH/46d3woZfGk1t1J/3TZLNi8WviB9zmOyhxv/Lf/Sg7f/Ne47k1LLK2GrV2jAVx8cYMz3/gAD73nP3LbfRmPPVpc2rSr7FaD6FefAlQ34M4HbetGP/SYwv1Viqi5Qd/569/J/NKtjLcThlvnOf/M4zz7z55oWZTduXfheq7+uWs5fP23s7D8GtRZnJ7h+Oc+x4sfPNEW7D2GOyvy7a6GHLv/br/bK/9b9NBLTFVWCcLf5QV05D57Scv2Kj/kW1ALhCP3Gc4clGYFPaq7iZyn4pgjt0t9TQAPPegv7zXtHXvH3rF37B17x96xd+wde8fesXfsHXvH3rF37B17x96xd1TH/wOu8M/7obeZ6gAAAABJRU5ErkJggg==" alt="" style="width:58px;height:58px;object-fit:contain"></div><b>No ${status} customers</b><div class="small" style="margin-top:5px">${status==="active"?'Add a new rental customer to get started.':status==="pending"?'Customers moved to pending will appear here.':'Customers with all cans returned and refund completed will appear here.'}</div></div>`}
+function newRental(){let d=new Date(),ds=d.toISOString().slice(0,10),ts=d.toTimeString().slice(0,5);document.getElementById("app").innerHTML=`<div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><div><div class="small">BT/CC RENTALS</div><h2 style="margin:3px 0">New Rental Customer</h2></div><button class="btn secondary" onclick="rentals()">← Back</button></div><div class="grid" style="margin-top:14px"><div><label>Customer Name</label><div class="voice-name-wrap"><input id="rn" placeholder="Enter customer name"><button class="voice-mic-btn" type="button" onclick="startRentalNameVoice(event)" aria-label="Type customer name by voice">🎤</button></div><div id="rentalVoiceStatus" class="small voice-status"></div></div><div><label>Mobile Number</label><div style="display:flex;gap:6px"><input id="rphone" inputmode="numeric" maxlength="10" placeholder="10 digit mobile" oninput="validateRentalPhone()"><button class="btn" style="white-space:nowrap;padding:9px 10px" onclick="verifyRentalPhone(event)">📞 Verify</button></div><div id="rphoneErr" style="color:#d32f2f;font-size:12px;margin-top:4px"></div></div><div><label>Security Deposit</label><input id="rdep" type="number" placeholder="" oninput="calculateNewRentalBill()"></div><div><label>Rental Date</label><input id="rdate" type="date" value="${ds}"></div><div><label>Rental Time</label><input id="rtime" type="time" step="60" value="${ts}" lang="en-US"><div id="rentalTime12Display" class="small" style="margin-top:4px">${formatRentalTime12(ts)}</div></div><div><label>Return Date <span class="small" style="font-weight:400">(Optional)</span></label><input id="rreturnDate" type="date" min="${ds}" oninput="updateRentalReturnDays()"><div id="rreturnDays" class="small" style="margin-top:4px;color:#16803c;font-weight:600"></div></div><div><label style="color:#16803c">BT/PBT Quantity × Price</label><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><input id="rpbt" type="number" min="0" placeholder="Quantity" style="border-color:#8bcf9d" oninput="validateRentalCans();calculateNewRentalBill()"><input id="rpbtPrice" type="number" min="0" step="0.01" value="20" oninput="calculateNewRentalBill()" placeholder="₹ Price" style="border-color:#8bcf9d"></div><div class="small" style="margin-top:4px;color:#16803c">Price per BT/PBT: ₹20 default</div></div><div><label style="color:#c62828">CC Quantity × Price</label><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><input id="rcc" type="number" min="0" placeholder="Quantity" style="border-color:#e79a9a" oninput="validateRentalCans();calculateNewRentalBill()"><input id="rccPrice" type="number" min="0" step="0.01" value="50" oninput="calculateNewRentalBill()" placeholder="₹ Price" style="border-color:#e79a9a"></div><div class="small" style="margin-top:4px;color:#c62828">Price per CC: ₹50 default</div></div></div><div id="rentalCanErr" style="color:#d32f2f;font-size:12px;margin-top:6px"></div>
+<div id="newRentalBillingPreview" class="card" style="margin-top:12px;padding:12px;background:#f8fbfd;border:1px solid #dcebf3">
+  <div style="font-weight:800;color:#31566f;margin-bottom:7px">Billing Summary</div>
+  <div id="newRentalBillLines" style="line-height:1.8">BT/PBT: 0 × ₹20 = ₹0<br>CC: 0 × ₹50 = ₹0</div>
+  <div style="display:flex;justify-content:space-between;border-top:1px solid #dcebf3;margin-top:7px;padding-top:7px;font-weight:800">
+    <span>Billed Amount</span><span id="newRentalBilledAmount">₹0</span>
+  </div>
+  <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:17px;font-weight:900;color:#16803c">
+    <span>Refundable Amount</span><span id="newRentalRefundableAmount">₹0</span>
+  </div>
+</div>
+<br><button class="btn" onclick="saveRental()">Save Customer</button><button class="btn secondary" style="margin-left:6px" onclick="rentals()">Cancel</button></div>`;document.getElementById('rtime').addEventListener('input',updateRentalTime12Display);calculateNewRentalBill();}
+function formatRentalTime12(v){if(!v)return"";let [h,m]=v.split(":").map(Number),ap=h>=12?"PM":"AM",hh=h%12||12;return `${String(hh).padStart(2,'0')}:${String(m).padStart(2,'0')} ${ap}`}
+function updateRentalTime12Display(){let e=document.getElementById('rentalTime12Display'),t=document.getElementById('rtime');if(e&&t)e.textContent=formatRentalTime12(t.value)}
+function validateRentalPhone(){let e=document.getElementById('rphoneErr'),v=document.getElementById('rphone')?.value.replace(/\D/g,'')||'';if(document.getElementById('rphone'))document.getElementById('rphone').value=v;if(e)e.textContent=v.length===0?'':(v.length!==10?'Please enter a valid 10 digits mobile number.':'')}
+function verifyRentalPhone(e){e.stopPropagation();let v=(document.getElementById('rphone')?.value||'').trim();if(v.length!==10){validateRentalPhone();alert('Please enter a valid 10 digits mobile number.');return}window.location.href='tel:'+v}
+function validateRentalCans(){let p=(+document.getElementById('rpbt')?.value||0),c=(+document.getElementById('rcc')?.value||0),e=document.getElementById('rentalCanErr');if(e)e.textContent=(p<=0&&c<=0)?'Please enter at least one BT/PBT quantity or CC quantity.':''}
+function updateRentalReturnDays(){
+ const el=document.getElementById("rreturnDays"); if(!el) return;
+ const v=document.getElementById("rreturnDate")?.value;
+ if(!v){el.textContent=""; return;}
+ const today=new Date(); today.setHours(0,0,0,0);
+ const ret=new Date(v+"T00:00:00"); ret.setHours(0,0,0,0);
+ const days=Math.round((ret-today)/86400000);
+ el.textContent=days===0?"Today":`${days} ${days===1?"day":"days"}`;
+}
+
+function calculateNewRentalBill(){
+  const p=Number(document.getElementById('rpbt')?.value)||0;
+  const c=Number(document.getElementById('rcc')?.value)||0;
+  const ppRaw=document.getElementById('rpbtPrice')?.value;
+  const cpRaw=document.getElementById('rccPrice')?.value;
+  const pp=ppRaw===''?20:(Number(ppRaw)||0);
+  const cp=cpRaw===''?50:(Number(cpRaw)||0);
+  const dep=Number(document.getElementById('rdep')?.value)||0;
+  const pAmt=p*pp, cAmt=c*cp, bill=pAmt+cAmt;
+  const refund=Math.max(0,dep-bill);
+  const money=v=>'₹'+Number(v).toFixed(2).replace(/\.00$/,'');
+  const lines=document.getElementById('newRentalBillLines');
+  const billed=document.getElementById('newRentalBilledAmount');
+  const refundable=document.getElementById('newRentalRefundableAmount');
+  if(lines) lines.innerHTML=`BT/PBT: ${p} × ${money(pp)} = ${money(pAmt)}<br>CC: ${c} × ${money(cp)} = ${money(cAmt)}`;
+  if(billed) billed.textContent=money(bill);
+  if(refundable) refundable.textContent=money(refund);
+}
+function startRentalNameVoice(e){
+  e.preventDefault();
+  const input=document.getElementById('rn');
+  const status=document.getElementById('rentalVoiceStatus');
+  const btn=e.currentTarget;
+  const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SpeechRecognition){
+    status.textContent='Voice typing is not supported in this browser. Try Chrome on Android.';
+    status.style.color='#c62828';
+    return;
+  }
+  if(window.__rentalRecognition){
+    try{window.__rentalRecognition.stop()}catch(_){}
+    window.__rentalRecognition=null;
+    btn.classList.remove('listening');
+    status.textContent='';
+    return;
+  }
+  const recognition=new SpeechRecognition();
+  window.__rentalRecognition=recognition;
+  recognition.lang='en-IN';
+  recognition.interimResults=false;
+  recognition.maxAlternatives=1;
+  btn.classList.add('listening');
+  status.style.color='#087fc1';
+  status.textContent='Listening… speak the customer name';
+  recognition.onresult=function(ev){
+    const text=(ev.results&&ev.results[0]&&ev.results[0][0]&&ev.results[0][0].transcript||'').trim();
+    if(text) input.value=text.charAt(0).toUpperCase()+text.slice(1);
+  };
+  recognition.onerror=function(ev){
+    status.style.color='#c62828';
+    status.textContent=ev.error==='not-allowed'?'Microphone permission was denied. Please allow microphone access.':'Could not hear the name. Please try again.';
+  };
+  recognition.onend=function(){
+    btn.classList.remove('listening');
+    window.__rentalRecognition=null;
+    if(status.textContent==='Listening… speak the customer name') status.textContent='';
+  };
+  try{recognition.start()}catch(err){
+    btn.classList.remove('listening');
+    window.__rentalRecognition=null;
+    status.style.color='#c62828';
+    status.textContent='Could not start voice typing. Please try again.';
+  }
+}
+
+function saveRental(){let n=rn.value.trim(),phone=rphone.value.trim(),p=+rpbt.value||0,c=+rcc.value||0,pbtPrice=+document.getElementById('rpbtPrice').value||20,ccPrice=+document.getElementById('rccPrice').value||50,returnDate=(document.getElementById('rreturnDate')||{}).value||'',today=localDateKey(new Date());if(!n){alert('Enter customer name');return}if(phone.length!==10){validateRentalPhone();alert('Please enter a valid 10 digits mobile number.');return}if(p<=0&&c<=0){validateRentalCans();alert('Please enter at least one BT/PBT quantity or CC quantity.');return}if(pbtPrice<0||ccPrice<0){alert('Price cannot be negative.');return}if(returnDate&&returnDate<today){alert('Return Date cannot be less than today.');return}if(Object.prototype.hasOwnProperty.call(R,n)){alert('A customer with this name already exists.');return}let sameDateSeq=Object.keys(R).filter(k=>String(R[k].rentalDate||'')===String(rdate.value||'')).map(k=>Number(R[k].rentalSequence)).filter(Number.isFinite);let rentalSequence=sameDateSeq.length?Math.max(...sameDateSeq)+1:1;R[n]={phone,deposit:(+rdep.value||0),pbt:p,cc:c,pbtPrice,ccPrice,rentalDate:rdate.value,rentalTime:rtime.value,returnDate,rentalSequence,returns:[],additions:[],refills:[],activity:[],pending:false,closed:false,refundCompleted:false};addRentalActivity(R[n],{type:'added',name:n,phone,deposit:(+rdep.value||0),pbt:p,cc:c,bill:p*pbtPrice+c*ccPrice});save();window.btccRentalStatus='active';rentals();showRentalWhatsAppPopup(n)}
+function formatRentalDateForWhatsApp(ds){if(!ds)return '';let a=ds.split('-');return a.length===3?a[2]+'-'+a[1]+'-'+a[0]:ds}
+function buildRentalWhatsAppMessage(n){let c=R[n];if(!c)return '';let btQty=+c.pbt||0,ccQty=+c.cc||0,btPrice=Number.isFinite(+c.pbtPrice)?+c.pbtPrice:20,ccPrice=Number.isFinite(+c.ccPrice)?+c.ccPrice:50;let btAmount=btQty*btPrice,ccAmount=ccQty*ccPrice,bill=btAmount+ccAmount,refundable=Math.max(0,(+c.deposit||0)-bill);let lines=['*Happy Drops*','_(Packaged Drinking Water)_','_8367234777_','', '*Name:* '+n,'*Mobile:* '+c.phone,'*Date:* '+formatRentalDateForWhatsApp(c.rentalDate),''];if(btQty>0)lines.push('*BT:* '+btQty+' X '+btPrice+' = '+btAmount);if(ccQty>0)lines.push('*CC:* '+ccQty+' X '+ccPrice+' = '+ccAmount);lines.push('*Bill:* '+bill,'','*Deposited:* '+(+c.deposit||0),'*Refundable:* '+refundable,'','> Note: please return the cans within 2 days, Rental will be charged');return lines.join('\n')}
+function showRentalWhatsAppPopup(n){let old=document.getElementById('rentalWhatsappPopup');if(old)old.remove();window._pendingRentalWhatsapp=n;let el=document.createElement('div');el.id='rentalWhatsappPopup';el.innerHTML=`<div style="position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:18px;z-index:9999"><div style="background:#fff;border-radius:16px;max-width:380px;width:100%;padding:20px;box-shadow:0 12px 35px rgba(0,0,0,.25);text-align:center"><div style="font-size:34px">💬</div><h3 style="margin:8px 0 6px">Send to Customer WhatsApp?</h3><div id="rentalWhatsappCustomer" style="color:#666;font-size:13px;margin-bottom:18px"></div><button id="rentalWhatsappSend" class="btn" style="width:100%;background:#25D366">Send to Customer WhatsApp</button><button id="rentalWhatsappCancel" class="btn secondary" style="width:100%;margin-top:8px">Cancel</button></div></div>`;document.body.appendChild(el);document.getElementById('rentalWhatsappCustomer').textContent='Send the rental details to '+n;document.getElementById('rentalWhatsappSend').onclick=function(){sendRentalWhatsApp(window._pendingRentalWhatsapp)};document.getElementById('rentalWhatsappCancel').onclick=function(){el.remove();window._pendingRentalWhatsapp=null}}
+
+function sendRentalWhatsApp(n){let c=R[n];if(!c)return;let msg=buildRentalWhatsAppMessage(n),url='https://wa.me/91'+c.phone+'?text='+encodeURIComponent(msg);let popup=document.getElementById('rentalWhatsappPopup');if(popup)popup.remove();window.location.href=url}
+
+function rentalActivityStamp(ts){const d=new Date(ts||Date.now());const date=String(d.getDate()).padStart(2,"0")+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getFullYear()).slice(-2);return date+", "+formatRentalTime12(String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"));}
+function addRentalActivity(c,activity){c.activity=c.activity||[];c.activity.push({...activity,ts:Date.now()});}
+function rentalActivityFinancials(c){const t=rentalTotals(c);return {totalBill:t.totalBill,refundable:t.refund,deposit:t.deposit};}
+function rentalMoney(c){
+  const add=(c.additions||[]).reduce((s,x)=>s+(Number(x.deposit)||0),0);
+  const money=(c.depositRefunds||[]).reduce((s,x)=>s+(Number(x.deposit)||0)-(Number(x.refund)||0),0);
+  const base=Number(c.deposit)||0;
+  return base+add+money;
+}
+function rentalDaysBetween(fromDate,toDate){
+  if(!fromDate||!toDate)return 0;
+  const a=new Date(String(fromDate)+'T00:00:00');
+  const b=new Date(String(toDate)+'T00:00:00');
+  if(Number.isNaN(a.getTime())||Number.isNaN(b.getTime()))return 0;
+  return Math.max(0,Math.floor((b-a)/86400000));
+}
+function rentalChargeForCan(issueDate,endDate,rate,maxCharge){
+  const days=rentalDaysBetween(issueDate,endDate);
+  const chargeBlocks=days>=3?Math.floor((days-1)/2):0;
+  return Math.min(maxCharge,chargeBlocks*rate);
+}
+function rentalCharges(c){
+  // Rental charges apply only when the customer has actually paid a deposit
+  // and the normal bill still leaves a refundable amount.
+  const deposit=rentalMoney(c);
+  if(deposit<=0)return {bt:0,cc:0,total:0};
+  const additions=c.additions||[], returns=(c.returns||[]).slice().sort((a,b)=>(Number(a.ts)||0)-(Number(b.ts)||0));
+  const batches=[];
+  const baseDate=c.rentalDate||localDateKey(new Date());
+  if(Number(c.pbt)||0)batches.push({type:'BT',qty:Number(c.pbt)||0,date:baseDate});
+  if(Number(c.cc)||0)batches.push({type:'CC',qty:Number(c.cc)||0,date:baseDate});
+  additions.forEach(x=>{const d=x.date||localDateKey(new Date(Number(x.ts)||Date.now()));if(Number(x.pbt)||0)batches.push({type:'BT',qty:Number(x.pbt)||0,date:d});if(Number(x.cc)||0)batches.push({type:'CC',qty:Number(x.cc)||0,date:d});});
+  let chargeBT=0,chargeCC=0,remainingReturns={BT:0,CC:0};
+  returns.forEach(r=>{remainingReturns.BT+=(Number(r.pbt)||0);remainingReturns.CC+=(Number(r.cc)||0)});
+  const now=localDateKey(new Date());
+  ['BT','CC'].forEach(type=>{
+    let toReturn=remainingReturns[type];
+    batches.filter(b=>b.type===type).forEach(b=>{
+      const returned=Math.min(b.qty,toReturn);
+      toReturn-=returned;
+      const open=b.qty-returned;
+      const perCan=type==='BT'?5:10, maxPerCan=type==='BT'?60:80;
+      const batchCharge=rentalChargeForCan(b.date,now,perCan,maxPerCan);
+      if(type==='BT')chargeBT+=batchCharge*open;
+      else chargeCC+=batchCharge*open;
+    });
+  });
+  return {bt:chargeBT,cc:chargeCC,total:chargeBT+chargeCC};
+}
+function rentalTotals(c){
+  const returns=c.returns||[];
+  const returnedBT=returns.reduce((s,x)=>s+(Number(x.pbt)||0),0);
+  const returnedCC=returns.reduce((s,x)=>s+(Number(x.cc)||0),0);
+  const additions=c.additions||[];
+  const newBT=(Number(c.pbt)||0)+additions.reduce((s,x)=>s+(Number(x.pbt)||0),0);
+  const newCC=(Number(c.cc)||0)+additions.reduce((s,x)=>s+(Number(x.cc)||0),0);
+  const btPrice=Number.isFinite(+c.pbtPrice)?+c.pbtPrice:20;
+  const ccPrice=Number.isFinite(+c.ccPrice)?+c.ccPrice:50;
+  const pendingBT=Math.max(0,newBT-returnedBT);
+  const pendingCC=Math.max(0,newCC-returnedCC);
+  const refillBT=(c.refills||[]).reduce((s,x)=>s+(Number(x.pbt)||0),0);
+  const refillCC=(c.refills||[]).reduce((s,x)=>s+(Number(x.cc)||0),0);
+  const newBill=newBT*btPrice+newCC*ccPrice;
+  const returnedBill=0;
+  const bill=newBill;
+  const refillBill=refillBT*15+refillCC*30;
+  const deposit=rentalMoney(c);
+  const baseBill=bill+refillBill;
+  // No deposit = no rental. If the normal bill already consumes the deposit,
+  // the customer is in Bill status, so rental charges are not applied.
+  const baseRefund=Math.max(0,deposit-baseBill);
+  const rental=baseRefund>0?rentalCharges(c):{bt:0,cc:0,total:0};
+  const totalBill=baseBill+rental.total;
+  const refund=Math.max(0,deposit-totalBill);
+  const extraBill=Math.max(0,totalBill-deposit);
+  return {bt:newBT,cc:newCC,returnedBT,returnedCC,pendingBT,pendingCC,refillBT,refillCC,newBill,returnedBill,bill,refillBill,rentalBT:rental.bt,rentalCC:rental.cc,rentalBill:rental.total,deposit,refund,extraBill,totalBill,btPrice,ccPrice};
+}
+function openRental(n){
+  window.currentBTCCCustomer=n;
+  const c=R[n]; if(!c) return rentals();
+  c.returns=c.returns||[]; c.additions=c.additions||[]; c.refills=c.refills||[]; c.depositRefunds=c.depositRefunds||[];
+  const t=rentalTotals(c);
+  const pbtPrice=Number.isFinite(+c.pbtPrice)?+c.pbtPrice:20, ccPrice=Number.isFinite(+c.ccPrice)?+c.ccPrice:50;
+  const profileDate=c.rentalDate?(()=>{const a=String(c.rentalDate).split('-');return a.length===3?`${a[2]}-${a[1]}-${a[0]}`:c.rentalDate})():'-';
+  const profileTime=formatRentalTime12(c.rentalTime||'');
+  const appEl=document.getElementById('app');
+  appEl.innerHTML=`<div class="card profile-card"><div style="display:flex;justify-content:space-between;align-items:flex-start"><div><div class="small">CUSTOMER PROFILE</div><h2 style="margin:3px 0 12px">${escapeHtml(n)} Profile</h2></div><button class="btn secondary" onclick="rentals()">← Back</button></div>
+  <div style="border-top:1px solid #e8eef3;padding-top:12px"><div style="margin-bottom:10px"><b>Date & Time:</b> ${escapeHtml(profileDate)}, ${escapeHtml(profileTime||'-')}</div><div style="margin-bottom:10px"><b>Mobile:</b> ${escapeHtml(c.phone||'')} <a href="tel:${escapeHtml(c.phone||'')}" style="text-decoration:none;font-size:22px;vertical-align:middle">📞</a></div><div style="margin-bottom:10px"><b>Return Date:</b> ${c.returnDate?escapeHtml(formatRentalDateForWhatsApp(c.returnDate)):'Not specified'}</div><div><b>Deposited Amount:</b> ₹${t.deposit} <span style="margin-left:10px"><b>| Bill Amount:</b> ₹${t.totalBill}</span></div></div></div>
+  <div class="card section-bill"><h3 style="color:#1769aa">Bill Summary</h3><div class="period">${(()=>{const today=localDateKey(new Date());const batches=[];if(Number(c.pbt)||0)batches.push({type:"BT",qty:Number(c.pbt)||0,date:c.rentalDate||today});if(Number(c.cc)||0)batches.push({type:"CC",qty:Number(c.cc)||0,date:c.rentalDate||today});(c.additions||[]).forEach(x=>{const d=x.date||localDateKey(new Date(Number(x.ts)||Date.now()));if(Number(x.pbt)||0)batches.push({type:"BT",qty:Number(x.pbt)||0,date:d});if(Number(x.cc)||0)batches.push({type:"CC",qty:Number(x.cc)||0,date:d});});const btDays=batches.filter(x=>x.type==="BT").map(x=>rentalDaysBetween(x.date,today));const ccDays=batches.filter(x=>x.type==="CC").map(x=>rentalDaysBetween(x.date,today));const md=a=>a.length?Math.max(...a):0;return `<div style="margin-bottom:8px"><b>Rental Days:</b> ${btDays.length?`<span style="color:#16803c;font-weight:700">BT: ${md(btDays)} days</span>`:""}${btDays.length&&ccDays.length?" &nbsp;|&nbsp; ":""}${ccDays.length?`<span style="color:#c62828;font-weight:700">CC: ${md(ccDays)} days</span>`:""}${!btDays.length&&!ccDays.length?"0 days":""}</div>`})()}${t.bt?`BT (New): ${t.bt} X ₹${pbtPrice} = <b>₹${t.bt*pbtPrice}</b><br>`:''}${t.cc?`CC (New): ${t.cc} X ₹${ccPrice} = <b>₹${t.cc*ccPrice}</b><br>`:''}${t.refillBT?`BT (Refils): ${t.refillBT} X ₹15 = <b>₹${t.refillBT*15}</b><br>`:''}${t.refillCC?`CC (Refils): ${t.refillCC} X ₹30 = <b>₹${t.refillCC*30}</b><br>`:''}${t.rentalBill>0?`<div style="margin-top:8px;padding-top:8px;border-top:1px dashed #cfd8df"><span style="color:#8b5cf6;font-weight:700">Total Rental Charges</span>: <b style="color:#8b5cf6">₹${t.rentalBill}</b></div>`:''}</div><div class="total"><span>Total Bill</span><span>₹${t.totalBill}</span></div></div>
+  <div class="card section-cans"><h3 style="color:#16a34a">Can Management</h3><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="addBTCCCans()">＋ Add Cans</button><button class="btn secondary" onclick="addBTCCRefill()">💧 Water Refill</button><button class="btn secondary" onclick="recordReturn()">↩ Return Cans</button><button class="btn secondary" onclick="manageBTCCDepositsRefunds()">💰 Deposits/Refunds</button></div></div>
+  <div class="card section-activity"><h3 style="color:#8b5cf6">Customer Activity</h3><div style="max-height:320px;overflow-y:auto;padding-right:6px;border:1px solid #e3ebf0;border-radius:10px;padding:8px;background:#fbfdfe">${renderRentalActivity(c,n)}</div></div>
+  <div class="card section-status"><h3 style="color:#f59e0b">Customer Status</h3><div style="display:flex;gap:7px;flex-wrap:wrap">${c.closed?`<button class="btn" onclick="moveBTCCActive()">↩ Move to Active</button>`:c.pending?`<button class="btn" onclick="moveBTCCActive()">↩ Move to Active</button>`:`<button class="btn secondary" onclick="moveBTCCPending()">⏳ Move to Pending</button>`}${!c.closed?`<button class="btn" style="background:#1769aa;color:#fff;${(t.pendingBT===0&&t.pendingCC===0&&t.refund===0&&t.extraBill===0)?'':'opacity:.5;'}" onclick="closeBTCCRental()">✓ Mark as Closed</button>`:''}</div>${!c.closed&&(t.pendingBT||t.pendingCC||t.refund||t.extraBill)?`<div style="margin-top:10px;padding:10px 12px;border-radius:10px;background:#fff7e6;color:#8a5a00;font-size:13px;line-height:1.6"><b>Clear before closing:</b> ${t.pendingBT?`BT: ${t.pendingBT} &nbsp;`:''}${t.pendingCC?`CC: ${t.pendingCC} &nbsp;`:''}${t.refund?`Refund: ₹${t.refund} &nbsp;`:''}${t.extraBill?`Bill: ₹${t.extraBill}`:''}</div>`:''}</div>
+  <div class="card" style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><button class="btn" style="width:100%;background:#eaf4fb;color:#087fc1;margin:0" onclick="editRentalCustomer()">✏️ Edit Customer</button><button class="btn" style="width:100%;background:#ffe8e8;color:#c62828;margin:0" onclick="deleteRentalCustomer()">🗑️ Delete Customer</button></div>`;
+}
+function renderRentalActivity(c,n){const a=(c.activity||[]).slice().reverse();if(!a.length)return '<span class="small">No activity recorded</span>';const bt=v=>`<span style="color:#16803c;font-weight:700">${v} BT</span>`;const cc=v=>`<span style="color:#c62828;font-weight:700">${v} CC</span>`;const bill=v=>`<span style="color:#1769aa;font-weight:700">Bill = ₹${v}</span>`;const refund=v=>`<span style="color:#1769aa;font-weight:700">Refundable = ₹${v}</span>`;return a.map(x=>{const t=rentalTotalsAtActivity(c,x);const stamp=rentalActivityStamp(x.ts||Date.now());let line='',sub='';if(x.type==='added'){line=`${stamp} - ${escapeHtml(x.name||n)} added | mobile number ${escapeHtml(x.phone||c.phone||'')} | <span style="color:#16803c;font-weight:700">Deposited: ₹${x.deposit||0}</span> | ${bt(x.pbt||0)} | ${cc(x.cc||0)}`;sub=`status ${bt(t.pendingBT)}, ${cc(t.pendingCC)} | ${bill(x.bill||0)} | ${refund(t.refund)}`;}else if(x.type==='refill'){const parts=[];if(x.pbt)parts.push(`${bt(x.pbt)} Refilled`);if(x.cc)parts.push(`${cc(x.cc)} Refilled`);line=`${stamp} - ${parts.join(', ')}`;sub=`Status ${bt(t.pendingBT)}, ${cc(t.pendingCC)} | ${bill(x.amount||0)} | Total Bill = ₹${t.totalBill} | ${refund(t.refund)}`;}else if(x.type==='addCans'){const parts=[];if(x.pbt)parts.push(`${bt(x.pbt)} Added`);if(x.cc)parts.push(`${cc(x.cc)} Added`);line=`${stamp} - ${parts.join(', ')}`;sub=`Status ${bt(t.pendingBT)}, ${cc(t.pendingCC)} | ${bill(x.amount||0)} | Total Bill = ₹${t.totalBill} | ${refund(t.refund)}`;}else if(x.type==='return'){const parts=[];if(x.pbt)parts.push(bt(x.pbt));if(x.cc)parts.push(cc(x.cc));line=`${stamp} - ${parts.join(', ')} returned cans`;sub=`Status ${bt(t.pendingBT)}, ${cc(t.pendingCC)} | Total Bill = ₹${t.totalBill} | ${refund(t.refund)}`;}else if(x.type==='depositRefund'){const parts=[];if(x.deposit)parts.push(`<span style="color:#16803c;font-weight:700">Deposit: +₹${x.deposit}</span>`);if(x.refund)parts.push(`<span style="color:#1769aa;font-weight:700">Refund: -₹${x.refund}</span>`);line=`${stamp} - ${parts.join(' | ')}`;sub=`Deposited Amount = ₹${x.balanceAfter||0} | Total Bill = ₹${t.totalBill} | ${refund(t.refund)}`;}else if(x.type==='status'){line=`${stamp} - ${escapeHtml(x.text||'Status changed')}`;sub=`Status ${bt(t.pendingBT)}, ${cc(t.pendingCC)} | Total Bill = ₹${t.totalBill} | ${refund(t.refund)}`;}else{return ''}return `<div class="period" style="line-height:1.7"><b>${line}</b><br><span>${sub}</span></div>`}).join('')}
+function rentalTotalsAtActivity(c,x){const additions=c.additions||[],refills=c.refills||[],returns=c.returns||[],dr=c.depositRefunds||[];let addBT=0,addCC=0,refBT=0,refCC=0,retBT=0,retCC=0,depAdd=0,refundAdd=0;const ts=Number(x.ts)||Infinity;additions.forEach(v=>{if(Number(v.ts||0)<=ts){addBT+=Number(v.pbt)||0;addCC+=Number(v.cc)||0}});refills.forEach(v=>{if(Number(v.ts||0)<=ts){refBT+=Number(v.pbt)||0;refCC+=Number(v.cc)||0}});returns.forEach(v=>{if(Number(v.ts||0)<=ts){retBT+=Number(v.pbt)||0;retCC+=Number(v.cc)||0}});dr.forEach(v=>{if(Number(v.ts||0)<=ts){depAdd+=Number(v.deposit)||0;refundAdd+=Number(v.refund)||0}});const bt=(Number(c.pbt)||0)+addBT,cc=(Number(c.cc)||0)+addCC;const bill=bt*(Number.isFinite(+c.pbtPrice)?+c.pbtPrice:20)+cc*(Number.isFinite(+c.ccPrice)?+c.ccPrice:50);const totalBill=bill+refBT*15+refCC*30;const dep=(Number(c.deposit)||0)+depAdd-refundAdd;return {pendingBT:Math.max(0,bt-retBT),pendingCC:Math.max(0,cc-retCC),totalBill,refund:Math.max(0,dep-totalBill)};}
+function addBTCCCans(n){
+  n=n||window.currentBTCCCustomer;
+  const c=R[n]; if(!c)return;
+  const old=document.getElementById('btccAddCansModal'); if(old)old.remove();
+  const modal=document.createElement('div');
+  modal.id='btccAddCansModal';
+  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.48);display:flex;align-items:center;justify-content:center;z-index:99999;padding:20px';
+  modal.innerHTML=`<div style="background:#fff;border-radius:18px;padding:22px;max-width:380px;width:100%;box-shadow:0 15px 40px rgba(0,0,0,.25)">
+    <h3 style="margin:0 0 18px">＋ Add Cans</h3>
+    <div style="display:grid;gap:14px">
+      <div style="display:flex;align-items:center;gap:10px"><label style="font-weight:700;color:#16803c;min-width:72px">＋ BT</label><input id="addBTQty" type="number" min="0" step="1" placeholder="Quantity" inputmode="numeric" style="flex:1"></div>
+      <div style="display:flex;align-items:center;gap:10px"><label style="font-weight:700;color:#c62828;min-width:72px">＋ CC</label><input id="addCCQty" type="number" min="0" step="1" placeholder="Quantity" inputmode="numeric" style="flex:1"></div>
+    </div>
+    <div style="background:#f4f8fb;border-radius:12px;padding:12px;margin-top:14px;font-size:14px;line-height:1.8">
+      <b>Current Balance</b><br>BT: ${rentalTotals(c).pendingBT} &nbsp; | &nbsp; CC: ${rentalTotals(c).pendingCC}
+      <hr style="border:0;border-top:1px solid #dfe7ed;margin:8px 0">
+      <b>After Adding</b><br><span id="addAfterBalance">BT: ${rentalTotals(c).pendingBT} &nbsp; | &nbsp; CC: ${rentalTotals(c).pendingCC}</span>
+    </div>
+    <div id="addCansErr" style="color:#d32f2f;font-size:13px;margin-top:10px;min-height:18px"></div>
+    <div style="display:flex;gap:10px;margin-top:14px">
+      <button class="btn secondary" id="addCansCancel" style="flex:1">Cancel</button>
+      <button class="btn" id="addCansConfirm" style="flex:1">Add Cans</button>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+  const updateAddPreview=()=>{const b=Math.max(0,parseInt(document.getElementById('addBTQty').value)||0);const q=Math.max(0,parseInt(document.getElementById('addCCQty').value)||0);document.getElementById('addAfterBalance').textContent='BT: '+(rentalTotals(c).pendingBT+b)+' | CC: '+(rentalTotals(c).pendingCC+q)};
+  document.getElementById('addBTQty').addEventListener('input',updateAddPreview);
+  document.getElementById('addCCQty').addEventListener('input',updateAddPreview);
+  document.getElementById('addCansCancel').onclick=()=>modal.remove();
+  document.getElementById('addCansConfirm').onclick=()=>{
+    const b=Math.max(0,parseInt(document.getElementById('addBTQty').value)||0);
+    const q=Math.max(0,parseInt(document.getElementById('addCCQty').value)||0);
+    const err=document.getElementById('addCansErr');
+    if(!b&&!q){err.textContent='Enter at least one BT or CC quantity.';return}
+    c.additions=c.additions||[];
+    const amount=b*(Number.isFinite(+c.pbtPrice)?+c.pbtPrice:20)+q*(Number.isFinite(+c.ccPrice)?+c.ccPrice:50);c.additions.push({date:localDateKey(new Date()),pbt:b,cc:q,deposit:0,ts:Date.now()});addRentalActivity(c,{type:'addCans',pbt:b,cc:q,amount});
+    save();
+    modal.remove();
+    openRental(n);
+  };
+}
+function addBTCCRefill(n){
+  n=n||window.currentBTCCCustomer;
+  const c=R[n]; if(!c)return;
+  const old=document.getElementById('btccRefillModal'); if(old)old.remove();
+  const modal=document.createElement('div');
+  modal.id='btccRefillModal';
+  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.48);display:flex;align-items:center;justify-content:center;z-index:99999;padding:20px';
+  modal.innerHTML=`<div style="background:#fff;border-radius:18px;padding:22px;max-width:380px;width:100%;box-shadow:0 15px 40px rgba(0,0,0,.25)">
+    <h3 style="margin:0 0 18px">💧 Water Refill</h3>
+    <div style="display:grid;gap:14px">
+      <div style="display:flex;align-items:center;gap:10px"><label style="font-weight:700;color:#16803c;min-width:72px">＋ BT</label><input id="refillBTQty" type="number" min="0" step="1" placeholder="Quantity" inputmode="numeric" style="flex:1"></div>
+      <div style="display:flex;align-items:center;gap:10px"><label style="font-weight:700;color:#c62828;min-width:72px">＋ CC</label><input id="refillCCQty" type="number" min="0" step="1" placeholder="Quantity" inputmode="numeric" style="flex:1"></div>
+    </div>
+    <div style="font-size:13px;color:#666;margin-top:10px">BT refill ₹15 each · CC refill ₹30 each</div>
+    <div id="refillErr" style="color:#d32f2f;font-size:13px;margin-top:8px;min-height:18px"></div>
+    <div style="display:flex;gap:10px;margin-top:14px">
+      <button class="btn secondary" id="refillCancel" style="flex:1">Cancel</button>
+      <button class="btn" id="refillConfirm" style="flex:1">Add Refill</button>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+  document.getElementById('refillCancel').onclick=()=>modal.remove();
+  document.getElementById('refillConfirm').onclick=()=>{
+    const b=Math.max(0,parseInt(document.getElementById('refillBTQty').value)||0);
+    const q=Math.max(0,parseInt(document.getElementById('refillCCQty').value)||0);
+    const err=document.getElementById('refillErr');
+    if(!b&&!q){err.textContent='Enter at least one BT or CC refill quantity.';return}
+    const amount=b*15+q*30;
+    c.refills=c.refills||[];
+    c.refills.push({date:localDateKey(new Date()),pbt:b,cc:q,amount,ts:Date.now()});addRentalActivity(c,{type:'refill',pbt:b,cc:q,amount});
+    save();
+    modal.remove();
+    openRental(n);
+  };
+}
+function escapeHtml(v){return String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
+function deleteRentalCustomer(n){
+  n=n||window.currentBTCCCustomer;
+  if(!n || !Object.prototype.hasOwnProperty.call(R,n)) return rentals();
+  showBTCCDeleteConfirm(n);
+}
+function showBTCCDeleteConfirm(n){
+  n=n||window.currentBTCCCustomer;
+  const old=document.getElementById('btccDeleteConfirm'); if(old) old.remove();
+  const modal=document.createElement('div'); modal.id='btccDeleteConfirm'; modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.48);display:flex;align-items:center;justify-content:center;z-index:99999;padding:20px';
+  modal.innerHTML=`<div style="background:#fff;border-radius:18px;padding:22px;max-width:360px;width:100%;box-shadow:0 15px 40px rgba(0,0,0,.25)"><h3 style="margin:0 0 10px">Delete Customer</h3><div style="font-size:16px;line-height:1.5;margin-bottom:20px">Are you sure you want to delete <b>${escapeHtml(n)}</b>?<br><span style="color:#666;font-size:13px">This will permanently delete the complete customer rental record.</span></div><div style="display:flex;gap:10px"><button class="btn secondary" id="btccDeleteCancel" style="flex:1">Cancel</button><button class="btn" id="btccDeleteConfirmBtn" style="flex:1;background:#d32f2f;color:#fff">Confirm</button></div></div>`;
+  document.body.appendChild(modal);
+  document.getElementById('btccDeleteCancel').onclick=()=>modal.remove();
+  document.getElementById('btccDeleteConfirmBtn').onclick=()=>confirmDeleteRentalCustomer(n);
+}
+function confirmDeleteRentalCustomer(n){
+  n=n||window.currentBTCCCustomer;
+  if(!n || !Object.prototype.hasOwnProperty.call(R,n)) return;
+  delete R[n];
+  save();
+  const m=document.getElementById('btccDeleteConfirm'); if(m)m.remove();
+  window.btccRentalStatus='active';
+  rentals();
+}
+function manageBTCCDepositsRefunds(n){
+  n=n||window.currentBTCCCustomer;
+  const c=R[n]; if(!c)return;
+  const old=document.getElementById('btccDepositRefundModal'); if(old)old.remove();
+  const modal=document.createElement('div'); modal.id='btccDepositRefundModal';
+  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.48);display:flex;align-items:center;justify-content:center;z-index:99999;padding:20px';
+  const t=rentalTotals(c);
+  modal.innerHTML=`<div style="background:#fff;border-radius:18px;padding:22px;max-width:390px;width:100%;box-shadow:0 15px 40px rgba(0,0,0,.25)">
+    <h3 style="margin:0 0 18px">💰 Deposits / Refunds</h3>
+    <div style="display:grid;gap:14px">
+      <div style="display:flex;align-items:center;gap:10px"><label style="font-weight:700;color:#16803c;min-width:95px">Deposit ₹</label><input id="btccDepositAmt" type="number" min="0" step="1" placeholder="Amount" inputmode="numeric" style="flex:1;border-color:#8bcf9d"></div>
+      <div style="display:flex;align-items:center;gap:10px"><label style="font-weight:700;color:#c62828;min-width:95px">Refund ₹</label><input id="btccRefundAmt" type="number" min="0" step="1" placeholder="Amount" inputmode="numeric" style="flex:1;border-color:#e79a9a"></div>
+    </div>
+    <div style="background:#f4f8fb;border-radius:12px;padding:12px;margin-top:14px;font-size:14px;line-height:1.9">
+      <b>Current Deposited</b> <span id="drCurrent">₹${t.deposit}</span><br>
+      <b>Current Bill</b> ₹${t.totalBill}<br>
+      <b>Rental Charges</b> <span style="color:#d32f2f">₹${t.rentalBill}</span><br>
+      <b>Current Refundable</b> <span style="color:#1769aa">₹${t.refund}</span>
+      <hr style="border:0;border-top:1px solid #dfe7ed;margin:8px 0">
+      <b>After Entry</b><br><span id="drAfter">Deposited: ₹${t.deposit} | Refundable: <span style=\"color:#1769aa;font-weight:700\">₹${t.refund}</span><br><span style=\"color:#d32f2f\">Rental Charges: ₹${t.rentalBill}</span></span>
+    </div>
+    <div id="btccDRerr" style="color:#d32f2f;font-size:13px;margin-top:10px;min-height:18px"></div>
+    <div style="display:flex;gap:10px;margin-top:14px"><button class="btn secondary" id="drCancel" style="flex:1">Cancel</button><button class="btn" id="drConfirm" style="flex:1">Save Entry</button></div>
+  </div>`;
+  document.body.appendChild(modal);
+  const preview=()=>{const d=Math.max(0,Number(document.getElementById('btccDepositAmt').value)||0),r=Math.max(0,Number(document.getElementById('btccRefundAmt').value)||0),after=Math.max(0,t.deposit+d-r),ref=Math.max(0,after-t.totalBill);document.getElementById('drAfter').innerHTML='Deposited: ₹'+after+' | Refundable: <span style=\"color:#1769aa;font-weight:700\">₹'+ref+'</span><br><span style=\"color:#d32f2f\">Rental Charges: ₹'+t.rentalBill+'</span>'};
+  document.getElementById('btccDepositAmt').addEventListener('input',preview); document.getElementById('btccRefundAmt').addEventListener('input',preview);
+  document.getElementById('drCancel').onclick=()=>modal.remove();
+  document.getElementById('drConfirm').onclick=()=>{
+    const d=Math.max(0,Number(document.getElementById('btccDepositAmt').value)||0),r=Math.max(0,Number(document.getElementById('btccRefundAmt').value)||0),err=document.getElementById('btccDRerr');
+    if(!d&&!r){err.textContent='Enter a deposit or refund amount.';return}
+    if(r>t.deposit+d){err.textContent='Refund cannot be more than the deposited amount after this deposit.';return}
+    const balanceAfter=t.deposit+d-r;
+    c.depositRefunds=c.depositRefunds||[]; c.depositRefunds.push({deposit:d,refund:r,balanceAfter,ts:Date.now()});
+    addRentalActivity(c,{type:'depositRefund',deposit:d,refund:r,balanceAfter}); save(); modal.remove(); openRental(n);
+  };
+}
+function editRentalCustomer(n){
+  n=n||window.currentBTCCCustomer;
+  const c=R[n]; if(!c) return rentals();
+  const appEl=document.getElementById('app');
+  appEl.innerHTML=`<div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><div><div class="small">BT/CC RENTALS</div><h2 style="margin:3px 0">✏️ Edit Customer</h2></div><button class="btn secondary" id="editBackBtn">← Back</button></div><div class="grid" style="margin-top:14px"><div><label>Customer Name</label><input id="en" type="text"></div><div><label>Mobile Number</label><div style="display:flex;gap:6px"><input id="ephone" inputmode="numeric" maxlength="10" type="tel" oninput="validateEditPhone()"><button class="btn" style="white-space:nowrap;padding:9px 10px" id="editVerifyBtn" type="button">📞 Verify</button></div><div id="editPhoneErr" style="color:#d32f2f;font-size:12px;margin-top:4px"></div></div><div><label>Security Deposit</label><input id="edep" type="number" min="0"></div><div></div><div><label>Rental Date</label><input id="edate" type="date"></div><div><label>Rental Time</label><input id="etime" type="time" step="60" lang="en-US"><div id="editTime12Display" class="small" style="margin-top:4px"></div></div><div><label style="color:#16803c">BT/PBT Quantity</label><input id="epbt" type="number" min="0" style="border-color:#8bcf9d"></div><div><label style="color:#c62828">CC Quantity</label><input id="ecc" type="number" min="0" style="border-color:#e79a9a"></div></div><div id="editErr" style="color:#d32f2f;font-size:12px;margin-top:8px"></div><br><button class="btn" id="saveEditBtn">Save Changes</button><button class="btn secondary" id="cancelEditBtn" style="margin-left:6px">Cancel</button></div>`;
+  document.getElementById('en').value=n; document.getElementById('ephone').value=c.phone||''; document.getElementById('edep').value=(c.deposit??''); document.getElementById('edate').value=c.rentalDate||localDateKey(new Date()); document.getElementById('etime').value=c.rentalTime||new Date().toTimeString().slice(0,5); document.getElementById('editTime12Display').textContent=formatRentalTime12(document.getElementById('etime').value); document.getElementById('epbt').value=(c.pbt??''); document.getElementById('ecc').value=(c.cc??''); document.getElementById('etime').addEventListener('input',()=>document.getElementById('editTime12Display').textContent=formatRentalTime12(document.getElementById('etime').value)); document.getElementById('editVerifyBtn').onclick=verifyEditPhone;
+  document.getElementById('saveEditBtn').onclick=()=>saveEditedRentalCustomer(n);
+  document.getElementById('cancelEditBtn').onclick=()=>openRental(n);
+  document.getElementById('editBackBtn').onclick=()=>openRental(n);
+}
+
+function validateEditPhone(){const v=(document.getElementById('ephone')?.value||'').replace(/\D/g,'');const e=document.getElementById('editPhoneErr');if(e)e.textContent=v.length===10?'':'Please enter a valid 10 digits mobile number.';return v.length===10}
+function verifyEditPhone(){const v=(document.getElementById('ephone')?.value||'').replace(/\D/g,'');if(!validateEditPhone()){alert('Please enter a valid 10 digits mobile number.');return}window.location.href='tel:'+v}
+function saveEditedRentalCustomer(oldName){
+  oldName=oldName||window.currentBTCCCustomer;
+  const x=R[oldName]; if(!x) return rentals();
+  const name=document.getElementById('en').value.trim(); const phone=document.getElementById('ephone').value.replace(/\D/g,''); const dep=document.getElementById('edep').value.trim(); const date=document.getElementById('edate').value; const time=document.getElementById('etime').value; const pbt=document.getElementById('epbt').value.trim(); const cc=document.getElementById('ecc').value.trim(); const err=document.getElementById('editErr');
+  if(!name){err.textContent='Enter customer name';return} if(phone.length!==10){err.textContent='Please enter a valid 10 digits mobile number.';return} if(dep===''){err.textContent='Enter security deposit amount';return} if((Number(pbt)||0)<=0&&(Number(cc)||0)<=0){err.textContent='Please enter at least one BT/PBT quantity or CC quantity.';return} if(name!==oldName&&Object.prototype.hasOwnProperty.call(R,name)){err.textContent='A customer with this name already exists.';return}
+  const updated={...x,phone,deposit:Number(dep),rentalDate:date,rentalTime:time,pbt:Number(pbt)||0,cc:Number(cc)||0}; if(name!==oldName) delete R[oldName]; R[name]=updated; save(); window.btccRentalStatus='active'; openRental(name);
+}
+function recordReturn(n){
+  n=n||window.currentBTCCCustomer;
+  const c=R[n]; if(!c)return;
+  const t=rentalTotals(c);
+  const old=document.getElementById('btccReturnModal'); if(old)old.remove();
+  const modal=document.createElement('div');
+  modal.id='btccReturnModal';
+  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.48);display:flex;align-items:center;justify-content:center;z-index:99999;padding:20px';
+  modal.innerHTML=`<div style="background:#fff;border-radius:18px;padding:22px;max-width:380px;width:100%;box-shadow:0 15px 40px rgba(0,0,0,.25)">
+    <h3 style="margin:0 0 18px">↩ Return Cans</h3>
+    <div style="display:grid;gap:14px">
+      <div style="display:flex;align-items:center;gap:10px"><label style="font-weight:700;color:#16803c;min-width:72px">↩ BT</label><input id="returnBTQty" type="number" min="0" max="${t.pendingBT}" step="1" placeholder="Quantity" inputmode="numeric" style="flex:1"></div>
+      <div style="display:flex;align-items:center;gap:10px"><label style="font-weight:700;color:#c62828;min-width:72px">↩ CC</label><input id="returnCCQty" type="number" min="0" max="${t.pendingCC}" step="1" placeholder="Quantity" inputmode="numeric" style="flex:1"></div>
+    </div>
+    <div style="background:#f4f8fb;border-radius:12px;padding:12px;margin-top:14px;font-size:14px;line-height:1.8">
+      <b>Current Balance</b><br>BT: ${t.pendingBT} &nbsp; | &nbsp; CC: ${t.pendingCC}
+      <hr style="border:0;border-top:1px solid #dfe7ed;margin:8px 0">
+      <b>After Returning</b><br><span id="returnAfterBalance">BT: ${t.pendingBT} &nbsp; | &nbsp; CC: ${t.pendingCC}</span>
+    </div>
+    <div id="returnErr" style="color:#d32f2f;font-size:13px;margin-top:8px;min-height:18px"></div>
+    <div style="display:flex;gap:10px;margin-top:14px">
+      <button class="btn secondary" id="returnCancel" style="flex:1">Cancel</button>
+      <button class="btn" id="returnConfirm" style="flex:1">Return Cans</button>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+  const updateReturnPreview=()=>{const b=Math.max(0,parseInt(document.getElementById('returnBTQty').value)||0);const q=Math.max(0,parseInt(document.getElementById('returnCCQty').value)||0);document.getElementById('returnAfterBalance').textContent='BT: '+Math.max(0,t.pendingBT-b)+' | CC: '+Math.max(0,t.pendingCC-q)};
+  document.getElementById('returnBTQty').addEventListener('input',updateReturnPreview);
+  document.getElementById('returnCCQty').addEventListener('input',updateReturnPreview);
+  document.getElementById('returnCancel').onclick=()=>modal.remove();
+  document.getElementById('returnConfirm').onclick=()=>{
+    const b=Math.max(0,parseInt(document.getElementById('returnBTQty').value)||0);
+    const q=Math.max(0,parseInt(document.getElementById('returnCCQty').value)||0);
+    const err=document.getElementById('returnErr');
+    if(!b&&!q){err.textContent='Enter at least one BT or CC return quantity.';return}
+    if(b>t.pendingBT||q>t.pendingCC){err.textContent='Returned quantity cannot be more than the current can balance.';return}
+    c.returns=c.returns||[];
+    c.returns.push({date:localDateKey(new Date()),pbt:b,cc:q,ts:Date.now()});addRentalActivity(c,{type:'return',pbt:b,cc:q});
+    save(); modal.remove(); openRental(n);
+  };
+}
+function moveBTCCPending(n){
+  n=n||window.currentBTCCCustomer;
+  const c=R[n]; if(!c)return;
+  const old=document.getElementById('btccPendingConfirm'); if(old)old.remove();
+  const modal=document.createElement('div');
+  modal.id='btccPendingConfirm';
+  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.48);display:flex;align-items:center;justify-content:center;z-index:99999;padding:20px';
+  modal.innerHTML=`<div style="background:#fff;border-radius:18px;padding:22px;max-width:380px;width:100%;box-shadow:0 15px 40px rgba(0,0,0,.25)">
+    <h3 style="margin:0 0 14px">Move to Pending</h3>
+    <div style="font-size:16px;line-height:1.7;margin-bottom:18px">
+      Are you sure you want to move <b>${String(c.name||'this customer').replace(/</g,'&lt;')}</b> to Pending?
+    </div>
+    <div style="display:flex;gap:10px">
+      <button class="btn secondary" id="btccPendingCancel" style="flex:1">Cancel</button>
+      <button class="btn" id="btccPendingConfirmBtn" style="flex:1;background:#dc3545;color:#fff">Confirm</button>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+  document.getElementById('btccPendingCancel').onclick=()=>modal.remove();
+  document.getElementById('btccPendingConfirmBtn').onclick=()=>{
+    c.pending=true;c.closed=false;c.refundCompleted=false;addRentalActivity(c,{type:'status',text:'Moved to Pending'});save();
+    modal.remove();window.btccRentalStatus='pending';openRental(n);
+  };
+}
+function moveBTCCActive(n){
+  n=n||window.currentBTCCCustomer;
+  const c=R[n]; if(!c)return;
+  const old=document.getElementById('btccActiveConfirm'); if(old)old.remove();
+  const from=c.closed?'Closed':(c.pending?'Pending':'Active');
+  const modal=document.createElement('div');
+  modal.id='btccActiveConfirm';
+  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.48);display:flex;align-items:center;justify-content:center;z-index:99999;padding:20px';
+  modal.innerHTML=`<div style="background:#fff;border-radius:18px;padding:22px;max-width:380px;width:100%;box-shadow:0 15px 40px rgba(0,0,0,.25)">
+    <h3 style="margin:0 0 14px">Move to Active</h3>
+    <div style="font-size:16px;line-height:1.7;margin-bottom:18px">Are you sure you want to move <b>${String(c.name||'this customer').replace(/</g,'&lt;')}</b> from ${from} to Active?</div>
+    <div style="display:flex;gap:10px"><button class="btn secondary" id="btccActiveCancel" style="flex:1">Cancel</button><button class="btn" id="btccActiveConfirmBtn" style="flex:1;background:#198754;color:#fff">Confirm</button></div>
+  </div>`;
+  document.body.appendChild(modal);
+  document.getElementById('btccActiveCancel').onclick=()=>modal.remove();
+  document.getElementById('btccActiveConfirmBtn').onclick=()=>{
+    c.pending=false;c.closed=false;c.refundCompleted=false;addRentalActivity(c,{type:'status',text:`Moved from ${from} to Active`});save();modal.remove();window.btccRentalStatus='active';openRental(n);
+  };
+}
+function closeBTCCRental(n){
+  n=n||window.currentBTCCCustomer;
+  const c=R[n]; if(!c)return;
+  const t=rentalTotals(c);
+  const amount=t.refund>0?t.refund:t.extraBill>0?t.extraBill:t.bill+t.refillBill;
+  const amountLabel=t.refund>0?'Refund':t.extraBill>0?'Bill':'Bill/Refund';
+  const old=document.getElementById('btccCloseConfirm'); if(old)old.remove();
+  const modal=document.createElement('div');
+  modal.id='btccCloseConfirm';
+  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.48);display:flex;align-items:center;justify-content:center;z-index:99999;padding:20px';
+  modal.innerHTML=`<div style="background:#fff;border-radius:18px;padding:22px;max-width:380px;width:100%;box-shadow:0 15px 40px rgba(0,0,0,.25)">
+    <h3 style="margin:0 0 14px">Mark as Closed</h3>
+    <div style="font-size:16px;line-height:1.7;margin-bottom:18px">
+      <b>${amountLabel} amount: ₹${amount}</b><br>
+      <b>BT: ${t.pendingBT}</b><br>
+      <b>CC: ${t.pendingCC}</b><br><br>
+      Are these bill/refund amount and cans cleared?
+    </div>
+    <div style="display:flex;gap:10px">
+      <button class="btn secondary" id="btccCloseCancel" style="flex:1">Cancel</button>
+      <button class="btn" id="btccCloseConfirmBtn" style="flex:1;background:#198754;color:#fff">Confirm</button>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+  document.getElementById('btccCloseCancel').onclick=()=>modal.remove();
+  document.getElementById('btccCloseConfirmBtn').onclick=()=>{
+    c.refundCompleted=true;c.closed=true;c.pending=false;addRentalActivity(c,{type:'status',text:'Marked as Closed'});
+    save();modal.remove();window.btccRentalStatus='closed';rentals();
+  };
+}
+function renderStaffAdmin(){
+ staffOrder=staffOrder.filter(n=>staff[n]).concat(Object.keys(staff).filter(n=>!staffOrder.includes(n)));
+ staffAdminList.innerHTML=staffOrder.map((n,i)=>{let x=staff[n];return `<div class="prod" style="display:flex;align-items:center;gap:6px;opacity:${x.deleted?.45:x.hidden?.6:1}"><div style="flex:1"><b>${n}</b><div class="small">📱 ${x.phone||"—"} · Start: ${x.startDate||"—"} · ₹${x.salary||0}/month ${x.hidden?"· HIDDEN":""}</div></div><button class="btn secondary" onclick="moveStaff(${i},-1)">↑</button><button class="btn secondary" onclick="moveStaff(${i},1)">↓</button><button class="btn secondary" onclick='editStaff(${JSON.stringify(n)})'>✏️</button></div>`}).join("");
+}
+function addStaff(){document.getElementById("app").innerHTML=`<div class="card"><h2>＋ Add Staff</h2><div class="grid"><div><label>Employee Name</label><input id="sn"></div><div><label>Employee Mobile Number</label><input id="sp" type="tel"></div><div><label>Employee Month Start Date</label><input id="ss" type="date"></div><div><label>Salary Amount Per Month ₹</label><input id="ssal" type="number"></div>
+<div><label>Default Shift Login Time</label><input id="sl" type="time" oninput="calcShiftPreview()"></div>
+<div><label>Default Shift Logout Time</label><input id="so" type="time" oninput="calcShiftPreview()"></div>
+<div><label>Shift Duration</label><div id="sd" class="amt">—</div></div></div><br><button class="btn" onclick="saveStaff()">💾 Save Staff</button> <button class="btn secondary" onclick="manageStaff()">Cancel</button></div>`}
+
+function saveStaff(){let n=sn.value.trim();if(!n)return alert("Enter employee name");if(staff[n])return alert("Staff already exists.");staff[n]={phone:sp.value,startDate:ss.value,salary:+ssal.value||0,shiftLogin:sl.value,shiftLogout:so.value,hidden:false,deleted:false};staffOrder.push(n);save();manageStaff()}
+function editStaff(n){let x=staff[n];document.getElementById("app").innerHTML=`<div class="card"><h2>✏️ Edit Staff</h2><div class="grid"><div><label>Employee Name</label><input id="esn" value="${n}"></div><div><label>Employee Mobile Number</label><input id="esp" value="${x.phone||""}" type="tel"></div><div><label>Employee Month Start Date</label><input id="ess" value="${x.startDate||""}" type="date"></div><div><label>Salary Amount Per Month ₹</label><input id="essal" value="${x.salary||0}" type="number"></div><div><label>Default Shift Login Time</label><input id="esl" value="${x.shiftLogin||""}" type="time" oninput="calcEditShiftPreview()"></div><div><label>Default Shift Logout Time</label><input id="eso" value="${x.shiftLogout||""}" type="time" oninput="calcEditShiftPreview()"></div><div><label>Shift Duration</label><div id="esd" class="amt">${shiftDuration(x.shiftLogin,x.shiftLogout)||"—"}</div></div></div><br><button class="btn" onclick='saveEditedStaff(${JSON.stringify(n)})'>💾 Save Changes</button> <button class="btn secondary" onclick='toggleStaffHidden(${JSON.stringify(n)})'>${staff[n].hidden?"👁️ Unhide Staff":"👁️ Hide Staff Member"}</button> <button class="btn danger" onclick='deleteStaff(${JSON.stringify(n)})'>🗑️ Delete Staff Member</button> <button class="btn secondary" onclick="manageStaff()">Cancel</button></div>`}
+function calcEditShiftPreview(){esd.textContent=shiftDuration(esl.value,eso.value)||"—"}
+function saveEditedStaff(old){let n=esn.value.trim();if(!n)return alert("Enter employee name");if(n!==old&&staff[n])return alert("Staff already exists.");if(n!==old){staff[n]=staff[old];delete staff[old];staffOrder=staffOrder.map(x=>x===old?n:x)}staff[n]={...staff[n],phone:esp.value,startDate:ess.value,salary:+essal.value||0,shiftLogin:esl.value,shiftLogout:eso.value,deleted:false};save();manageStaff()}
+function toggleStaffHidden(n){staff[n].hidden=!staff[n].hidden;save();manageStaff()}
+function deleteStaff(n){if(!confirm("Remove this staff member? Historical attendance will be retained."))return;staff[n].deleted=true;staff[n].hidden=true;save();manageStaff()}
+function moveStaff(i,d){let j=i+d;if(j<0||j>=staffOrder.length)return;[staffOrder[i],staffOrder[j]]=[staffOrder[j],staffOrder[i]];save();manageStaff()}
+
+function manageProducts(){
+ let keys=Object.keys(productSettings);
+ document.getElementById("app").innerHTML=`<div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><div><h2>📦💰 Manage Products & Rates</h2><span class="small">Default settings for the entire app</span></div><button class="btn secondary" onclick="ownerDashboard()">← Back</button></div><br><button class="btn" onclick="newProduct()">＋ Add New Product</button><div id="productAdminList" style="margin-top:12px"></div></div>`;
+ renderProductAdmin();
+}
+function renderProductAdmin(){
+ let keys=Object.keys(productSettings);
+ productAdminList.innerHTML=keys.map((k,i)=>{let x=productSettings[k];return `<div class="prod" style="display:flex;align-items:center;gap:7px;opacity:${x.hidden?.55:1}">
+ <div style="flex:1"><b>${x.name}</b> <span class="small">(${x.shortcut})</span><div class="small">Dealer ₹${x.dealerRate} &nbsp; Customer ₹${x.customerRate} ${x.hidden?" · HIDDEN":""}</div></div>
+ <button class="btn secondary" onclick="moveProduct(${i},-1)">↑</button><button class="btn secondary" onclick="moveProduct(${i},1)">↓</button><button class="btn secondary" onclick='editProduct(${JSON.stringify(k)})'>✏️</button>
+ </div>`}).join("");
+}
+function newProduct(){
+ document.getElementById("app").innerHTML=`<div class="card"><h2>＋ Add New Product</h2><div class="grid"><div><label>Product Name</label><input id="pn" placeholder="e.g. 2L Bottle"></div><div><label>Shortcut</label><input id="ps" placeholder="e.g. 2L"></div><div><label>Dealer Rate ₹</label><input id="pdr" type="number" step="0.01" placeholder=""></div><div><label>Customer Rate ₹</label><input id="pcr" type="number" step="0.01" placeholder=""></div><div><label>Save Rate as Default</label><select id="pdef"><option value="yes">Yes — apply across the app</option><option value="no">No</option></select></div><div><label>Bottles per Case (optional)</label><input id="pcb" type="number" placeholder=""></div></div><br><button class="btn" onclick="saveNewProduct()">💾 Save Product</button> <button class="btn secondary" onclick="manageProducts()">Cancel</button></div>`;
+}
+function saveNewProduct(){
+ let name=pn.value.trim(),shortcut=ps.value.trim();
+ if(!name||!shortcut)return alert("Enter product name and shortcut.");
+ if(productSettings[shortcut])return alert("This shortcut already exists.");
+ productSettings[shortcut]={name,shortcut,dealerRate:+pdr.value||0,customerRate:+pcr.value||0,hidden:false,cases:+pcb.value||0};
+ syncProducts();save();alert("Product and default rates saved successfully.");manageProducts();
+}
+function editProduct(k){
+ let x=productSettings[k];
+ document.getElementById("app").innerHTML=`<div class="card"><h2>✏️ Edit Product</h2><div class="grid"><div><label>Product Name</label><input id="epn" value="${x.name}"></div><div><label>Shortcut</label><input id="eps" value="${x.shortcut}"></div><div><label>Dealer Rate ₹</label><input id="epdr" type="number" step="0.01" value="${x.dealerRate}"></div><div><label>Customer Rate ₹</label><input id="epcr" type="number" step="0.01" value="${x.customerRate}"></div><div><label>Save Rate as Default</label><select id="epdef"><option value="yes">Yes — apply across the app</option><option value="no">No</option></select></div><div><label>Bottles per Case (optional)</label><input id="epcb" type="number" value="${x.cases||""}"></div></div><br>
+ <button class="btn" onclick='saveEditedProduct(${JSON.stringify(k)})'>💾 Save Changes</button>
+ <button class="btn secondary" onclick='toggleProductHidden(${JSON.stringify(k)})'>${x.hidden?"👁️ Unhide Product":"👁️ Hide Product"}</button>
+ <button class="btn danger" onclick='deleteProduct(${JSON.stringify(k)})'>🗑️ Delete Product</button>
+ <button class="btn secondary" onclick="manageProducts()">Cancel</button></div>`;
+}
+function saveEditedProduct(oldKey){
+ let name=epn.value.trim(),shortcut=eps.value.trim();
+ if(!name||!shortcut)return alert("Enter product name and shortcut.");
+ if(shortcut!==oldKey&&productSettings[shortcut])return alert("This shortcut already exists.");
+ let x={...productSettings[oldKey],name,shortcut,dealerRate:+epdr.value||0,customerRate:+epcr.value||0,cases:+epcb.value||0};
+ if(shortcut!==oldKey){productSettings[shortcut]=x;delete productSettings[oldKey]}else productSettings[oldKey]=x;
+ syncProducts();save();alert("Product and default rates updated across the app.");manageProducts();
+}
+function toggleProductHidden(k){productSettings[k].hidden=!productSettings[k].hidden;save();manageProducts()}
+function deleteProduct(k){if(!confirm("Delete this product? This removes it from the active product settings."))return;delete productSettings[k];delete P[k];save();manageProducts()}
+function moveProduct(i,dir){
+ let keys=Object.keys(productSettings),j=i+dir;if(j<0||j>=keys.length)return;
+ let reordered={};[...keys].forEach((k,idx)=>{let from=idx;if(idx===i)from=j;else if(idx===j)from=i;reordered[k]=productSettings[keys[from]]});
+ productSettings=reordered;syncProducts();save();manageProducts();
+}
+
+
+function money(){
+ drawer.classList.remove("open");
+ const den=[500,200,100,50,20,10,5,2,1];
+ document.getElementById("app").innerHTML=`<div class="card" style="max-width:620px;margin:0 auto">
+ <div style="display:flex;justify-content:space-between;align-items:center"><div><h2 style="margin:3px 0">🧮 Money Calculator</h2></div><button class="btn secondary" onclick="home()">← Home</button></div>
+ <div style="margin-top:14px">
+ ${den.map(d=>`<div class="moneyrow"><div class="moneyden">₹${d}</div><div class="moneyop">×</div><input id="money_${d}" type="number" min="0" step="1" inputmode="numeric" placeholder="0" oninput="calculateMoney()"><div class="moneyop">=</div><div id="money_amt_${d}" class="amt">₹0</div></div>`).join("")}
+ </div>
+ <div class="total"><span>Total</span><span id="moneyTotal">₹0</span></div>
+ <div style="display:flex;gap:8px;margin-top:12px"><button class="btn" style="flex:1" onclick="shareMoneyWhatsApp()">📲 Share WhatsApp</button><button class="btn secondary" onclick="clearMoneyCalculator()">Clear</button></div>
+ </div>`;
+ calculateMoney();
+}
+function calculateMoney(){
+ const den=[500,200,100,50,20,10,5,2,1];
+ let total=0;
+ den.forEach(d=>{
+   const e=document.getElementById("money_"+d), out=document.getElementById("money_amt_"+d);
+   let q=Math.max(0,Math.floor(Number(e?.value)||0));
+   if(e && String(q)!==e.value && e.value!=="") e.value=q;
+   const amt=q*d; total+=amt;
+   if(out) out.textContent="₹"+amt.toLocaleString("en-IN");
+ });
+ const t=document.getElementById("moneyTotal"); if(t)t.textContent="₹"+total.toLocaleString("en-IN");
+ return total;
+}
+function clearMoneyCalculator(){
+ [500,200,100,50,20,10,5,2,1].forEach(d=>{const e=document.getElementById("money_"+d);if(e)e.value="";});
+ calculateMoney();
+}
+function shareMoneyWhatsApp(){
+ const den=[500,200,100,50,20,10,5,2,1];
+ let lines=[],total=0;
+ den.forEach(d=>{
+   const q=Math.max(0,Math.floor(Number(document.getElementById("money_"+d)?.value)||0));
+   if(q){const amt=q*d;lines.push(`₹${d} × ${q} = ₹${amt}`);total+=amt;}
+ });
+ if(!lines.length){alert("Please enter at least one denomination.");return;}
+ const msg=`*Happy Drops*\n_(Packaged Drinking Water)_\n\n*Money Calculator*\n${lines.join("\n")}\n\n*Total: ₹${total}*`;
+ window.open("https://wa.me/?text="+encodeURIComponent(msg),"_blank");
+}
+
+ensureSyncBadge();home();
+setTimeout(hdInitCloud,150);
+</script></body></html>
