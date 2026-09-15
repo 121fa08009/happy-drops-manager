@@ -48,53 +48,17 @@
 #rentList .card > div:nth-child(2) > div{padding:5px!important}
 #rentList .btcc-card-number{line-height:1!important;margin-top:1px!important}
 </style>
+<link rel="icon" href="./favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="./favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="48x48" href="./favicon-48x48.png">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#087fc1">
 </head><body>
 <header class="head"><span class="menu" onclick="openMenu()">☰</span><span class="brand">💧 Happy Drops Manager</span></header>
 <div class="drawer" id="drawer" onclick="closeMenu(event)"><div class="side"><h2>Happy Drops</h2>
 <div class="nav" onclick="home()">🏠 Home</div><div class="nav" onclick="dealers()">👥 Dealers</div><div class="nav" onclick="rentals()">🧊 BT/CC Rentals</div><div class="nav" onclick="window.open(&quot;https://t.me/+i8hTI9o6OyIwNzg1&quot;,&quot;_blank&quot;)">📋 Orders</div><div class="nav" onclick="sales()">💰 Sales</div><div class="nav" onclick="money()">🧮 Money Calculator</div><div class="nav" onclick="attendance()">👥 Staff Attendance</div><div class="nav" onclick="owner()">👑 Owner</div>
 </div></div><main class="wrap" id="app"></main>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<style id="cloudAuthStyles">
-#cloudAuthOverlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;padding:18px;z-index:10000}
-#cloudAuthBox{background:#fff;border-radius:16px;max-width:390px;width:100%;padding:22px;box-shadow:0 14px 45px rgba(0,0,0,.25)}
-#cloudAuthBox h3{margin:0 0 6px;color:#1769aa;text-align:center}
-#cloudAuthBox p{margin:0 0 16px;color:#667781;font-size:13px}
-#cloudAuthBox input{width:100%;box-sizing:border-box;margin:6px 0;padding:11px 12px;border:1px solid #ccd7df;border-radius:9px;font-size:15px}
-#cloudAuthMsg{min-height:20px;margin-top:10px;font-size:13px;white-space:pre-line;text-align:center}
-.cloud-user-badge{position:fixed;right:12px;bottom:12px;z-index:9000;background:#fff;border:1px solid #dce6ec;border-radius:999px;padding:7px 11px;box-shadow:0 4px 16px rgba(0,0,0,.12);font-size:12px;color:#1769aa;display:none}
-</style>
-<script>
-const HAPPY_DROPS_SUPABASE_URL='https://gyrdmfnyypqoxhueqsjo.supabase.co';
-const HAPPY_DROPS_SUPABASE_PUBLISHABLE_KEY='sb_publishable_M1kXdYZnF8xjILQ_nzMbFQ_MIlblTa0';
-let hdSupabase=null, hdSession=null, hdCloudBusy=false;
-function hdCloudMessage(text,color){const e=document.getElementById('cloudAuthMsg');if(e){e.textContent=text;e.style.color=color||'#1769aa';}}
-function hdShowAuth(){let old=document.getElementById('cloudAuthOverlay');if(old)old.remove();const e=document.createElement('div');e.id='cloudAuthOverlay';e.innerHTML=`<div id="cloudAuthBox"><h3>🔐 Happy Drops</h3><p>Enter your PIN to open Happy Drops Manager.</p><input id="hdLoginPin" type="password" inputmode="numeric" maxlength="4" placeholder="Enter PIN" autocomplete="off" onkeydown="if(event.key==='Enter')hdSignIn()"><button class="btn" style="width:100%;margin-top:8px" onclick="hdSignIn()">Login</button><div id="cloudAuthMsg"></div></div>`;document.body.appendChild(e);e.style.display='flex';setTimeout(()=>document.getElementById('hdLoginPin')?.focus(),50);}
-async function hdSignIn(){if(!hdSupabase)return;const pin=(document.getElementById('hdLoginPin')?.value||'').trim();if(pin!=='8009'){hdCloudMessage('Wrong OTP/PIN\nPlease enter correct OTP/PIN.','#c62828');return;}hdCloudMessage('Connecting to cloud…');try{let data=(await hdSupabase.auth.getSession()).data;let session=data?.session||null;if(!session){const r=await hdSupabase.auth.signInAnonymously();if(r.error)throw r.error;session=r.data.session;}hdSession=session;const ov=document.getElementById('cloudAuthOverlay');if(ov)ov.remove();await hdCloudBootstrap();}catch(e){console.error('Cloud PIN login error',e);hdCloudMessage('Cloud login is not enabled yet. Please enable Anonymous Sign-Ins in Supabase Authentication settings.','#c62828');}}
-function hdCloudBadge(){let e=document.getElementById('hdCloudUser');if(e)e.remove();}
-function hdUuid(){return (crypto&&crypto.randomUUID)?crypto.randomUUID():('00000000-0000-4000-8000-'+Math.random().toString(16).slice(2).padStart(12,'0'));}
-function hdRentalBase(id,c){return {id,name:id,phone:c.phone||'',rental_date:c.rentalDate||localDateKey(new Date()),rental_time:c.rentalTime||null,return_date:c.returnDate||null,bt_quantity:Number(c.pbt)||0,cc_quantity:Number(c.cc)||0,bt_price:Number.isFinite(+c.pbtPrice)?+c.pbtPrice:20,cc_price:Number.isFinite(+c.ccPrice)?+c.ccPrice:50,security_deposit:Number(c.deposit)||0,status:c.closed?'closed':(c.pending?'pending':'active'),closed:!!c.closed,refund_completed:!!c.refundCompleted};}
-async function hdDeleteChildren(id){for(const table of ['rental_additions','rental_returns','rental_refills','rental_deposit_transactions','rental_activity']){const {error}=await hdSupabase.from(table).delete().eq('rental_customer_id',id);if(error)throw error;}}
-async function hdPushRental(id,c){const cloudId=c.cloudId||hdUuid();c.cloudId=cloudId;const {error:baseErr}=await hdSupabase.from('rental_customers').upsert(hdRentalBase(cloudId,c),{onConflict:'id'});if(baseErr)throw baseErr;await hdDeleteChildren(cloudId);
- const adds=(c.additions||[]).map(x=>({rental_customer_id:cloudId,bt_quantity:Number(x.pbt)||0,cc_quantity:Number(x.cc)||0,deposit_amount:Number(x.deposit)||0,note:x.note||null,created_at:new Date(Number(x.ts)||Date.now()).toISOString()})).filter(x=>x.bt_quantity||x.cc_quantity);
- if(adds.length){const {error}=await hdSupabase.from('rental_additions').insert(adds);if(error)throw error;}
- const rets=(c.returns||[]).map(x=>({rental_customer_id:cloudId,bt_quantity:Number(x.pbt)||0,cc_quantity:Number(x.cc)||0,note:x.note||null,created_at:new Date(Number(x.ts)||Date.now()).toISOString()})).filter(x=>x.bt_quantity||x.cc_quantity);
- if(rets.length){const {error}=await hdSupabase.from('rental_returns').insert(rets);if(error)throw error;}
- const refs=(c.refills||[]).map(x=>({rental_customer_id:cloudId,bt_quantity:Number(x.pbt)||0,cc_quantity:Number(x.cc)||0,bt_rate:15,cc_rate:30,created_at:new Date(Number(x.ts)||Date.now()).toISOString()})).filter(x=>x.bt_quantity||x.cc_quantity);
- if(refs.length){const {error}=await hdSupabase.from('rental_refills').insert(refs);if(error)throw error;}
- const dr=(c.depositRefunds||[]).flatMap(x=>{const out=[];if(Number(x.deposit)>0)out.push({rental_customer_id:cloudId,transaction_type:'deposit',amount:Number(x.deposit),created_at:new Date(Number(x.ts)||Date.now()).toISOString()});if(Number(x.refund)>0)out.push({rental_customer_id:cloudId,transaction_type:'refund',amount:Number(x.refund),created_at:new Date(Number(x.ts)||Date.now()).toISOString()});return out;});
- if(dr.length){const {error}=await hdSupabase.from('rental_deposit_transactions').insert(dr);if(error)throw error;}
- const acts=(c.activity||[]).map(x=>({rental_customer_id:cloudId,activity_type:String(x.type||'activity'),description:JSON.stringify(x),bt_quantity:Number(x.pbt)||null,cc_quantity:Number(x.cc)||null,amount:Number(x.amount)||null,details:x,created_at:new Date(Number(x.ts)||Date.now()).toISOString()}));
- if(acts.length){const {error}=await hdSupabase.from('rental_activity').insert(acts);if(error)throw error;}
-}
-async function hdLoadRentals(){const {data:rows,error}=await hdSupabase.from('rental_customers').select('*').order('rental_date',{ascending:false}).order('rental_time',{ascending:false});if(error)throw error;const result={};for(const row of (rows||[])){const c={phone:row.phone,deposit:Number(row.security_deposit)||0,pbt:Number(row.bt_quantity)||0,cc:Number(row.cc_quantity)||0,pbtPrice:Number(row.bt_price)||20,ccPrice:Number(row.cc_price)||50,rentalDate:row.rental_date,rentalTime:row.rental_time||'',returnDate:row.return_date||'',rentalSequence:1,returns:[],additions:[],refills:[],depositRefunds:[],activity:[],pending:row.status==='pending',closed:row.status==='closed',refundCompleted:!!row.refund_completed,cloudId:row.id};result[row.name]=c;}
- const ids=Object.values(result).map(c=>c.cloudId);if(!ids.length)return result;
- const tables=['rental_additions','rental_returns','rental_refills','rental_deposit_transactions','rental_activity'];
- for(const table of tables){const {data,error}=await hdSupabase.from(table).select('*').in('rental_customer_id',ids).order('created_at',{ascending:true});if(error)throw error;for(const row of (data||[])){const c=Object.values(result).find(x=>x.cloudId===row.rental_customer_id);if(!c)continue;const ts=new Date(row.created_at).getTime()||Date.now();if(table==='rental_additions')c.additions.push({date:row.created_at?.slice(0,10)||'',pbt:row.bt_quantity,cc:row.cc_quantity,deposit:Number(row.deposit_amount)||0,ts});else if(table==='rental_returns')c.returns.push({date:row.created_at?.slice(0,10)||'',pbt:row.bt_quantity,cc:row.cc_quantity,ts});else if(table==='rental_refills')c.refills.push({date:row.created_at?.slice(0,10)||'',pbt:row.bt_quantity,cc:row.cc_quantity,amount:(Number(row.bt_quantity)||0)*15+(Number(row.cc_quantity)||0)*30,ts});else if(table==='rental_deposit_transactions'){c.depositRefunds=c.depositRefunds||[];let last=c.depositRefunds.find(x=>x.ts===ts);if(!last){last={deposit:0,refund:0,ts};c.depositRefunds.push(last);}if(row.transaction_type==='deposit')last.deposit+=Number(row.amount)||0;else last.refund+=Number(row.amount)||0;}else if(table==='rental_activity'){let x=row.details||{};if(typeof x==='string'){try{x=JSON.parse(x)}catch(_){x={type:row.activity_type,amount:row.amount}}}c.activity.push({...x,ts});}}}
- return result;}
-async function hdCloudBootstrap(){if(!hdSupabase||!hdSession)return;try{const cloud=await hdLoadRentals();const cloudCount=Object.keys(cloud).length;const localCount=typeof R!=='undefined'?Object.keys(R).length:0;if(cloudCount===0&&localCount>0){for(const [n,c] of Object.entries(R)){await hdPushRental(n,c);} }else if(cloudCount>0){R=Object.assign({},cloud,R);ensureRentalSequences();}else{R={};}hdCloudBadge();}catch(e){console.error('Cloud load error',e);alert('Cloud connection error: '+(e.message||e));}}
-async function hdCloudSyncRentals(){if(!hdSupabase||!hdSession||hdCloudBusy)return;hdCloudBusy=true;try{const {data:existing,error}=await hdSupabase.from('rental_customers').select('id,name');if(error)throw error;const localIds=new Set();for(const [n,c] of Object.entries(R||{})){await hdPushRental(n,c);localIds.add(c.cloudId);}for(const row of (existing||[])){if(!localIds.has(row.id)){const {error:e}=await hdSupabase.from('rental_customers').delete().eq('id',row.id);if(e)throw e;}}localStorage.setItem('happyDropsCloudLastSync',new Date().toISOString());}catch(e){console.error('Cloud sync error',e);}finally{hdCloudBusy=false;}}
-function hdInitCloud(){try{if(!window.supabase||!window.supabase.createClient)return;hdSupabase=window.supabase.createClient(HAPPY_DROPS_SUPABASE_URL,HAPPY_DROPS_SUPABASE_PUBLISHABLE_KEY);hdSupabase.auth.getSession().then(async ({data})=>{hdSession=data.session||null;if(hdSession){await hdCloudBootstrap();}else hdShowAuth();});hdSupabase.auth.onAuthStateChange((_event,session)=>{hdSession=session||null;});}catch(e){console.error('Supabase init error',e);}}
-</script>
 <script>
 let saved=null;try{const raw=localStorage.getItem("happyDropsManagerV12")||localStorage.getItem("happyDropsManagerV9")||localStorage.getItem("happyDropsManagerV8")||localStorage.getItem("happyDropsManagerV7");saved=raw?JSON.parse(raw):null}catch(e){saved=null;try{localStorage.removeItem("happyDropsManagerV12");localStorage.removeItem("happyDropsManagerV9");}catch(_){} }
 const P={BT:{s:"BT",r:5},PBT:{s:"PBT",r:5},C:{s:"C",r:15},CC:{s:"CC",r:20},WB:{s:"WB",r:60},"250":{s:"250ML",r:5,b:45},"300":{s:"300ML",r:5.25,b:40},"500":{s:"500ML",r:5.5,b:32},"1000":{s:"1000ML",r:8,b:15}};
@@ -163,7 +127,6 @@ function save(){
  localStorage.setItem("happyDropsManagerV12",JSON.stringify(saved));
  localStorage.setItem("happyDropsManagerV9",JSON.stringify(saved));
  markSync();syncNow();
- if(typeof hdCloudSyncRentals==="function"&&hdSession) hdCloudSyncRentals();
 }
 function openMenu(){drawer.classList.add("open")}function closeMenu(e){if(e.target.id=="drawer")drawer.classList.remove("open")}
 
@@ -914,5 +877,9 @@ function shareMoneyWhatsApp(){
 }
 
 ensureSyncBadge();home();
-setTimeout(hdInitCloud,150);
-</script></body></html>
+</script><script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("./service-worker.js").catch(console.error));
+}
+</script>
+</body></html>
