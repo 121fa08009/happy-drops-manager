@@ -516,7 +516,7 @@ function startRentalNameVoice(e){
   }
 }
 
-function saveRental(){let n=rn.value.trim(),phone=normalizeIndianMobile(rphone.value),p=+rpbt.value||0,c=+rcc.value||0,ppRaw=document.getElementById('rpbtPrice').value,cpRaw=document.getElementById('rccPrice').value,pbtPrice=ppRaw===''?null:Number(ppRaw),ccPrice=cpRaw===''?null:Number(cpRaw),returnDate=(document.getElementById('rreturnDate')||{}).value||'',today=localDateKey(new Date());if(!n){alert('Enter customer name');return}if(phone.length!==10){validateRentalPhone();alert('Please enter a valid 10 digits mobile number.');return}if(p<=0&&c<=0){validateRentalCans();alert('Please enter at least one BT quantity or CC quantity.');return}if((pbtPrice!==null&&(!Number.isFinite(pbtPrice)||pbtPrice<0))||(ccPrice!==null&&(!Number.isFinite(ccPrice)||ccPrice<0))){alert('Price cannot be negative.');return}if(returnDate&&returnDate<today){alert('Return Date cannot be less than today.');return}if(Object.prototype.hasOwnProperty.call(R,n)){alert('A customer with this name already exists.');return}let sameDateSeq=Object.keys(R).filter(k=>String(R[k].rentalDate||'')===String(rdate.value||'')).map(k=>Number(R[k].rentalSequence)).filter(Number.isFinite);let rentalSequence=sameDateSeq.length?Math.max(...sameDateSeq)+1:1;R[n]={phone,deposit:(+rdep.value||0),pbt:p,cc:c,pbtPrice,ccPrice,rentalDate:rdate.value,rentalTime:rtime.value,returnDate,rentalSequence,returns:[],additions:[],refills:[],activity:[],pending:false,closed:false,refundCompleted:false};addRentalActivity(R[n],{type:'added',name:n,phone,deposit:(+rdep.value||0),pbt:p,cc:c,bill:(pbtPrice===null||ccPrice===null)?null:p*pbtPrice+c*ccPrice});save();window.btccRentalStatus='active';rentals();showRentalWhatsAppPopup(n)}
+function saveRental(){let n=rn.value.trim(),phone=normalizeIndianMobile(rphone.value),p=+rpbt.value||0,c=+rcc.value||0,ppRaw=document.getElementById('rpbtPrice').value,cpRaw=document.getElementById('rccPrice').value,pbtPrice=ppRaw===''?null:Number(ppRaw),ccPrice=cpRaw===''?null:Number(cpRaw),returnDate=(document.getElementById('rreturnDate')||{}).value||'',today=localDateKey(new Date());if(!n){alert('Enter customer name');return}if(phone.length!==10){validateRentalPhone();alert('Please enter a valid 10 digits mobile number.');return}if(p<=0&&c<=0){validateRentalCans();alert('Please enter at least one BT quantity or CC quantity.');return}if((pbtPrice!==null&&(!Number.isFinite(pbtPrice)||pbtPrice<0))||(ccPrice!==null&&(!Number.isFinite(ccPrice)||ccPrice<0))){alert('Price cannot be negative.');return}if(returnDate&&returnDate<today){alert('Return Date cannot be less than today.');return}if(Object.prototype.hasOwnProperty.call(R,n)){alert('A customer with this name already exists.');return}const formDate=String(document.getElementById('rdate').value||'');const formTime=String(document.getElementById('rtime').value||'');if(!formDate||!formTime){alert('Please enter Rental Date and Rental Time.');return}let sameDateSeq=Object.keys(R).filter(k=>String(R[k].rentalDate||'')===formDate).map(k=>Number(R[k].rentalSequence)).filter(Number.isFinite);let rentalSequence=sameDateSeq.length?Math.max(...sameDateSeq)+1:1;const formStamp=new Date(formDate+'T'+formTime+':00');if(Number.isNaN(formStamp.getTime())){alert('Please enter a valid Rental Date and Rental Time.');return}const formTs=formStamp.getTime();R[n]={phone,deposit:(+rdep.value||0),pbt:p,cc:c,pbtPrice,ccPrice,rentalDate:formDate,rentalTime:formTime,createdFormDate:formDate,createdFormTime:formTime,createdFormTs:formTs,returnDate,rentalSequence,returns:[],additions:[],refills:[],activity:[],pending:false,closed:false,refundCompleted:false};addRentalActivity(R[n],{type:'added',name:n,phone,deposit:(+rdep.value||0),pbt:p,cc:c,bill:(pbtPrice===null||ccPrice===null)?null:p*pbtPrice+c*ccPrice,formDate,formTime},{ts:formTs});save();window.btccRentalStatus='active';rentals();showRentalWhatsAppPopup(n)}
 function formatRentalDateForWhatsApp(ds){if(!ds)return '';let a=ds.split('-');return a.length===3?a[2]+'-'+a[1]+'-'+a[0]:ds}
 function buildRentalWhatsAppMessage(n){let c=R[n];if(!c)return '';let btQty=+c.pbt||0,ccQty=+c.cc||0,btPrice=Number.isFinite(+c.pbtPrice)?+c.pbtPrice:20,ccPrice=Number.isFinite(+c.ccPrice)?+c.ccPrice:50;let btAmount=btQty*btPrice,ccAmount=ccQty*ccPrice,bill=btAmount+ccAmount,refundable=Math.max(0,(+c.deposit||0)-bill);let lines=['*Happy Drops*','_(Packaged Drinking Water)_','_8367234777_','', '*Name:* '+n,'*Mobile:* '+c.phone,'*Date:* '+formatRentalDateForWhatsApp(c.rentalDate),''];if(btQty>0)lines.push('*BT:* '+btQty+' X '+btPrice+' = '+btAmount);if(ccQty>0)lines.push('*CC:* '+ccQty+' X '+ccPrice+' = '+ccAmount);lines.push('*Bill:* '+bill,'','*Deposited:* '+(+c.deposit||0),'*Refundable:* '+refundable,'','> Note: please return the cans within 2 days, Rental will be charged');return lines.join('\n')}
 function showRentalWhatsAppPopup(n){let old=document.getElementById('rentalWhatsappPopup');if(old)old.remove();window._pendingRentalWhatsapp=n;let el=document.createElement('div');el.id='rentalWhatsappPopup';el.innerHTML=`<div style="position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:18px;z-index:9999"><div style="background:#fff;border-radius:16px;max-width:380px;width:100%;padding:20px;box-shadow:0 12px 35px rgba(0,0,0,.25);text-align:center"><div style="font-size:34px">💬</div><h3 style="margin:8px 0 6px">Send to Customer WhatsApp?</h3><div id="rentalWhatsappCustomer" style="color:#666;font-size:13px;margin-bottom:18px"></div><button id="rentalWhatsappSend" class="btn" style="width:100%;background:#25D366">Send to Customer WhatsApp</button><button id="rentalWhatsappCancel" class="btn secondary" style="width:100%;margin-top:8px">Cancel</button></div></div>`;document.body.appendChild(el);document.getElementById('rentalWhatsappCustomer').textContent='Send the rental details to '+n;document.getElementById('rentalWhatsappSend').onclick=function(){sendRentalWhatsApp(window._pendingRentalWhatsapp)};document.getElementById('rentalWhatsappCancel').onclick=function(){el.remove();window._pendingRentalWhatsapp=null}}
@@ -524,7 +524,7 @@ function showRentalWhatsAppPopup(n){let old=document.getElementById('rentalWhats
 function sendRentalWhatsApp(n,e){if(e){e.preventDefault();e.stopPropagation();}let c=R[n];if(!c||!c.phone){alert('Customer mobile number is missing.');return}let phone=String(c.phone).replace(/\D/g,'').replace(/^91/,'');if(phone.length!==10){alert('Please check the customer mobile number.');return}let msg=buildRentalWhatsAppMessage(n);let a=document.createElement('a');a.href='https://wa.me/91'+phone+'?text='+encodeURIComponent(msg);a.target='_blank';a.rel='noopener';a.style.display='none';document.body.appendChild(a);a.click();setTimeout(()=>a.remove(),1000)}
 
 function rentalActivityStamp(ts){const d=new Date(ts||Date.now());const date=String(d.getDate()).padStart(2,"0")+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getFullYear()).slice(-2);return date+", "+formatRentalTime12(String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"));}
-function addRentalActivity(c,activity){c.activity=c.activity||[];c.activity.push({...activity,ts:Date.now()});}
+function addRentalActivity(c,activity,meta){c.activity=c.activity||[];const suppliedTs=meta&&Number.isFinite(Number(meta.ts))?Number(meta.ts):Date.now();c.activity.push({...activity,ts:suppliedTs});}
 function rentalActivityFinancials(c){const t=rentalTotals(c);return {totalBill:t.totalBill,refundable:t.refund,deposit:t.deposit};}
 function rentalMoney(c){
   const add=(c.additions||[]).reduce((s,x)=>s+(Number(x.deposit)||0),0);
@@ -634,6 +634,35 @@ function ensureDailyRentalActivities(c){
   const batches=rentalIssueBatches(c);
   if(!batches.length)return false;
   let changed=false;
+
+  // Customer Activity should contain a rental entry only when the rental
+  // amount actually changes/increases. If the charge remains the same on
+  // the following day, do not add another timestamp just to show the same
+  // charge again. This also cleans up older duplicate daily-rental entries.
+  const actionDates=new Set(c.activity.filter(x=>x&&x.type!=='dailyRental')
+    .map(x=>localDateKey(new Date(Number(x.ts)||0))));
+  const daily=(c.activity||[]).filter(x=>x&&x.type==='dailyRental')
+    .slice().sort((a,b)=>String(a.date||'').localeCompare(String(b.date||'')));
+  const keptDaily=[];
+  let previousRentalTotal=0;
+  daily.forEach(x=>{
+    const d=String(x.date||localDateKey(new Date(Number(x.ts)||0)));
+    const amount=Number(x.rentalTotal)||0;
+    // A real action on this date will display the rental charge on that
+    // action row, so the separate midnight rental row is unnecessary.
+    if(actionDates.has(d) || amount<=0 || amount<=previousRentalTotal){
+      changed=true;
+      return;
+    }
+    keptDaily.push(x);
+    previousRentalTotal=amount;
+  });
+  const nonDaily=(c.activity||[]).filter(x=>!(x&&x.type==='dailyRental'));
+  if(keptDaily.length!==daily.length || c.activity.length!==nonDaily.length+keptDaily.length){
+    changed=true;
+  }
+  c.activity=nonDaily.concat(keptDaily);
+
   const existing=new Set(c.activity.filter(x=>x&&x.type==='dailyRental').map(x=>String(x.date||'')));
   const dates=[];
   batches.forEach(b=>{
@@ -644,16 +673,43 @@ function ensureDailyRentalActivities(c){
     }
   });
   dates.sort();
+
   dates.forEach(date=>{
     if(existing.has(date))return;
     const f=rentalDailyFinancials(c,date);
+    if(Number(f.rentalTotal||0)<=0)return;
+    const prevDate=addDaysKey(date,-1);
+    const prev=rentalDailyFinancials(c,prevDate);
+    // Only record the date when a new rental amount becomes chargeable.
+    // Example: ₹10 on the 18th -> no entries on the 19th/20th -> ₹20 on 21st.
+    if(Number(f.rentalTotal||0)<=Number(prev.rentalTotal||0))return;
+
     const hasBT=batches.some(b=>b.type==='BT'&&String(b.date)<=String(date));
     const hasCC=batches.some(b=>b.type==='CC'&&String(b.date)<=String(date));
     if(!hasBT&&!hasCC)return;
-    // Keep the daily activity aligned with the same deposit/refund rule used by billing.
     if(f.deposit<=0 || f.bill>=f.deposit)return;
+
+    // If a real action already happened on this date, its activity row will
+    // show the rental charge. Do not create a separate midnight row.
+    if(actionDates.has(date))return;
+
+    const returns=(c.returns||[]).filter(r=>String(r.date||localDateKey(new Date(Number(r.ts)||0)))<=String(date));
+    let toReturnBT=returns.reduce((sum,r)=>sum+(Number(r.pbt)||0),0);
+    let toReturnCC=returns.reduce((sum,r)=>sum+(Number(r.cc)||0),0);
+    let hasOpenBT=false,hasOpenCC=false;
+    ['BT','CC'].forEach(type=>{
+      let toReturn=type==='BT'?toReturnBT:toReturnCC;
+      batches.filter(b=>b.type===type && String(b.date)<=String(date)).forEach(b=>{
+        const returned=Math.min(b.qty,toReturn);
+        toReturn-=returned;
+        const open=Math.max(0,b.qty-returned);
+        if(open>0){if(type==='BT')hasOpenBT=true;else hasOpenCC=true;}
+      });
+    });
+    if(!hasOpenBT&&!hasOpenCC)return;
+
     const stamp=new Date(date+'T00:00:00').getTime();
-    c.activity.push({type:'dailyRental',date,ts:stamp,rentalBT:f.rentalBT,rentalCC:f.rentalCC,rentalTotal:f.rentalTotal,btQty:f.activeBT,ccQty:f.activeCC,refund:f.refund});
+    c.activity.push({type:'dailyRental',date,ts:stamp,rentalBT:f.rentalBT,rentalCC:f.rentalCC,rentalTotal:f.rentalTotal,btQty:f.activeBT,ccQty:f.activeCC,btRentalEntry:hasOpenBT,ccRentalEntry:hasOpenCC,refund:f.refund});
     existing.add(date);
     changed=true;
   });
@@ -710,6 +766,18 @@ function openRental(n){
   window.currentBTCCCustomer=n;
   const c=R[n]; if(!c) return rentals();
   c.returns=c.returns||[]; c.additions=c.additions||[]; c.refills=c.refills||[]; c.depositRefunds=c.depositRefunds||[];
+  // The original Customer Added activity must always use the Date + Time
+  // entered in the customer form, not the actual time the record was saved.
+  // This also repairs customers created before this logic was added.
+  const enteredCustomerTime=new Date(String(c.rentalDate||'')+'T'+String(c.rentalTime||'00:00')+':00');
+  if(!Number.isNaN(enteredCustomerTime.getTime())){
+    const enteredCustomerTs=enteredCustomerTime.getTime();
+    let repairedAdded=false;
+    (c.activity||[]).forEach(x=>{
+      if(x&&x.type==='added'&&Number(x.ts)!==enteredCustomerTs){x.ts=enteredCustomerTs;repairedAdded=true;}
+    });
+    if(repairedAdded)save();
+  }
   const dailyRentalChanged=ensureDailyRentalActivities(c);
   if(dailyRentalChanged)save();
   const t=rentalTotals(c);
@@ -717,53 +785,153 @@ function openRental(n){
   const profileDate=c.rentalDate?(()=>{const a=String(c.rentalDate).split('-');return a.length===3?`${a[2]}-${a[1]}-${a[0]}`:c.rentalDate})():'-';
   const profileTime=formatRentalTime12(c.rentalTime||'');
   const appEl=document.getElementById('app');
-  appEl.innerHTML=`<div class="card profile-card"><div style="display:flex;justify-content:space-between;align-items:flex-start"><div><div class="small">CUSTOMER PROFILE</div><h2 style="margin:3px 0 12px">${escapeHtml(n)} Profile</h2></div><button class="btn secondary" onclick="hdBack()">← Back</button></div>
-  <div style="border-top:1px solid #e8eef3;padding-top:12px"><div style="margin-bottom:10px"><b>Date & Time:</b> ${escapeHtml(profileDate)}, ${escapeHtml(profileTime||'-')}</div><div style="margin-bottom:10px"><b>Mobile:</b> ${escapeHtml(c.phone||'')} <a href="tel:${escapeHtml(c.phone||'')}" style="text-decoration:none;font-size:22px;vertical-align:middle">📞</a>${c.phone?`<a class="whatsapp-logo-btn" title="WhatsApp Customer" aria-label="WhatsApp Customer" target="_blank" rel="noopener" href="${'https://wa.me/91'+String(c.phone||'').replace(/\D/g,'').replace(/^91/,'')+'?text='+encodeURIComponent(buildRentalWhatsAppMessage(n))}"><svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="#25D366"/><path fill="#fff" d="M23.45 8.5A10.5 10.5 0 0 0 6.08 20.96L5 25l4.14-1.08A10.5 10.5 0 1 0 23.45 8.5Zm-7.43 14.08a8.48 8.48 0 0 1-4.32-1.18l-.31-.19-2.46.64.66-2.4-.2-.31a8.47 8.47 0 1 1 6.63 3.44Zm4.65-6.36c-.25-.13-1.48-.73-1.71-.81-.23-.08-.4-.13-.57.13-.17.25-.65.81-.8.98-.15.17-.3.19-.55.06-.25-.13-1.04-.38-1.98-1.21-.73-.65-1.22-1.45-1.36-1.7-.14-.25-.01-.39.11-.52.11-.11.25-.3.38-.45.13-.15.17-.25.25-.42.08-.17.04-.32-.02-.45-.06-.13-.57-1.37-.78-1.88-.2-.49-.41-.43-.57-.44h-.49c-.17 0-.45.06-.68.32-.23.25-.89.87-.89 2.12s.91 2.46 1.04 2.63c.13.17 1.79 2.73 4.34 3.83.61.26 1.08.42 1.45.54.61.19 1.16.16 1.59.1.49-.07 1.48-.61 1.69-1.19.21-.59.21-1.09.15-1.19-.06-.11-.23-.17-.49-.3Z"/></svg></a>`:''}</div><div style="margin-bottom:10px"><b>Return Date:</b> ${c.returnDate?escapeHtml(formatRentalDateForWhatsApp(c.returnDate)):'Not specified'}</div><div><b>Deposited Amount:</b> ₹${t.deposit} <span style="margin-left:10px"><b>| Bill Amount:</b> ₹${t.totalBill}</span></div></div></div>
+  appEl.innerHTML=`<div class="card profile-card"><div style="display:flex;justify-content:space-between;align-items:flex-start"><div><div class="small">CUSTOMER PROFILE</div><h2 style="margin:3px 0 12px">${escapeHtml(n)} Profile</h2></div><button class="btn secondary" onclick="btccProfileBack()">← Back</button></div>
+  <div style="border-top:1px solid #e8eef3;padding-top:12px"><div style="margin-bottom:10px"><b>Date & Time:</b> ${escapeHtml(profileDate)}, ${escapeHtml(profileTime||'-')}</div><div style="margin-bottom:10px"><b>Mobile:</b> ${escapeHtml(c.phone||'')} <a href="tel:${escapeHtml(c.phone||'')}" style="text-decoration:none;font-size:22px;vertical-align:middle">📞</a>${c.phone?`<a class="whatsapp-logo-btn" title="WhatsApp Customer" aria-label="WhatsApp Customer" target="_blank" rel="noopener" href="${'https://wa.me/91'+String(c.phone||'').replace(/\D/g,'').replace(/^91/,'')+'?text='+encodeURIComponent(buildRentalWhatsAppMessage(n))}"><svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="#25D366"/><path fill="#fff" d="M23.45 8.5A10.5 10.5 0 0 0 6.08 20.96L5 25l4.14-1.08A10.5 10.5 0 1 0 23.45 8.5Zm-7.43 14.08a8.48 8.48 0 0 1-4.32-1.18l-.31-.19-2.46.64.66-2.4-.2-.31a8.47 8.47 0 1 1 6.63 3.44Zm4.65-6.36c-.25-.13-1.48-.73-1.71-.81-.23-.08-.4-.13-.57.13-.17.25-.65.81-.8.98-.15.17-.3.19-.55.06-.25-.13-1.04-.38-1.98-1.21-.73-.65-1.22-1.45-1.36-1.7-.14-.25-.01-.39.11-.52.11-.11.25-.3.38-.45.13-.15.17-.25.25-.42.08-.17.04-.32-.02-.45-.06-.13-.57-1.37-.78-1.88-.2-.49-.41-.43-.57-.44h-.49c-.17 0-.45.06-.68.32-.23.25-.89.87-.89 2.12s.91 2.46 1.04 2.63c.13.17 1.79 2.73 4.34 3.83.61.26 1.08.42 1.45.54.61.19 1.16.16 1.59.1.49-.07 1.48-.61 1.69-1.19.21-.59.21-1.09.15-1.19-.06-.11-.23-.17-.49-.3Z"/></svg></a>`:''}</div><div style="margin-bottom:10px"><b>Return Date:</b> ${c.returnDate?escapeHtml(formatRentalDateForWhatsApp(c.returnDate)):'Not specified'}</div>${t.deposit>0?`<div><b>Deposited Amount:</b> ₹${t.deposit} <b>| Bill Amount:</b> ₹${t.totalBill} <b>| Refundable:</b> ₹${t.refund}</div>`:`<div><b>Bill Amount:</b> ₹${t.totalBill}</div>`}</div></div>
   <div class="card section-bill"><h3 style="color:#1769aa">Bill Summary</h3><div class="period">${(()=>{const today=localDateKey(new Date());const batches=[];if(Number(c.pbt)||0)batches.push({type:"BT",qty:Number(c.pbt)||0,date:c.rentalDate||today});if(Number(c.cc)||0)batches.push({type:"CC",qty:Number(c.cc)||0,date:c.rentalDate||today});(c.additions||[]).forEach(x=>{const d=x.date||localDateKey(new Date(Number(x.ts)||Date.now()));if(Number(x.pbt)||0)batches.push({type:"BT",qty:Number(x.pbt)||0,date:d});if(Number(x.cc)||0)batches.push({type:"CC",qty:Number(x.cc)||0,date:d});});const btDays=batches.filter(x=>x.type==="BT").map(x=>rentalDaysBetween(x.date,today));const ccDays=batches.filter(x=>x.type==="CC").map(x=>rentalDaysBetween(x.date,today));const md=a=>a.length?Math.max(...a):0;return `<div style="margin-bottom:8px"><b>Rental Days:</b> ${btDays.length?`<span style="color:#16803c;font-weight:700">BT: ${md(btDays)} days</span>`:""}${btDays.length&&ccDays.length?" &nbsp;|&nbsp; ":""}${ccDays.length?`<span style="color:#c62828;font-weight:700">CC: ${md(ccDays)} days</span>`:""}${!btDays.length&&!ccDays.length?"0 days":""}</div>`})()}${t.bt?`BT (New): ${t.bt} X ₹${pbtPrice} = <b>₹${t.bt*pbtPrice}</b><br>`:''}${t.cc?`CC (New): ${t.cc} X ₹${ccPrice} = <b>₹${t.cc*ccPrice}</b><br>`:''}${t.refillBT?`BT (Refils): ${t.refillBT} X ₹15 = <b>₹${t.refillBT*15}</b><br>`:''}${t.refillCC?`CC (Refils): ${t.refillCC} X ₹30 = <b>₹${t.refillCC*30}</b><br>`:''}${t.rentalBill>0?`<div style="margin-top:8px;padding-top:8px;border-top:1px dashed #cfd8df"><span style="color:#8b5cf6;font-weight:700">Total Rental Charges</span>: <b style="color:#8b5cf6">₹${t.rentalBill}</b></div>`:''}</div><div class="total"><span>Total Bill</span><span>₹${t.totalBill}</span></div></div>
   <div class="card section-cans"><h3 style="color:#16a34a">Can Management</h3><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="addBTCCCans()">＋ Add Cans</button><button class="btn secondary" onclick="addBTCCRefill()">💧 Water Refill</button><button class="btn secondary" onclick="recordReturn()">↩ Return Cans</button><button class="btn secondary" onclick="manageBTCCDepositsRefunds()">💰 Deposits/Refunds</button></div></div>
   <div class="card section-activity"><h3 style="color:#8b5cf6">Customer Activity</h3><div id="btccActivityList" style="max-height:320px;overflow-y:auto;padding-right:6px;border:1px solid #e3ebf0;border-radius:10px;padding:8px;background:#fbfdfe">${renderRentalActivity(c,n)}</div></div>
   <div class="card section-status"><h3 style="color:#f59e0b">Customer Status</h3><div style="display:flex;gap:7px;flex-wrap:wrap">${c.closed?`<button class="btn" onclick="moveBTCCActive()">↩ Move to Active</button>`:c.pending?`<button class="btn" onclick="moveBTCCActive()">↩ Move to Active</button>`:`<button class="btn secondary" onclick="moveBTCCPending()">⏳ Move to Pending</button>`}${!c.closed?`<button class="btn" style="background:#1769aa;color:#fff;${(t.pendingBT===0&&t.pendingCC===0&&t.refund===0&&t.extraBill===0)?'':'opacity:.5;'}" onclick="closeBTCCRental()">✓ Mark as Closed</button>`:''}</div>${!c.closed&&(t.pendingBT||t.pendingCC||t.refund||t.extraBill)?`<div style="margin-top:10px;padding:10px 12px;border-radius:10px;background:#fff7e6;color:#8a5a00;font-size:13px;line-height:1.6"><b>Clear before closing:</b> ${t.pendingBT?`BT: ${t.pendingBT} &nbsp;`:''}${t.pendingCC?`CC: ${t.pendingCC} &nbsp;`:''}${t.refund?`Refund: ₹${t.refund} &nbsp;`:''}${t.extraBill?`Bill: ₹${t.extraBill}`:''}</div>`:''}</div>
   <div class="card" style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><button class="btn" style="width:100%;background:#eaf4fb;color:#087fc1;margin:0" onclick="editRentalCustomer()">✏️ Edit Customer</button><button class="btn" style="width:100%;background:#ffe8e8;color:#c62828;margin:0" onclick="deleteRentalCustomer()">🗑️ Delete Customer</button></div>`;
 }
+function rentalCompletedDaysLabel(c,dateKey){
+  const batches=typeof rentalIssueBatches==='function'?rentalIssueBatches(c):[];
+  const returns=(c.returns||[]).filter(r=>String(r.date||localDateKey(new Date(Number(r.ts)||0)))<=String(dateKey));
+  let returnBT=returns.reduce((s,r)=>s+(Number(r.pbt)||0),0);
+  let returnCC=returns.reduce((s,r)=>s+(Number(r.cc)||0),0);
+  const labels=[];
+  ['BT','CC'].forEach(type=>{
+    let toReturn=type==='BT'?returnBT:returnCC;
+    const openDates=[];
+    batches.filter(b=>b.type===type&&String(b.date)<=String(dateKey)).forEach(b=>{
+      const returned=Math.min(b.qty,toReturn);
+      toReturn-=returned;
+      if(b.qty-returned>0)openDates.push(String(b.date));
+    });
+    if(!openDates.length)return;
+    const earliest=openDates.sort()[0];
+    const completed=rentalDaysBetween(earliest,dateKey)+1;
+    labels.push(type+': '+completed+' '+(completed===1?'Day':'Days'));
+  });
+  if(!labels.length)return '';
+  return labels.length===1?labels[0].replace(/^BT: |^CC: /,'')+' Completed':labels.join(' | ')+' Completed';
+}
+
 function renderRentalActivity(c,n){
-  const a=(c.activity||[]).slice().sort((x,y)=>(Number(y.ts)||0)-(Number(x.ts)||0));
+  // Customer Added always uses the Date + Time entered in the create form.
+  // Activity is newest -> oldest. Rental-charge rows are created only when a
+  // charge is actually due; zero-charge days never get a rental timestamp.
+  const raw=(c.activity||[]).slice().map(x=>{
+    if(x&&x.type==='added'){
+      // NEVER use the moment the customer was saved/opened. The first activity
+      // timestamp is always the Rental Date + Rental Time from the create form.
+      const fd=String(c.createdFormDate||x.formDate||c.rentalDate||'');
+      const ft=String(c.createdFormTime||x.formTime||c.rentalTime||'');
+      const formTs=(c.createdFormTs!=null&&Number.isFinite(Number(c.createdFormTs)))
+        ?Number(c.createdFormTs)
+        :new Date(fd+'T'+ft+':00').getTime();
+      return {...x,formDate:fd,formTime:ft,ts:Number.isNaN(formTs)?0:formTs};
+    }
+    return x;
+  });
+  const a=raw.sort((x,y)=>(Number(y.ts)||0)-(Number(x.ts)||0));
   if(!a.length)return '<span class="small">No activity recorded</span>';
-  const bt=v=>`<span style="color:#16803c;font-weight:700">${v} BT</span>`;
-  const cc=v=>`<span style="color:#c62828;font-weight:700">${v} CC</span>`;
-  const bill=v=>`<span style="color:#1769aa;font-weight:700">Bill = ₹${v}</span>`;
-  const refund=v=>`<span style="color:#1769aa;font-weight:700">Refundable = ₹${v}</span>`;
-  return a.map(x=>{
-    const t=rentalTotalsAtActivity(c,x);
-    const stamp=rentalActivityStamp(x.ts||Date.now());
-    let line='',sub='';
-    if(x.type==='dailyRental'){
-      const d=String(x.date||'').split('-');
-      const label=d.length===3?`${d[2]}-${d[1]}-${d[0]}`:String(x.date||'');
-      const parts=[];
-      if(Number(x.btQty)>0)parts.push(`${bt(Number(x.btQty)||0)} rent: ₹${Number(x.rentalBT)||0}`);
-      if(Number(x.ccQty)>0)parts.push(`${cc(Number(x.ccQty)||0)} rent: ₹${Number(x.rentalCC)||0}`);
-      line=`${label} - Rental charges added`;
-      sub=`${parts.join(' | ')} | ${refund(Number(x.refund)||0)}`;
-    }else if(x.type==='added'){
-      line=`${stamp} - ${escapeHtml(x.name||n)} added | mobile number ${escapeHtml(x.phone||c.phone||'')} | <span style="color:#16803c;font-weight:700">Deposited: ₹${x.deposit||0}</span> | ${bt(x.pbt||0)} | ${cc(x.cc||0)}`;
-      sub=`status ${bt(t.pendingBT)}, ${cc(t.pendingCC)} | ${bill(x.bill||0)} | ${refund(t.refund)}`;
-    }else if(x.type==='refill'){
-      const parts=[];if(x.pbt)parts.push(`${bt(x.pbt)} Refilled`);if(x.cc)parts.push(`${cc(x.cc)} Refilled`);
-      line=`${stamp} - ${parts.join(', ')}`;sub=`Status ${bt(t.pendingBT)}, ${cc(t.pendingCC)} | ${bill(x.amount||0)} | Total Bill = ₹${t.totalBill} | ${refund(t.refund)}`;
-    }else if(x.type==='addCans'){
-      const parts=[];if(x.pbt)parts.push(`${bt(x.pbt)} Added`);if(x.cc)parts.push(`${cc(x.cc)} Added`);
-      line=`${stamp} - ${parts.join(', ')}`;sub=`Status ${bt(t.pendingBT)}, ${cc(t.pendingCC)} | ${bill(x.amount||0)} | Total Bill = ₹${t.totalBill} | ${refund(t.refund)}`;
-    }else if(x.type==='return'){
-      const parts=[];if(x.pbt)parts.push(bt(x.pbt));if(x.cc)parts.push(cc(x.cc));
-      line=`${stamp} - ${parts.join(', ')} returned cans`;sub=`Status ${bt(t.pendingBT)}, ${cc(t.pendingCC)} | Total Bill = ₹${t.totalBill} | ${refund(t.refund)}`;
-    }else if(x.type==='depositRefund'){
-      const parts=[];if(x.deposit)parts.push(`<span style="color:#16803c;font-weight:700">Deposit: +₹${x.deposit}</span>`);if(x.refund)parts.push(`<span style="color:#1769aa;font-weight:700">Refund: -₹${x.refund}</span>`);
-      line=`${stamp} - ${parts.join(' | ')}`;sub=`Deposited Amount = ₹${x.balanceAfter||0} | Total Bill = ₹${t.totalBill} | ${refund(t.refund)}`;
-    }else if(x.type==='status'){
-      line=`${stamp} - ${escapeHtml(x.text||'Status changed')}`;sub=`Status ${bt(t.pendingBT)}, ${cc(t.pendingCC)} | Total Bill = ₹${t.totalBill} | ${refund(t.refund)}`;
-    }else{return ''}
-    return `<div class="period" style="line-height:1.7"><b>${line}</b><br><span>${sub}</span></div>`;
-  }).join('')
+
+  const bt=v=>`<span style="color:#16803c;font-weight:700">BT: ${v||0}</span>`;
+  const cc=v=>`<span style="color:#c62828;font-weight:700">CC: ${v||0}</span>`;
+  const money=v=>`₹${Math.max(0,Number(v)||0)}`;
+
+  // Calculate the cumulative financial position up to each activity timestamp.
+  function snapshot(x){
+    const cutoff=Number(x.ts)||0;
+    const isBefore=(v)=>Number(v.ts||0)<=cutoff;
+    let takenBT=0,takenCC=0,refillBT=0,refillCC=0,returnBT=0,returnCC=0;
+    let bill=0,deposit=Number(c.deposit)||0;
+    const baseTs=Number(x.type==='added'&&x.formDate?new Date(String(x.formDate)+'T'+String(x.formTime||'00:00')+':00').getTime():cutoff);
+    const initialIncluded=String(c.rentalDate||'') && baseTs<=cutoff;
+    if(initialIncluded){
+      takenBT+=Number(c.pbt)||0;takenCC+=Number(c.cc)||0;
+      bill+=(Number(c.pbt)||0)*(Number.isFinite(+c.pbtPrice)?+c.pbtPrice:20)+(Number(c.cc)||0)*(Number.isFinite(+c.ccPrice)?+c.ccPrice:50);
+    }
+    (c.additions||[]).forEach(v=>{
+      if(isBefore(v)){takenBT+=Number(v.pbt)||0;takenCC+=Number(v.cc)||0;bill+=(Number(v.pbt)||0)*(Number.isFinite(+v.pbtPrice)?+v.pbtPrice:(Number.isFinite(+c.pbtPrice)?+c.pbtPrice:20))+(Number(v.cc)||0)*(Number.isFinite(+v.ccPrice)?+v.ccPrice:(Number.isFinite(+c.ccPrice)?+c.ccPrice:50));}
+    });
+    (c.refills||[]).forEach(v=>{if(isBefore(v)){refillBT+=Number(v.pbt)||0;refillCC+=Number(v.cc)||0;bill+=Number(v.amount)||((Number(v.pbt)||0)*15+(Number(v.cc)||0)*30);}});
+    (c.returns||[]).forEach(v=>{if(isBefore(v)){returnBT+=Number(v.pbt)||0;returnCC+=Number(v.cc)||0;}});
+    (c.depositRefunds||[]).forEach(v=>{if(isBefore(v)){deposit+=Number(v.deposit)||0;deposit-=Number(v.refund)||0;}});
+
+    let rental=0;
+    if(x.type==='dailyRental') {
+      rental=Number(x.rentalTotal)||0;
+    } else {
+      const eventDate=x.type==='added'?(c.rentalDate||localDateKey(new Date(cutoff))):localDateKey(new Date(cutoff));
+      const f=rentalDailyFinancials(c,eventDate);
+      const prev=rentalDailyFinancials(c,addDaysKey(eventDate,-1));
+      // Only show rental charges on this activity when the cumulative rental
+      // amount actually increased on this date. If it stayed the same, do not
+      // repeat the previous charge or create a misleading bill/refund change.
+      const currentRental=Number(f.rentalTotal)||0;
+      const previousRental=Number(prev.rentalTotal)||0;
+      rental=currentRental>previousRental?currentRental:0;
+    }
+    // Rental charges are cumulative in the billing calculation. For a normal
+    // action row, use the rental amount applicable on that action date.
+    const totalBill=bill+rental;
+    return {takenBT,takenCC,refillBT,refillCC,returnBT,returnCC,balanceBT:Math.max(0,takenBT-returnBT),balanceCC:Math.max(0,takenCC-returnCC),bill,rental,deposit,refundable:Math.max(0,deposit-totalBill)};
+  }
+
+  // If a real action happened on a date where rental became payable, merge the
+  // rental charge into that action row instead of creating a duplicate row.
+  const actionDates=new Set(raw.filter(x=>x&&x.type!=='dailyRental').map(x=>localDateKey(new Date(Number(x.ts)||0))));
+  const visible=a.filter(x=>{
+    if(x.type!=='dailyRental')return true;
+    return !actionDates.has(String(x.date||localDateKey(new Date(Number(x.ts)||0))));
+  });
+
+  return visible.map(x=>{
+    const t=snapshot(x);
+    const stamp=rentalActivityStamp(Number(x.ts)||0);
+    const dateKey=x.type==='dailyRental'?String(x.date||''):localDateKey(new Date(Number(x.ts)||0));
+    let eventTakenBT=0,eventTakenCC=0,eventRefillBT=0,eventRefillCC=0,eventReturnBT=0,eventReturnCC=0,eventBill=0;
+    if(x.type==='added'){eventTakenBT=Number(x.pbt)||0;eventTakenCC=Number(x.cc)||0;eventBill=(Number(x.pbt)||0)*(Number.isFinite(+c.pbtPrice)?+c.pbtPrice:20)+(Number(x.cc)||0)*(Number.isFinite(+c.ccPrice)?+c.ccPrice:50);}
+    if(x.type==='addCans'){eventTakenBT=Number(x.pbt)||0;eventTakenCC=Number(x.cc)||0;eventBill=Number(x.amount)||0;}
+    if(x.type==='refill'){eventRefillBT=Number(x.pbt)||0;eventRefillCC=Number(x.cc)||0;eventBill=Number(x.amount)||0;}
+    if(x.type==='return'){eventReturnBT=Number(x.pbt)||0;eventReturnCC=Number(x.cc)||0;eventBill=0;}
+    if(x.type==='dailyRental'){eventBill=Number(x.rentalTotal)||0;}
+    if(x.type==='depositRefund'){eventBill=0;}
+
+    // A same-day rental charge is shown on the real action row. A standalone
+    // rental row shows its own charge. Zero rental is always hidden.
+    let rentalForRow=x.type==='dailyRental'?Number(x.rentalTotal)||0:0;
+    if(x.type!=='dailyRental'){
+      const f=rentalDailyFinancials(c,dateKey);
+      const prev=rentalDailyFinancials(c,addDaysKey(dateKey,-1));
+      const currentRental=Number(f.rentalTotal)||0;
+      const previousRental=Number(prev.rentalTotal)||0;
+      // If multiple real actions occur on the same date, show the rental
+      // charge only on the latest action row for that date. Never repeat it
+      // on another action when the rental amount did not change.
+      const sameDayActions=visible.filter(v=>v.type!=='dailyRental'&&localDateKey(new Date(Number(v.ts)||0))===dateKey);
+      const latestSameDayAction=sameDayActions.length?sameDayActions.reduce((latest,v)=>(Number(v.ts)||0)>(Number(latest.ts)||0)?v:latest,sameDayActions[0]):null;
+      if(latestSameDayAction===x && currentRental>previousRental) rentalForRow=currentRental;
+    }
+
+    let actionParts=[];
+    if(eventTakenBT||eventTakenCC)actionParts.push(`<b>Taken</b> ${bt(eventTakenBT)} ${cc(eventTakenCC)}`);
+    if(eventRefillBT||eventRefillCC)actionParts.push(`<b>Refill</b> ${bt(eventRefillBT)} ${cc(eventRefillCC)}`);
+    if(eventReturnBT||eventReturnCC)actionParts.push(`<b>Return</b> ${bt(eventReturnBT)} ${cc(eventReturnCC)}`);
+    if(x.type==='status')actionParts.push(`<b>${escapeHtml(x.text||'Status changed')}</b>`);
+    if(x.type==='depositRefund')actionParts.push(`<b>Deposit/Refund</b>`);
+    if(x.type==='dailyRental')actionParts.push('<b>Rental Charge</b>');
+    if(!actionParts.length)actionParts.push('<b>Balance</b>');
+
+    const completedDays=rentalForRow>0?rentalCompletedDaysLabel(c,dateKey):'';
+    const rentalLabel=rentalForRow>0?` | <b>Rental Charges:</b> ${money(rentalForRow)}${completedDays?` | <b>${completedDays}</b>`:''}`:'';
+    const eventBillLabel=eventBill>0?`<b>Bill:</b> ${money(eventBill)}`:'';
+    const summary=`${eventBillLabel}${rentalLabel} | <b>Refundable:</b> ${money(t.refundable)}`;
+    const balance=`${bt(t.balanceBT)} &nbsp; ${cc(t.balanceCC)}`;
+    const nameLine=x.type==='added'?`<b>Name:</b> ${escapeHtml(x.name||n)} | <b>Mobile:</b> ${escapeHtml(x.phone||c.phone||'')} | <b>Deposited:</b> ${money(x.deposit||c.deposit||0)}`:'';
+    return `<div class="period" style="line-height:1.65;border-bottom:1px solid #e6edf2;padding:8px 2px"><div style="font-weight:700">${stamp}</div>${nameLine?`<div>${nameLine}</div>`:''}<div>${actionParts.join(' &nbsp; | &nbsp; ')}</div><div><b>Balance</b> ${balance}</div><div>${summary}</div></div>`;
+  }).join('');
 }
 function rentalTotalsAtActivity(c,x){const additions=c.additions||[],refills=c.refills||[],returns=c.returns||[],dr=c.depositRefunds||[];let addBT=0,addCC=0,refBT=0,refCC=0,retBT=0,retCC=0,depAdd=0,refundAdd=0;const ts=Number(x.ts)||Infinity;additions.forEach(v=>{if(Number(v.ts||0)<=ts){addBT+=Number(v.pbt)||0;addCC+=Number(v.cc)||0}});refills.forEach(v=>{if(Number(v.ts||0)<=ts){refBT+=Number(v.pbt)||0;refCC+=Number(v.cc)||0}});returns.forEach(v=>{if(Number(v.ts||0)<=ts){retBT+=Number(v.pbt)||0;retCC+=Number(v.cc)||0}});dr.forEach(v=>{if(Number(v.ts||0)<=ts){depAdd+=Number(v.deposit)||0;refundAdd+=Number(v.refund)||0}});const bt=(Number(c.pbt)||0)+addBT,cc=(Number(c.cc)||0)+addCC;const bill=bt*(Number.isFinite(+c.pbtPrice)?+c.pbtPrice:20)+cc*(Number.isFinite(+c.ccPrice)?+c.ccPrice:50);const totalBill=bill+refBT*15+refCC*30;const dep=(Number(c.deposit)||0)+depAdd-refundAdd;return {pendingBT:Math.max(0,bt-retBT),pendingCC:Math.max(0,cc-retCC),totalBill,refund:Math.max(0,dep-totalBill)};}
 function addBTCCCans(n){
@@ -866,8 +1034,8 @@ async function confirmDeleteRentalCustomer(n){
   save();
   const m=document.getElementById('btccDeleteConfirm'); if(m)m.remove();
   window.btccRentalStatus='active';
-  rentals();
   try{await hdDeleteRentalCloud(n,c);}catch(e){console.error('Cloud delete error',e);alert('Customer deleted from this phone, but cloud delete failed: '+(e.message||e));}
+  rentals();
 }
 function manageBTCCDepositsRefunds(n){
   n=n||window.currentBTCCCustomer;
@@ -1156,6 +1324,11 @@ if("serviceWorker" in navigator){window.addEventListener("load",()=>{navigator.s
 </script>
 <script>
 // Shared Back handler: in-app Back buttons and Android/browser Back use the same history stack.
+function btccProfileBack(){
+  try{ window.currentBTCCCustomer=null; window.btccRentalStatus="active"; }catch(e){}
+  try{ history.replaceState({hdPage:"rentals",hdArgs:[]},"",location.href); }catch(e){}
+  try{ if(typeof window.rentals==='function') window.rentals(); }catch(e){}
+}
 function hdBack(fallback){
   try{
     const st=history.state;
@@ -1167,7 +1340,7 @@ function hdBack(fallback){
 (function(){
   const pageFns = [
     'home','dealers','dealerAdmin','showDealerManager','showAddDealerForm','editDealer','openDealer',
-    'rentals','newRental','openRental','addBTCCCans','addBTCCRefill','manageBTCCDepositsRefunds','editRentalCustomer','recordReturn',
+    'rentals','newRental','openRental','editRentalCustomer',
     'manageStaff','addStaff','editStaff','manageProducts','newProduct','editProduct','money','attendance','renderAttendance','owner','ownerDashboard'
   ];
   let restoring = false;
@@ -1180,6 +1353,12 @@ function hdBack(fallback){
     const original = window[name];
     if(typeof original !== 'function' || original.__hdBackWrapped) return;
     function wrapped(){
+      // Re-rendering the same customer profile after an action (Add Cans,
+      // Refill, Return, Deposit/Refund, Edit) must NOT create another
+      // history entry. Otherwise Back can replay the action popup.
+      if(name==='openRental' && window.currentBTCCCustomer===arguments[0]){
+        return original.apply(this,arguments);
+      }
       pushPage(name,arguments);
       return original.apply(this,arguments);
     }
