@@ -1,4 +1,4 @@
-const CACHE_NAME = "happy-drops-manager-v4-push";
+const CACHE_NAME = "happy-drops-manager-v5-push-splash";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -9,7 +9,8 @@ const APP_SHELL = [
   "./icon-192.png",
   "./icon-512.png",
   "./apple-touch-icon.png",
-  "./icon-maskable-512.png"
+  "./icon-maskable-512.png",
+  "./hd-transparent-icon-512.png"
 ];
 
 self.addEventListener("install", event => {
