@@ -124,7 +124,7 @@ const HAPPY_DROPS_SUPABASE_PUBLISHABLE_KEY='sb_publishable_M1kXdYZnF8xjILQ_nzMbF
 let hdSupabase=null, hdSession=null, hdCloudBusy=false;
 function hdCloudMessage(text,color){const e=document.getElementById('cloudAuthMsg');if(e){e.textContent=text;e.style.color=color||'#1769aa';}}
 function hdShowAuth(){let old=document.getElementById('cloudAuthOverlay');if(old)old.remove();const e=document.createElement('div');e.id='cloudAuthOverlay';e.innerHTML=`<div id="cloudAuthBox"><h3>🔐 Happy Drops</h3><p>Enter your PIN to open Happy Drops Manager.</p><input id="hdLoginPin" type="password" inputmode="numeric" maxlength="4" placeholder="Enter PIN" autocomplete="off" onkeydown="if(event.key==='Enter')hdSignIn()"><button class="btn" style="width:100%;margin-top:8px" onclick="hdSignIn()">Login</button><div id="cloudAuthMsg"></div></div>`;document.body.appendChild(e);e.style.display='flex';setTimeout(()=>document.getElementById('hdLoginPin')?.focus(),50);}
-async function hdSignIn(){if(!hdSupabase)return;const pin=(document.getElementById('hdLoginPin')?.value||'').trim();if(pin!=='8009'){hdCloudMessage('Wrong OTP/PIN\nPlease enter correct OTP/PIN.','#c62828');return;}hdCloudMessage('Connecting to cloud…');try{let data=(await hdSupabase.auth.getSession()).data;let session=data?.session||null;if(!session){const r=await hdSupabase.auth.signInAnonymously();if(r.error)throw r.error;session=r.data.session;}hdSession=session;const ov=document.getElementById('cloudAuthOverlay');if(ov)ov.remove();await hdCloudBootstrap();}catch(e){console.error('Cloud PIN login error',e);hdCloudMessage('Cloud login is not enabled yet. Please enable Anonymous Sign-Ins in Supabase Authentication settings.','#c62828');}}
+async function hdSignIn(){if(!hdSupabase)return;const pin=(document.getElementById('hdLoginPin')?.value||'').trim();if(pin!=='8009'){hdCloudMessage('Wrong OTP/PIN\nPlease enter correct OTP/PIN.','#c62828');return;}hdCloudMessage('Connecting to cloud…');try{let data=(await hdSupabase.auth.getSession()).data;let session=data?.session||null;if(!session){const r=await hdSupabase.auth.signInAnonymously();if(r.error)throw r.error;session=r.data.session;}hdSession=session;const ov=document.getElementById('cloudAuthOverlay');if(ov)ov.remove();await hdCloudBootstrap();setTimeout(()=>hdStartPushRegistration(),0);}catch(e){console.error('Cloud PIN login error',e);hdCloudMessage('Cloud login is not enabled yet. Please enable Anonymous Sign-Ins in Supabase Authentication settings.','#c62828');}}
 function hdCloudBadge(){let e=document.getElementById('hdCloudUser');if(e)e.remove();}
 function hdUuid(){return (crypto&&crypto.randomUUID)?crypto.randomUUID():('00000000-0000-4000-8000-'+Math.random().toString(16).slice(2).padStart(12,'0'));}
 function hdRentalBase(id,name,c){return {id,name:String(name||c?.name||'Customer').trim(),mobile:c?.phone||'',rental_date:c?.rentalDate||localDateKey(new Date()),rental_time:c?.rentalTime||null,return_date:c?.returnDate||null,bt_quantity:Number(c?.pbt)||0,cc_quantity:Number(c?.cc)||0,bt_price:Number.isFinite(+c?.pbtPrice)?+c.pbtPrice:20,cc_price:Number.isFinite(+c?.ccPrice)?+c.ccPrice:50,security_deposit:Number(c?.deposit)||0,status:c?.closed?'closed':(c?.pending?'pending':'active'),closed:!!c?.closed,refund_completed:!!c?.refundCompleted};}
@@ -159,7 +159,92 @@ async function hdLoadRentals(){const {data:rows,error}=await hdSupabase.from('re
 async function hdCloudBootstrap(){if(!hdSupabase||!hdSession)return;try{const cloud=await hdLoadRentals();const cloudCount=Object.keys(cloud).length;let local=typeof R!=='undefined'?R:{};const uuidName=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;local=Object.fromEntries(Object.entries(local).filter(([n])=>!uuidName.test(String(n))));if(cloudCount>0){R=cloud;ensureRentalSequences();save();}else if(Object.keys(local).length){R=local;for(const [n,c] of Object.entries(R)){await hdPushRental(n,c);}ensureRentalSequences();}else{R={};}hdCloudBadge();}catch(e){console.error('Cloud load error',e);alert('Cloud connection error: '+(e.message||e));}}
 async function hdCloudSyncRentals(){if(!hdSupabase||!hdSession||hdCloudBusy)return;hdCloudBusy=true;try{for(const [n,c] of Object.entries(R||{})){await hdPushRental(n,c);}localStorage.setItem('happyDropsCloudLastSync',new Date().toISOString());}catch(e){console.error('Cloud sync error',e);}finally{hdCloudBusy=false;}}
 async function hdRefreshRentalsFromCloud(){if(!hdSupabase||!hdSession||hdCloudBusy)return false;hdCloudBusy=true;try{const cloud=await hdLoadRentals();R=cloud;localStorage.setItem('happyDropsCloudLastSync',new Date().toISOString());return true;}catch(e){console.error('Cloud refresh error',e);return false;}finally{hdCloudBusy=false;}}
-function hdInitCloud(){try{if(!window.supabase||!window.supabase.createClient)return;hdSupabase=window.supabase.createClient(HAPPY_DROPS_SUPABASE_URL,HAPPY_DROPS_SUPABASE_PUBLISHABLE_KEY);hdSupabase.auth.getSession().then(async ({data})=>{hdSession=data.session||null;if(hdSession){await hdCloudBootstrap();}else hdShowAuth();});hdSupabase.auth.onAuthStateChange((_event,session)=>{hdSession=session||null;});}catch(e){console.error('Supabase init error',e);}}
+function hdInitCloud(){try{if(!window.supabase||!window.supabase.createClient)return;hdSupabase=window.supabase.createClient(HAPPY_DROPS_SUPABASE_URL,HAPPY_DROPS_SUPABASE_PUBLISHABLE_KEY);hdSupabase.auth.getSession().then(async ({data})=>{hdSession=data.session||null;if(hdSession){await hdCloudBootstrap();setTimeout(()=>hdStartPushRegistration(),250);}else hdShowAuth();});hdSupabase.auth.onAuthStateChange((_event,session)=>{hdSession=session||null;if(hdSession)setTimeout(()=>hdStartPushRegistration(),250);});}catch(e){console.error('Supabase init error',e);}}
+
+// Happy Drops Manager Web Push registration
+const HD_VAPID_PUBLIC_KEY = "BAfyUjWhYjRl6aExLadqGEFlc8b_CMRol2VJFReuST8tYg64dqi-iGCxh6Kueja0jqtE8S40fZjU5BkViO1xKUM";
+
+function hdUrlBase64ToUint8Array(base64String){
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = atob(base64);
+  return Uint8Array.from([...rawData].map(ch => ch.charCodeAt(0)));
+}
+
+async function hdRegisterPushNotifications(){
+  try{
+    if(!window.isSecureContext || !('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)){
+      console.warn('Web Push is not supported in this browser/context.');
+      return false;
+    }
+    if(!hdSupabase || !hdSession?.user?.id){
+      console.warn('Push registration waiting for Supabase login.');
+      return false;
+    }
+
+    let permission = Notification.permission;
+    if(permission === 'default'){
+      permission = await Notification.requestPermission();
+    }
+    if(permission !== 'granted'){
+      console.warn('Notification permission was not granted:', permission);
+      return false;
+    }
+
+    const registration = await navigator.serviceWorker.ready;
+    let subscription = await registration.pushManager.getSubscription();
+    if(!subscription){
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: hdUrlBase64ToUint8Array(HD_VAPID_PUBLIC_KEY)
+      });
+    }
+
+    const subscriptionJson = subscription.toJSON();
+    const endpoint = subscriptionJson.endpoint || subscription.endpoint;
+    if(!endpoint) throw new Error('Push subscription endpoint is missing.');
+
+    const {data: existing, error: findError} = await hdSupabase
+      .from('push_subscriptions')
+      .select('id')
+      .eq('endpoint', endpoint)
+      .limit(1);
+
+    if(findError) throw findError;
+
+    if(existing && existing.length){
+      const {error: updateError} = await hdSupabase
+        .from('push_subscriptions')
+        .update({
+          user_id: hdSession.user.id,
+          subscription: subscriptionJson
+        })
+        .eq('id', existing[0].id);
+      if(updateError) throw updateError;
+    }else{
+      const {error: insertError} = await hdSupabase
+        .from('push_subscriptions')
+        .insert({
+          user_id: hdSession.user.id,
+          endpoint,
+          subscription: subscriptionJson
+        });
+      if(insertError) throw insertError;
+    }
+
+    console.log('Happy Drops push notification subscription registered.');
+    return true;
+  }catch(error){
+    console.error('Happy Drops push registration failed:', error);
+    return false;
+  }
+}
+
+async function hdStartPushRegistration(){
+  if(!hdSupabase || !hdSession?.user?.id) return false;
+  return hdRegisterPushNotifications();
+}
+
 </script>
 <script>
 let saved=null;try{const raw=localStorage.getItem("happyDropsManagerV12")||localStorage.getItem("happyDropsManagerV9")||localStorage.getItem("happyDropsManagerV8")||localStorage.getItem("happyDropsManagerV7");saved=raw?JSON.parse(raw):null}catch(e){saved=null;try{localStorage.removeItem("happyDropsManagerV12");localStorage.removeItem("happyDropsManagerV9");}catch(_){} }
