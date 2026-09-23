@@ -1318,7 +1318,7 @@ function shareMoneyWhatsApp(){
  window.open("https://wa.me/?text="+encodeURIComponent(msg),"_blank");
 }
 
-ensureSyncBadge();home();
+ensureSyncBadge();
 setTimeout(hdInitCloud,150);
 if("serviceWorker" in navigator){window.addEventListener("load",()=>{navigator.serviceWorker.register("./service-worker.js",{scope:"./"}).catch(e=>console.error("Service worker registration failed",e));});}
 </script>
@@ -1352,7 +1352,7 @@ function hdBack(fallback){
       history.pushState({hdPage:name,hdArgs:pageArgs},'',location.href);
       // Remember the actual page so a browser/PWA refresh restores that page
       // instead of always starting from Home.
-      sessionStorage.setItem('hdCurrentPage',JSON.stringify({hdPage:name,hdArgs:pageArgs}));
+      localStorage.setItem('hdCurrentPage',JSON.stringify({hdPage:name,hdArgs:pageArgs}));
     }catch(e){}
   }
   function wrap(name){
@@ -1381,11 +1381,15 @@ function hdBack(fallback){
 
   // Restore the page that was open before a normal browser/PWA refresh.
   try{
-    const saved=JSON.parse(sessionStorage.getItem('hdCurrentPage')||'null');
-    if(saved && saved.hdPage && saved.hdPage!=='home' && typeof window[saved.hdPage]==='function'){
+    const saved=JSON.parse(localStorage.getItem('hdCurrentPage')||'null');
+    if(saved && saved.hdPage && typeof window[saved.hdPage]==='function'){
       restoring=true;
       try{ window[saved.hdPage].apply(window,Array.isArray(saved.hdArgs)?saved.hdArgs:[]); }finally{ restoring=false; }
       try{ history.replaceState({hdPage:saved.hdPage,hdArgs:Array.isArray(saved.hdArgs)?saved.hdArgs:[]},'',location.href); }catch(e){}
+    }else{
+      restoring=true;
+      try{ if(typeof window.home==='function') window.home(); }finally{ restoring=false; }
+      try{ localStorage.setItem('hdCurrentPage',JSON.stringify({hdPage:'home',hdArgs:[]})); }catch(e){}
     }
   }catch(e){}
 
@@ -1405,7 +1409,7 @@ function hdBack(fallback){
     try{
       const args=Array.isArray(st.hdArgs)?st.hdArgs:[];
       fn.apply(window,args);
-      try{ sessionStorage.setItem('hdCurrentPage',JSON.stringify({hdPage:st.hdPage,hdArgs:args})); }catch(e){}
+      try{ localStorage.setItem('hdCurrentPage',JSON.stringify({hdPage:st.hdPage,hdArgs:args})); }catch(e){}
     }finally{ restoring=false; }
   });
 })();
