@@ -754,7 +754,35 @@ function showRentalWhatsAppPopup(n){let old=document.getElementById('rentalWhats
 function sendRentalWhatsApp(n,e){if(e){e.preventDefault();e.stopPropagation();}let c=R[n];if(!c||!c.phone){alert('Customer mobile number is missing.');return}let phone=String(c.phone).replace(/\D/g,'').replace(/^91/,'');if(phone.length!==10){alert('Please check the customer mobile number.');return}let msg=buildRentalWhatsAppMessage(n);let a=document.createElement('a');a.href='https://wa.me/91'+phone+'?text='+encodeURIComponent(msg);a.target='_blank';a.rel='noopener';a.style.display='none';document.body.appendChild(a);a.click();setTimeout(()=>a.remove(),1000)}
 
 function rentalActivityStamp(ts){const d=new Date(ts||Date.now());const date=String(d.getDate()).padStart(2,"0")+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getFullYear()).slice(-2);return date+", "+formatRentalTime12(String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"));}
-function addRentalActivity(c,activity,meta){c.activity=c.activity||[];const suppliedTs=meta&&Number.isFinite(Number(meta.ts))?Number(meta.ts):Date.now();c.activity.push({...activity,ts:suppliedTs});}
+function rentalActivityKey(x){
+  const ts=Number(x&&x.ts)||0;
+  const d=new Date(ts);
+  const minute=Number.isNaN(d.getTime())?'':String(d.getFullYear())+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+'T'+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+  return [x&&x.type||'',minute,x&&x.pbt||0,x&&x.cc||0,x&&x.deposit||0,x&&x.refund||0,x&&x.balanceAfter||'',x&&x.amount||0,x&&x.rentalTotal||0,x&&x.text||'',x&&x.name||'',x&&x.phone||'',x&&x.bill||''].join('|');
+}
+function normalizeRentalActivity(c){
+  if(!c)return;
+  const src=Array.isArray(c.activity)?c.activity:[];
+  const out=[],seen=new Set();
+  for(const x of src){
+    if(!x)continue;
+    const k=rentalActivityKey(x);
+    if(seen.has(k))continue;
+    seen.add(k);out.push(x);
+  }
+  c.activity=out;
+}
+function addRentalActivity(c,activity,meta){
+  if(!c)return;
+  c.activity=c.activity||[];
+  normalizeRentalActivity(c);
+  const suppliedTs=meta&&Number.isFinite(Number(meta.ts))?Number(meta.ts):Date.now();
+  const entry={...activity,ts:suppliedTs};
+  const key=rentalActivityKey(entry);
+  if(c.activity.some(x=>rentalActivityKey(x)===key))return;
+  c.activity.push(entry);
+  normalizeRentalActivity(c);
+}
 function rentalActivityFinancials(c){const t=rentalTotals(c);return {totalBill:t.totalBill,refundable:t.refund,deposit:t.deposit};}
 function rentalOriginalDeposit(c){
   if(!c||typeof c!=='object')return 0;
@@ -1085,6 +1113,7 @@ function openRental(n){
   window.currentBTCCCustomer=n;
   const c=R[n]; if(!c) return rentals();
   c.returns=c.returns||[]; c.additions=c.additions||[]; c.refills=c.refills||[]; c.depositRefunds=c.depositRefunds||[];
+  normalizeRentalActivity(c);
   // The original Customer Added activity must always use the Date + Time
   // entered in the customer form, not the actual time the record was saved.
   // This also repairs customers created before this logic was added.
@@ -1403,6 +1432,7 @@ function manageBTCCDepositsRefunds(n){
     const d=Math.max(0,Number(document.getElementById('btccDepositAmt').value)||0),r=Math.max(0,Number(document.getElementById('btccRefundAmt').value)||0),err=document.getElementById('btccDRerr');
     if(!d&&!r){err.textContent='Enter a deposit or refund amount.';return}
     if(r>t.deposit+d){err.textContent='Refund cannot be more than the deposited amount after this deposit.';return}
+    if(d===0 && r>0 && t.refund<=0){err.textContent='No refundable amount is available.';return}
     const balanceAfter=t.deposit+d-r;
     const refundTs=Date.now();
     c.depositRefunds=c.depositRefunds||[]; c.depositRefunds.push({deposit:d,refund:r,balanceAfter,ts:refundTs});
@@ -1469,6 +1499,7 @@ function recordReturn(n){
     const err=document.getElementById('returnErr');
     if(!b&&!q){err.textContent='Enter at least one BT or CC return quantity.';return}
     if(b>t.pendingBT||q>t.pendingCC){err.textContent='Returned quantity cannot be more than the current can balance.';return}
+    if(t.pendingBT<=0 && t.pendingCC<=0){err.textContent='All cans are already returned.';return}
     c.returns=c.returns||[];
     const returnTs=Date.now();
     c.returns.push({date:localDateKey(new Date(returnTs)),pbt:b,cc:q,ts:returnTs});
@@ -1526,6 +1557,7 @@ function moveBTCCActive(n){
 function closeBTCCRental(n){
   n=n||window.currentBTCCCustomer;
   const c=R[n]; if(!c)return;
+  if(c.closed){window.btccRentalStatus='closed';rentals();return;}
   const t=rentalTotals(c);
   const amount=t.refund>0?t.refund:t.extraBill>0?t.extraBill:t.bill+t.refillBill;
   const amountLabel=t.refund>0?'Refund':t.extraBill>0?'Bill':'Bill/Refund';
@@ -1550,6 +1582,7 @@ function closeBTCCRental(n){
   document.getElementById('btccCloseCancel').onclick=()=>modal.remove();
   document.getElementById('btccCloseConfirmBtn').onclick=()=>{
     c.refundCompleted=true;c.closed=true;c.pending=false;addRentalActivity(c,{type:'status',text:'Marked as Closed'});
+    normalizeRentalActivity(c);
     save();modal.remove();window.btccRentalStatus='closed';rentals();
   };
 }
