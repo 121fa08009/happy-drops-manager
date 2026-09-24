@@ -334,56 +334,17 @@ function attendance(){
  ensureSyncBadge();
  renderAttendance();
 }
-function todayDateKey(){return localDateKey(new Date())}
-function localDateKey(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
-function rentalDateLabel(ds){if(!ds)return '';let a=ds.split('-').map(Number);if(a.length!==3||!a[0]||!a[1]||!a[2])return '';let taken=new Date(a[0],a[1]-1,a[2]);taken.setHours(0,0,0,0);let today=new Date();today.setHours(0,0,0,0);let diff=Math.round((today-taken)/86400000);let rel=diff===0?'Today':diff===1?'Yesterday':diff>1?diff+' days':'';let short=String(a[2]).padStart(2,'0')+'-'+String(a[1]).padStart(2,'0');return short+(rel?' ('+rel+')':'')}
-function ensureRentalSequences(){let byDate={};Object.keys(R).forEach(n=>{let c=R[n];if(!c)return;let d=String(c.rentalDate||'');if(!byDate[d])byDate[d]=[];byDate[d].push(n)});let changed=false;Object.keys(byDate).forEach(d=>{let used=byDate[d].map(n=>Number(R[n].rentalSequence)).filter(Number.isFinite).map(Number);let next=used.length?Math.max(...used)+1:1;byDate[d].forEach(n=>{if(!Number.isFinite(Number(R[n].rentalSequence))){R[n].rentalSequence=next++;changed=true}})});if(changed)save()}
-function rentalDateSeqLabel(c){let ds=c&&c.rentalDate;if(!ds)return '';let base=rentalDateLabel(ds);let seq=Number(c&&c.rentalSequence);return base?base.replace(' (','/'+(Number.isFinite(seq)?seq:'')+' ('):base}
-function dateFromKey(k){const p=k.split("-").map(Number);return new Date(p[0],p[1]-1,p[2])}
-function addDaysKey(k,n){const d=dateFromKey(k);d.setDate(d.getDate()+n);return localDateKey(d)}
-function fmtDate(d){return String(d.getDate()).padStart(2,"0")+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+d.getFullYear()}
-
 function renderAttendance(){
- document.getElementById("app").innerHTML=`<div class="card" style="max-width:620px;margin:14px auto">
- <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-  <div><h2 style="margin:0">👥 Staff Attendance</h2><span class="small">Attendance Form</span></div>
-  <button class="btn secondary" onclick="hdBack()">← Back</button>
- </div>
- </div>
- <div class="card" style="max-width:620px;margin:14px auto">
-  <h3 style="margin-top:0">Employee Attendance</h3>
-  <div class="grid">
-   <div><label>Employee Name</label>
-    <select id="attStaff"><option value="">Select Employee</option>${staffOrder.filter(n=>staff[n]&&!staff[n].hidden&&!staff[n].deleted).map(n=>`<option value="${String(n).replace(/"/g,'&quot;')}">${n}</option>`).join("")}</select>
-   </div>
-   <div><label>Date</label><input id="attDate" type="date" value="${todayDateKey()}"></div>
-   <div><label>Login Time</label><input id="attLogin" type="time"></div>
-   <div><label>Logout Time</label><input id="attLogout" type="time"></div>
-   <div><label>Salary Advance ₹</label><input id="attAdvance" type="number" min="0" step="1" placeholder="0"></div>
-   <div><label>Remarks</label><input id="attRemarks" type="text" placeholder="Optional"></div>
+ const formUrl="https://docs.google.com/forms/d/e/1FAIpQLSfvAai6m21HnSU_yzAK3s9VjWDcS0v_y0BXQ7A1OvLIIs1GFw/viewform?embedded=true";
+ document.getElementById("app").innerHTML=`<div class="card" style="max-width:900px;margin:10px auto;padding:10px">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px">
+   <div><h2 style="margin:0">👥 Attendance</h2><span class="small">Happy Drops Attendance Form</span></div>
+   <button class="btn secondary" onclick="hdBack()">← Back</button>
   </div>
-  <div id="attDuration" class="summary" style="font-size:15px">Worked Time: —</div>
-  <button class="btn" style="width:100%;margin-top:12px" onclick="submitStaffAttendance()">📋 Submit Attendance</button>
-  <div class="small" style="margin-top:10px;text-align:center">This is the custom Happy Drops form. Google Form/Sheet submission will use the same fields once the Google Form mapping is connected.</div>
+  <div style="width:100%;height:calc(100vh - 135px);min-height:560px;overflow:hidden;border:1px solid #dbe5ec;border-radius:10px;background:#fff">
+   <iframe src="${formUrl}" title="Happy Drops Attendance Form" style="width:100%;height:100%;border:0" loading="eager" allow="clipboard-write"></iframe>
+  </div>
  </div>`;
- document.getElementById("attLogin").addEventListener("input",updateAttendanceDuration);
- document.getElementById("attLogout").addEventListener("input",updateAttendanceDuration);
-}
-function updateAttendanceDuration(){
- const l=document.getElementById("attLogin")?.value,o=document.getElementById("attLogout")?.value;
- const e=document.getElementById("attDuration"); if(e)e.textContent="Worked Time: "+(shiftDuration(l,o)||"—");
-}
-function submitStaffAttendance(){
- const n=document.getElementById("attStaff")?.value||"",d=document.getElementById("attDate")?.value||"",li=document.getElementById("attLogin")?.value||"",lo=document.getElementById("attLogout")?.value||"";
- if(!n)return alert("Please select employee name.");
- if(!d)return alert("Please select date.");
- if(!li)return alert("Please enter login time.");
- if(!lo)return alert("Please enter logout time.");
- if(!attendanceData[d])attendanceData[d]={};
- attendanceData[d][n]={...(attendanceData[d][n]||{}),login:li,logout:lo,advance:Number(document.getElementById("attAdvance")?.value||0),remarks:document.getElementById("attRemarks")?.value||""};
- save();
- alert("Attendance saved successfully.");
- renderAttendance();
 }
 
 function owner(){
