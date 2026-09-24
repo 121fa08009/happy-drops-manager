@@ -1683,9 +1683,28 @@ function hdBack(fallback){
     if(restoring) return;
     const pageArgs=Array.from(args||[]);
     try{
-      history.pushState({hdPage:name,hdArgs:pageArgs},'',location.href);
-      // Remember the actual page so a browser/PWA refresh restores that page
-      // instead of always starting from Home.
+      const current=history.state||{};
+      const currentArgs=Array.isArray(current.hdArgs)?current.hdArgs:[];
+      const samePage=current.hdPage===name && JSON.stringify(currentArgs)===JSON.stringify(pageArgs);
+
+      // Never create duplicate consecutive entries.
+      if(samePage){
+        localStorage.setItem('hdCurrentPage',JSON.stringify({hdPage:name,hdArgs:pageArgs}));
+        return;
+      }
+
+      // Leaving the New Rental form for Rentals must replace the form entry,
+      // not push another Rentals entry. Otherwise Android Back can later
+      // return to the already-finished New Rental form.
+      if(name==='rentals' && current.hdPage==='newRental'){
+        history.replaceState({hdPage:name,hdArgs:pageArgs},'',location.href);
+      // Home is also a boundary: do not leave a duplicate Rentals entry
+      // underneath Home.
+      }else if(name==='home' && (current.hdPage==='rentals' || current.hdPage==='home')){
+        history.replaceState({hdPage:name,hdArgs:pageArgs},'',location.href);
+      }else{
+        history.pushState({hdPage:name,hdArgs:pageArgs},'',location.href);
+      }
       localStorage.setItem('hdCurrentPage',JSON.stringify({hdPage:name,hdArgs:pageArgs}));
     }catch(e){}
   }
