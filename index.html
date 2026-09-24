@@ -166,8 +166,29 @@ async function hdLoadRentals(){const {data:rows,error}=await hdSupabase.from('re
  const tables=['rental_additions','rental_returns','rental_refills','rental_deposit_transactions','rental_activity'];
  for(const table of tables){const {data,error}=await hdSupabase.from(table).select('*').in('rental_customer_id',ids).order('created_at',{ascending:true});if(error)throw error;for(const row of (data||[])){const c=Object.values(result).find(x=>x.cloudId===row.rental_customer_id);if(!c)continue;const ts=new Date(row.created_at).getTime()||Date.now();if(table==='rental_additions')c.additions.push({date:row.created_at?.slice(0,10)||'',pbt:row.bt_quantity,cc:row.cc_quantity,deposit:Number(row.deposit_amount)||0,ts});else if(table==='rental_returns')c.returns.push({date:row.created_at?.slice(0,10)||'',pbt:row.bt_quantity,cc:row.cc_quantity,ts});else if(table==='rental_refills')c.refills.push({date:row.created_at?.slice(0,10)||'',pbt:row.bt_quantity,cc:row.cc_quantity,amount:(Number(row.bt_quantity)||0)*15+(Number(row.cc_quantity)||0)*30,ts});else if(table==='rental_deposit_transactions'){c.depositRefunds=c.depositRefunds||[];let last=c.depositRefunds.find(x=>x.ts===ts);if(!last){last={deposit:0,refund:0,ts};c.depositRefunds.push(last);}if(row.transaction_type==='deposit')last.deposit+=Number(row.amount)||0;else last.refund+=Number(row.amount)||0;}else if(table==='rental_activity'){let x=row.details||{};if(typeof x==='string'){try{x=JSON.parse(x)}catch(_){x={type:row.activity_type,amount:row.amount}}}c.activity.push({...x,ts});}}}
  return result;}
-async function hdCloudBootstrap(){if(!hdSupabase||!hdSession)return;try{const cloud=await hdLoadRentals();const cloudCount=Object.keys(cloud).length;let local=typeof R!=='undefined'?R:{};const uuidName=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;local=Object.fromEntries(Object.entries(local).filter(([n])=>!uuidName.test(String(n))));if(cloudCount>0){R=cloud;ensureRentalSequences();save();}else if(Object.keys(local).length){R=local;for(const [n,c] of Object.entries(R)){await hdPushRental(n,c);}ensureRentalSequences();}else{R={};}hdCloudBadge();}catch(e){console.error('Cloud load error',e);alert('Cloud connection error: '+(e.message||e));}}
-async function hdCloudSyncRentals(){if(!hdSupabase||!hdSession||hdCloudBusy)return;hdCloudBusy=true;try{for(const [n,c] of Object.entries(R||{})){await hdPushRental(n,c);}localStorage.setItem('happyDropsCloudLastSync',new Date().toISOString());}catch(e){console.error('Cloud sync error',e);}finally{hdCloudBusy=false;}}
+async function hdCloudBootstrap(){if(!hdSupabase||!hdSession)return;try{const localBefore=typeof R!=='undefined'?JSON.parse(JSON.stringify(R)):{};const cloud=await hdLoadRentals();const cloudCount=Object.keys(cloud).length;let local=localBefore;const uuidName=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;local=Object.fromEntries(Object.entries(local).filter(([n])=>!uuidName.test(String(n))));if(cloudCount>0){R=cloud;ensureRentalSequences();save();}else if(Object.keys(local).length){R=local;for(const [n,c] of Object.entries(R)){await hdPushRental(n,c);}ensureRentalSequences();}else{R={};}hdCloudBadge();}catch(e){console.error('Cloud load error',e);alert('Cloud connection error: '+(e.message||e));}}
+let hdCloudSyncAgain=false;
+async function hdCloudSyncRentals(){
+  if(!hdSupabase||!hdSession)return;
+  if(hdCloudBusy){hdCloudSyncAgain=true;return;}
+  hdCloudBusy=true;
+  try{
+    do{
+      hdCloudSyncAgain=false;
+      const snapshot=Object.entries(R||{}).map(([n,c])=>[n,JSON.parse(JSON.stringify(c))]);
+      for(const [n,c] of snapshot){
+        await hdPushRental(n,c);
+        if(R[n]) R[n].cloudId=c.cloudId||R[n].cloudId;
+      }
+      localStorage.setItem('happyDropsCloudLastSync',new Date().toISOString());
+    }while(hdCloudSyncAgain);
+  }catch(e){
+    console.error('Cloud sync error',e);
+  }finally{
+    hdCloudBusy=false;
+    if(hdCloudSyncAgain){hdCloudSyncAgain=false;setTimeout(()=>hdCloudSyncRentals(),0);}
+  }
+}
 async function hdRefreshRentalsFromCloud(){if(!hdSupabase||!hdSession||hdCloudBusy)return false;hdCloudBusy=true;try{const cloud=await hdLoadRentals();R=cloud;localStorage.setItem('happyDropsCloudLastSync',new Date().toISOString());return true;}catch(e){console.error('Cloud refresh error',e);return false;}finally{hdCloudBusy=false;}}
 function hdInitCloud(){try{if(!window.supabase||!window.supabase.createClient)return;hdSupabase=window.supabase.createClient(HAPPY_DROPS_SUPABASE_URL,HAPPY_DROPS_SUPABASE_PUBLISHABLE_KEY);hdSupabase.auth.getSession().then(async ({data})=>{hdSession=data.session||null;if(hdSession){await hdCloudBootstrap();setTimeout(()=>hdStartPushRegistration(),250);}else hdShowAuth();});hdSupabase.auth.onAuthStateChange((_event,session)=>{hdSession=session||null;if(hdSession)setTimeout(()=>hdStartPushRegistration(),250);});}catch(e){console.error('Supabase init error',e);}}
 
@@ -336,9 +357,9 @@ function attendance(){
  document.getElementById("app").innerHTML=`<div class="card" style="max-width:1100px;margin:10px auto;padding:12px">
   <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
    <h2 style="margin:0">👥 Staff Attendance</h2>
-   <div style="display:flex;gap:8px">
-    <button class="btn secondary" type="button" onclick="hdBack()">← Back</button>
+   <div style="display:flex;align-items:center;gap:8px;margin-left:auto">
     <button class="btn" type="button" onclick="window.open('${addAttendanceUrl}','_blank')">＋ Add Attendance</button>
+    <button class="btn secondary" type="button" onclick="hdBack()">← Back</button>
    </div>
   </div>
   <div style="width:100%;overflow:hidden;border:1px solid #dbe5ec;border-radius:10px;background:#fff">
@@ -346,59 +367,6 @@ function attendance(){
   </div>
  </div>`;
 }
-
-function todayDateKey(){return localDateKey(new Date())}
-function localDateKey(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
-function rentalDateLabel(ds){if(!ds)return '';let a=ds.split('-').map(Number);if(a.length!==3||!a[0]||!a[1]||!a[2])return '';let taken=new Date(a[0],a[1]-1,a[2]);taken.setHours(0,0,0,0);let today=new Date();today.setHours(0,0,0,0);let diff=Math.round((today-taken)/86400000);let rel=diff===0?'Today':diff===1?'Yesterday':diff>1?diff+' days':'';let short=String(a[2]).padStart(2,'0')+'-'+String(a[1]).padStart(2,'0');return short+(rel?' ('+rel+')':'')}
-function ensureRentalSequences(){let byDate={};Object.keys(R).forEach(n=>{let c=R[n];if(!c)return;let d=String(c.rentalDate||'');if(!byDate[d])byDate[d]=[];byDate[d].push(n)});let changed=false;Object.keys(byDate).forEach(d=>{let used=byDate[d].map(n=>Number(R[n].rentalSequence)).filter(Number.isFinite).map(Number);let next=used.length?Math.max(...used)+1:1;byDate[d].forEach(n=>{if(!Number.isFinite(Number(R[n].rentalSequence))){R[n].rentalSequence=next++;changed=true}})});if(changed)save()}
-function rentalDateSeqLabel(c){let ds=c&&c.rentalDate;if(!ds)return '';let base=rentalDateLabel(ds);let seq=Number(c&&c.rentalSequence);return base?base.replace(' (','/'+(Number.isFinite(seq)?seq:'')+' ('):base}
-function dateFromKey(k){const p=k.split("-").map(Number);return new Date(p[0],p[1]-1,p[2])}
-function addDaysKey(k,n){const d=dateFromKey(k);d.setDate(d.getDate()+n);return localDateKey(d)}
-function fmtDate(d){return String(d.getDate()).padStart(2,"0")+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+d.getFullYear()}
-
-function renderAttendance(){
- document.getElementById("app").innerHTML=`<div class="card" style="max-width:620px;margin:14px auto">
- <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-  <div><h2 style="margin:0">👥 Staff Attendance</h2><span class="small">Attendance Form</span></div>
-  <button class="btn secondary" onclick="hdBack()">← Back</button>
- </div>
- </div>
- <div class="card" style="max-width:620px;margin:14px auto">
-  <h3 style="margin-top:0">Employee Attendance</h3>
-  <div class="grid">
-   <div><label>Employee Name</label>
-    <select id="attStaff"><option value="">Select Employee</option>${staffOrder.filter(n=>staff[n]&&!staff[n].hidden&&!staff[n].deleted).map(n=>`<option value="${String(n).replace(/"/g,'&quot;')}">${n}</option>`).join("")}</select>
-   </div>
-   <div><label>Date</label><input id="attDate" type="date" value="${todayDateKey()}"></div>
-   <div><label>Login Time</label><input id="attLogin" type="time"></div>
-   <div><label>Logout Time</label><input id="attLogout" type="time"></div>
-   <div><label>Salary Advance ₹</label><input id="attAdvance" type="number" min="0" step="1" placeholder="0"></div>
-   <div><label>Remarks</label><input id="attRemarks" type="text" placeholder="Optional"></div>
-  </div>
-  <div id="attDuration" class="summary" style="font-size:15px">Worked Time: —</div>
-  <button class="btn" style="width:100%;margin-top:12px" onclick="submitStaffAttendance()">📋 Submit Attendance</button>
-  <div class="small" style="margin-top:10px;text-align:center">This is the custom Happy Drops form. Google Form/Sheet submission will use the same fields once the Google Form mapping is connected.</div>
- </div>`;
- document.getElementById("attLogin").addEventListener("input",updateAttendanceDuration);
- document.getElementById("attLogout").addEventListener("input",updateAttendanceDuration);
-}
-function updateAttendanceDuration(){
- const l=document.getElementById("attLogin")?.value,o=document.getElementById("attLogout")?.value;
- const e=document.getElementById("attDuration"); if(e)e.textContent="Worked Time: "+(shiftDuration(l,o)||"—");
-}
-function submitStaffAttendance(){
- const n=document.getElementById("attStaff")?.value||"",d=document.getElementById("attDate")?.value||"",li=document.getElementById("attLogin")?.value||"",lo=document.getElementById("attLogout")?.value||"";
- if(!n)return alert("Please select employee name.");
- if(!d)return alert("Please select date.");
- if(!li)return alert("Please enter login time.");
- if(!lo)return alert("Please enter logout time.");
- if(!attendanceData[d])attendanceData[d]={};
- attendanceData[d][n]={...(attendanceData[d][n]||{}),login:li,logout:lo,advance:Number(document.getElementById("attAdvance")?.value||0),remarks:document.getElementById("attRemarks")?.value||""};
- save();
- alert("Attendance saved successfully.");
- renderAttendance();
-}
-
 function owner(){
  ensureSyncBadge(); drawer.classList.remove("open");
  document.getElementById("app").innerHTML=`<div class="card" style="max-width:520px;margin:20px auto">
@@ -1522,27 +1490,25 @@ function hdBack(fallback){
     initialized=true;
   }catch(e){}
 
-  // Restore the page that was open before a normal browser/PWA refresh.
+  // Every fresh PWA launch must start on Home. Do not restore the last open page.
+  // The in-app history below is still used while the app is running.
+  try{ localStorage.setItem('hdCurrentPage',JSON.stringify({hdPage:'home',hdArgs:[]})); }catch(e){}
   try{
-    const saved=JSON.parse(localStorage.getItem('hdCurrentPage')||'null');
-    if(saved && saved.hdPage && typeof window[saved.hdPage]==='function'){
-      restoring=true;
-      try{ window[saved.hdPage].apply(window,Array.isArray(saved.hdArgs)?saved.hdArgs:[]); }finally{ restoring=false; }
-      try{ history.replaceState({hdPage:saved.hdPage,hdArgs:Array.isArray(saved.hdArgs)?saved.hdArgs:[]},'',location.href); }catch(e){}
-    }else{
-      restoring=true;
-      try{ if(typeof window.home==='function') window.home(); }finally{ restoring=false; }
-      try{ localStorage.setItem('hdCurrentPage',JSON.stringify({hdPage:'home',hdArgs:[]})); }catch(e){}
-    }
-  }catch(e){}
+    restoring=true;
+    if(typeof window.home==='function') window.home();
+  }finally{ restoring=false; }
 
   window.addEventListener('popstate',function(ev){
     const st=ev.state||{};
     if(st.hdRoot){
-      // Keep the installed PWA on the app instead of allowing Android Back to close it.
-      history.pushState({hdPage:'home',hdArgs:[]},'',location.href);
+      // Root/Home is the only point where Android Back is allowed to leave the PWA.
+      // When Back reaches the root from another screen, render Home without
+      // adding another history entry. A second Back from Home can then close the app.
       restoring=true;
-      try{ if(typeof window.home==='function') window.home(); }finally{ restoring=false; }
+      try{
+        if(typeof window.home==='function') window.home();
+        try{ localStorage.setItem('hdCurrentPage',JSON.stringify({hdPage:'home',hdArgs:[]})); }catch(e){}
+      }finally{ restoring=false; }
       return;
     }
     if(!st.hdPage) return;
