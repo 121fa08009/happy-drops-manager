@@ -134,7 +134,12 @@ const HAPPY_DROPS_SUPABASE_PUBLISHABLE_KEY='sb_publishable_M1kXdYZnF8xjILQ_nzMbF
 let hdSupabase=null, hdSession=null, hdCloudBusy=false;
 let hdDeletedRentalIds=new Set();
 try{hdDeletedRentalIds=new Set(JSON.parse(localStorage.getItem('happyDropsDeletedRentalIds')||'[]'));}catch(_){hdDeletedRentalIds=new Set();}
-function hdMarkRentalDeleted(id){if(!id)return;hdDeletedRentalIds.add(String(id));localStorage.setItem('happyDropsDeletedRentalIds',JSON.stringify([...hdDeletedRentalIds]));}
+function hdMarkRentalDeleted(id){
+  if(!id)return;
+  hdDeletedRentalIds.add(String(id));
+  localStorage.setItem('happyDropsDeletedRentalIds',JSON.stringify([...hdDeletedRentalIds]));
+}
+function hdIsRentalDeleted(id){return !!id && hdDeletedRentalIds.has(String(id));}
 function hdUnmarkRentalDeleted(id){if(!id)return;hdDeletedRentalIds.delete(String(id));localStorage.setItem('happyDropsDeletedRentalIds',JSON.stringify([...hdDeletedRentalIds]));}
 function hdCloudMessage(text,color){const e=document.getElementById('cloudAuthMsg');if(e){e.textContent=text;e.style.color=color||'#1769aa';}}
 function hdShowAuth(){let old=document.getElementById('cloudAuthOverlay');if(old)old.remove();const e=document.createElement('div');e.id='cloudAuthOverlay';e.innerHTML=`<div id="cloudAuthBox"><h3>🔐 Happy Drops</h3><p>Enter your PIN to open Happy Drops Manager.</p><input id="hdLoginPin" type="password" inputmode="numeric" maxlength="4" placeholder="Enter PIN" autocomplete="off" onkeydown="if(event.key==='Enter')hdSignIn()"><button class="btn" style="width:100%;margin-top:8px" onclick="hdSignIn()">Login</button><div id="cloudAuthMsg"></div></div>`;document.body.appendChild(e);e.style.display='flex';setTimeout(()=>document.getElementById('hdLoginPin')?.focus(),50);}
@@ -145,7 +150,9 @@ function hdRentalBase(id,name,c){return {id,name:String(name||c?.name||'Customer
 async function hdDeleteChildren(id){for(const table of ['rental_additions','rental_returns','rental_refills','rental_deposit_transactions','rental_activity']){const {error}=await hdSupabase.from(table).delete().eq('rental_customer_id',id);if(error)throw error;}}
 async function hdPushRental(name,c){
   const deletedCloudId=String(c?.cloudId||'');
-  if(deletedCloudId && hdDeletedRentalIds.has(deletedCloudId)){
+  // A deleted rental is a tombstone. It must NEVER be recreated by an older
+  // in-flight sync snapshot from another save() call.
+  if(deletedCloudId && hdIsRentalDeleted(deletedCloudId)){
     try{await hdDeleteChildren(deletedCloudId);await hdSupabase.from('rental_customers').delete().eq('id',deletedCloudId);}catch(e){console.warn('Could not finalize deleted rental in cloud',deletedCloudId,e);}
     return;
   }
@@ -187,15 +194,32 @@ async function hdPushRental(name,c){
     if(pending.length){const {error}=await hdSupabase.from(table).insert(pending);if(error)throw error;}
   }
 
-  const {data:existingActs,error:actsReadErr}=await hdSupabase.from('rental_activity').select('*').eq('rental_customer_id',actualId);
+  const {data:existingActs,error:actsReadErr}=await hdSupabase.from('rental_activity').select('*').eq('rental_customer_id',actualId).order('created_at',{ascending:true});
   if(actsReadErr)throw actsReadErr;
-  const actSig=r=>[r.activity_type||'activity',r.bt_quantity??'',r.cc_quantity??'',r.amount??'',r.created_at||'',typeof r.details==='string'?r.details:JSON.stringify(r.details||{})].join('|');
-  const actSigs=new Set((existingActs||[]).map(actSig));
+  // Activity identity intentionally ignores the exact clock time. This makes
+  // repeated saves/refreshes idempotent: one logical action on one calendar
+  // day remains one activity even if older sync versions wrote it several times.
+  const actLogicalKey=r=>{
+    let d={};
+    try{d=typeof r.details==='string'?JSON.parse(r.details||'{}'):(r.details||{});}catch(_){d={};}
+    const ts=new Date(r.created_at||0); const day=Number.isNaN(ts.getTime())?'':localDateKey(ts);
+    return [r.activity_type||d.type||'activity',day,r.bt_quantity??d.pbt??0,r.cc_quantity??d.cc??0,r.amount??d.amount??0,d.deposit??0,d.refund??0,d.balanceAfter??'',d.rentalTotal??0,d.text??'',d.name??'',d.phone??'',d.bill??''].join('|');
+  };
+  const existingByKey=new Map(),duplicateActivityIds=[];
+  for(const r of (existingActs||[])){
+    const k=actLogicalKey(r);
+    if(existingByKey.has(k)){
+      if(r.id)duplicateActivityIds.push(r.id);
+    }else existingByKey.set(k,r);
+  }
+  for(const id of duplicateActivityIds){try{await hdSupabase.from('rental_activity').delete().eq('id',id);}catch(e){console.warn('Could not remove duplicate activity',id,e);}}
   const acts=[];
-  for(const x of (c.activity||[])){
+  const localActivity=[]; normalizeRentalActivity(c); for(const x of (c.activity||[])){
     const row={rental_customer_id:actualId,activity_type:String(x.type||'activity'),description:JSON.stringify(x),bt_quantity:Number(x.pbt)||null,cc_quantity:Number(x.cc)||null,amount:Number(x.amount)||null,details:x,created_at:new Date(Number(x.ts)||Date.now()).toISOString()};
-    const key=actSig(row);
-    if(!actSigs.has(key)){acts.push(row);actSigs.add(key);}
+    const key=actLogicalKey(row);
+    if(existingByKey.has(key))continue;
+    if(localActivity.some(a=>actLogicalKey(a)===key))continue;
+    localActivity.push(row); acts.push(row);
   }
   if(acts.length){const {error}=await hdSupabase.from('rental_activity').insert(acts);if(error){console.error('Rental activity cloud sync error',error);throw error;}}
 }
@@ -210,6 +234,14 @@ function hdRentalFingerprint(c){
 // deposit identify the same completed rental, so clock/price differences are ignored.
 function hdClosedDuplicateFingerprint(c){
   if(!c || !(c.closed===true || c.closedFinal===true))return '';
+  const phone=String(c?.phone||'').replace(/\D/g,'');
+  const name=String(c?.name||'').trim().toLowerCase();
+  const date=String(c?.rentalDate||'');
+  if(!name && !phone && !date)return '';
+  return [name,phone,date,Number(c?.pbt)||0,Number(c?.cc)||0,Number(c?.deposit)||0].join('|');
+}
+function hdRentalDuplicateFingerprint(c){
+  if(!c)return '';
   const phone=String(c?.phone||'').replace(/\D/g,'');
   const name=String(c?.name||'').trim().toLowerCase();
   const date=String(c?.rentalDate||'');
@@ -240,10 +272,10 @@ function hdDedupeLocalRentals(source){
   const out={},seen=new Map(),closedSeen=new Map();
   for(const [id,c] of Object.entries(source||{})){
     if(!c)continue;
-    const exact=hdRentalFingerprint(c);
+    const exact=hdRentalDuplicateFingerprint(c);
     const legacy=hdClosedDuplicateFingerprint(c);
-    const key=legacy||exact;
-    const map=legacy?closedSeen:seen;
+    const key=exact||legacy||hdRentalFingerprint(c);
+    const map=exact?seen:(legacy?closedSeen:seen);
     if(map.has(key)){
       const keepId=map.get(key);
       out[keepId]=hdMergeDuplicateRental(out[keepId],c);
@@ -294,9 +326,10 @@ async function hdLoadRentals(){
   // so genuinely different rental transactions remain separate.
   const deduped={},seen=new Map(),closedSeen=new Map(),duplicateIds=[];
   for(const [id,c] of Object.entries(result)){
+    const exact=hdRentalDuplicateFingerprint(c);
     const legacy=hdClosedDuplicateFingerprint(c);
-    const key=legacy||hdRentalFingerprint(c);
-    const map=legacy?closedSeen:seen;
+    const key=exact||legacy||hdRentalFingerprint(c);
+    const map=exact?seen:(legacy?closedSeen:seen);
     if(map.has(key)){
       const keepId=map.get(key);
       deduped[keepId]=hdMergeDuplicateRental(deduped[keepId],c);
@@ -1544,7 +1577,14 @@ function showBTCCDeleteConfirm(n){
   document.getElementById('btccDeleteCancel').onclick=()=>modal.remove();
   document.getElementById('btccDeleteConfirmBtn').onclick=()=>confirmDeleteRentalCustomer(n);
 }
-async function hdDeleteRentalCloud(n,c){if(!hdSupabase||!hdSession||!c?.cloudId)return;await hdDeleteChildren(c.cloudId);const {error}=await hdSupabase.from('rental_customers').delete().eq('id',c.cloudId);if(error)throw error;}
+async function hdDeleteRentalCloud(n,c){
+  if(!hdSupabase||!hdSession||!c?.cloudId)return;
+  const id=String(c.cloudId);
+  hdMarkRentalDeleted(id);
+  await hdDeleteChildren(id);
+  const {error}=await hdSupabase.from('rental_customers').delete().eq('id',id);
+  if(error)throw error;
+}
 async function confirmDeleteRentalCustomer(n){
   n=n||window.currentBTCCCustomer;
   if(!n || !Object.prototype.hasOwnProperty.call(R,n)) return;
