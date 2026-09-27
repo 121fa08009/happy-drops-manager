@@ -147,12 +147,22 @@ function hdMarkRentalDeleted(id){if(!id)return;hdDeletedRentalIds.add(String(id)
 function hdUnmarkRentalDeleted(id){if(!id)return;hdDeletedRentalIds.delete(String(id));localStorage.setItem('happyDropsDeletedRentalIds',JSON.stringify([...hdDeletedRentalIds]));}
 function hdCloudMessage(text,color){const e=document.getElementById('cloudAuthMsg');if(e){e.textContent=text;e.style.color=color||'#1769aa';}}
 function hdSetCloudStatus(state,text){const e=document.getElementById('hdCloudStatus');const t=document.getElementById('hdCloudStatusText');if(e){e.dataset.state=state||'connecting';e.title=text||'Cloud sync status';e.setAttribute('aria-label',text||'Cloud sync status');}if(t)t.textContent=text||'Cloud';}
-async function hdManualCloudSync(){if(!hdSupabase||!hdSession){hdSetCloudStatus('connecting','Cloud login required');return;}hdSetCloudStatus('syncing','Syncing…');try{await hdCloudSyncRentals();await hdRefreshRentalsFromCloud();hdSetCloudStatus('synced','Cloud synced successfully');}catch(e){console.error('Manual cloud sync error',e);hdSetCloudStatus(navigator.onLine?'error':'offline',navigator.onLine?'Cloud sync failed':'Offline');}}
+async function hdManualCloudSync(){if(!hdSupabase||!hdSession){hdSetCloudStatus('connecting','Cloud login required');return;}hdSetCloudStatus('syncing','Syncing…');try{const pushed=await hdCloudSyncRentals();if(pushed===false)throw new Error('Cloud push failed; see the sync status message.');const refreshed=await hdRefreshRentalsFromCloud();if(!refreshed)throw new Error('Cloud refresh failed.');hdSetCloudStatus('synced','Cloud synced successfully');}catch(e){console.error('Manual cloud sync error',e);hdSetCloudStatus(navigator.onLine?'error':'offline',e?.message|| (navigator.onLine?'Cloud sync failed':'Offline'));}}
 
 function hdShowAuth(){let old=document.getElementById('cloudAuthOverlay');if(old)old.remove();const e=document.createElement('div');e.id='cloudAuthOverlay';e.innerHTML=`<div id="cloudAuthBox"><h3>🔐 Happy Drops</h3><p>Enter your PIN to open Happy Drops Manager.</p><input id="hdLoginPin" type="password" inputmode="numeric" maxlength="4" placeholder="Enter PIN" autocomplete="off" onkeydown="if(event.key==='Enter')hdSignIn()"><button class="btn" style="width:100%;margin-top:8px" onclick="hdSignIn()">Login</button><div id="cloudAuthMsg"></div></div>`;document.body.appendChild(e);e.style.display='flex';setTimeout(()=>document.getElementById('hdLoginPin')?.focus(),50);}
 async function hdSignIn(){if(!hdSupabase)return;hdSetCloudStatus('connecting','Connecting to cloud…');const pin=(document.getElementById('hdLoginPin')?.value||'').trim();if(pin!=='8009'){hdCloudMessage('Wrong OTP/PIN\nPlease enter correct OTP/PIN.','#c62828');return;}hdCloudMessage('Connecting to cloud…');try{let data=(await hdSupabase.auth.getSession()).data;let session=data?.session||null;if(!session){const r=await hdSupabase.auth.signInAnonymously();if(r.error)throw r.error;session=r.data.session;}hdSession=session;const ov=document.getElementById('cloudAuthOverlay');if(ov)ov.remove();await hdCloudBootstrap();setTimeout(()=>hdStartPushRegistration(),0);}catch(e){console.error('Cloud PIN login error',e);hdCloudMessage('Cloud login is not enabled yet. Please enable Anonymous Sign-Ins in Supabase Authentication settings.','#c62828');}}
 function hdCloudBadge(){let e=document.getElementById('hdCloudUser');if(e)e.remove();}
 function hdUuid(){return (crypto&&crypto.randomUUID)?crypto.randomUUID():('00000000-0000-4000-8000-'+Math.random().toString(16).slice(2).padStart(12,'0'));}
+let hdRentalSyncFingerprints={};
+try{hdRentalSyncFingerprints=JSON.parse(localStorage.getItem('happyDropsRentalSyncFingerprints')||'{}')||{};}catch(_){hdRentalSyncFingerprints={};}
+function hdRentalSyncFingerprint(c){
+  if(!c)return '';
+  const clean=v=>Array.isArray(v)?v.map(clean).sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b))):((v&&typeof v==='object')?Object.keys(v).filter(k=>k!=='localUpdatedAt').sort().reduce((o,k)=>(o[k]=clean(v[k]),o),{}):v);
+  return JSON.stringify(clean(c));
+}
+function hdSaveRentalSyncFingerprints(){try{localStorage.setItem('happyDropsRentalSyncFingerprints',JSON.stringify(hdRentalSyncFingerprints));}catch(_){} }
+function hdSetRentalSyncBaseline(id,c){if(id&&c)hdRentalSyncFingerprints[String(id)]=hdRentalSyncFingerprint(c);}
+function hdClearRentalSyncBaseline(id){if(id)delete hdRentalSyncFingerprints[String(id)];}
 function hdRentalBase(id,name,c){return {id,name:String(name||c?.name||'Customer').trim(),mobile:c?.phone||'',rental_date:c?.rentalDate||localDateKey(new Date()),rental_time:c?.rentalTime||null,return_date:c?.returnDate||null,bt_quantity:Number(c?.pbt)||0,cc_quantity:Number(c?.cc)||0,bt_price:Number.isFinite(+c?.pbtPrice)?+c.pbtPrice:20,cc_price:Number.isFinite(+c?.ccPrice)?+c.ccPrice:50,security_deposit:Number(c?.deposit)||0,status:c?.closed?'closed':(c?.pending?'pending':'active'),closed:!!c?.closed,refund_completed:!!c?.refundCompleted};}
 async function hdDeleteChildren(id){for(const table of ['rental_additions','rental_returns','rental_refills','rental_deposit_transactions','rental_activity']){const {error}=await hdSupabase.from(table).delete().eq('rental_customer_id',id);if(error)throw error;}}
 async function hdPushRental(name,c){
@@ -335,18 +345,20 @@ function hdNormalizeRentalKeys(source){
 }
 function hdMergeRentalRecords(local,cloud){
   const out={};
-  const ids=new Set([...Object.keys(local||{}),...Object.keys(cloud||{})]);
-  for(const id of ids){
-    const l=local?.[id], c=cloud?.[id];
-    if(!c){out[id]=l;continue;}
-    // Cloud is authoritative once a record has been successfully synchronized.
-    // A locally dirty record is the exception: it may contain a change that has
-    // not reached Supabase yet, so preserve it and let the next push reconcile it.
-    if(l && hdPendingRentalSyncIds.has(String(id))){
-      out[id]=hdMergeRentalRecordsOne(l,c);
-    }else{
-      out[id]=c;
-    }
+  const cloudIds=new Set(Object.keys(cloud||{}));
+  for(const [id,c] of Object.entries(cloud||{})){
+    const l=local?.[id];
+    if(l && hdPendingRentalSyncIds.has(String(id))) out[id]=hdMergeRentalRecordsOne(l,c);
+    else out[id]=c;
+  }
+  // Cloud is authoritative for records that are not locally dirty. If a record
+  // disappeared from Supabase (for example a delete from another phone), remove
+  // it locally instead of resurrecting it from localStorage.
+  for(const [id,l] of Object.entries(local||{})){
+    if(cloudIds.has(String(id)))continue;
+    if(hdPendingRentalSyncIds.has(String(id)))out[id]=l;
+    else if(hdDeletedRentalIds.has(String(id)))continue;
+    else {hdClearRentalSyncBaseline(id);}
   }
   return out;
 }
@@ -373,9 +385,14 @@ function hdPersistRentalLocalOnly(){
 }
 async function hdApplyCloudSnapshot(cloud){
   const local=hdNormalizeRentalKeys(typeof R!=='undefined'?JSON.parse(JSON.stringify(R)):{});
-  R=hdMergeRentalRecords(local,cloud||{});
+  const cloudCopy=hdNormalizeRentalKeys(cloud||{});
+  R=hdMergeRentalRecords(local,cloudCopy);
   R=hdDedupeLocalRentals(R);
   ensureRentalSequences();
+  for(const [id,c] of Object.entries(cloudCopy)){
+    if(R[id] && !hdPendingRentalSyncIds.has(String(id)))hdSetRentalSyncBaseline(id,R[id]);
+  }
+  hdSaveRentalSyncFingerprints();
   hdPersistRentalLocalOnly();
   if(document.getElementById('rentList')){
     try{renderBTCCRentsStatus();}catch(e){console.warn('Rental list refresh error',e);}
@@ -390,10 +407,10 @@ async function hdCloudBootstrap(){
   if(!hdSupabase||!hdSession)return;
   try{
     await hdLoadRentalsAndMerge();
-    await hdCloudSyncRentals();
+    const pushed=await hdCloudSyncRentals();
     await hdStartRentalRealtime();
     hdCloudBadge();
-    hdSetCloudStatus('synced','Cloud synced successfully');
+    if(pushed!==false)hdSetCloudStatus('synced','Cloud synced successfully');
   }catch(e){
     console.error('Cloud load error',e);
     if(typeof R==='undefined'||!R)R={};
@@ -402,26 +419,51 @@ async function hdCloudBootstrap(){
   }
 }
 async function hdCloudSyncRentals(){
-  if(!hdSupabase||!hdSession)return;
-  if(hdCloudBusy){hdCloudSyncAgain=true;return;}
+  if(!hdSupabase||!hdSession)return false;
+  if(hdCloudBusy){hdCloudSyncAgain=true;return false;}
   hdCloudBusy=true;
   hdSetCloudStatus('syncing','Syncing to cloud…');
   try{
     do{
       hdCloudSyncAgain=false;
-      const ids=[...new Set([...hdPendingRentalSyncIds,...Object.keys(R||{})])];
-      const snapshot=ids.map(n=>[n,R?.[n]?JSON.parse(JSON.stringify(R[n])):null]).filter(x=>x[1]);
-      for(const [n,c] of snapshot){
-        await hdPushRental(n,c);
-        if(R[n])R[n].cloudId=c.cloudId||R[n].cloudId;
-        hdClearRentalDirty(n);
+      // Only push records that actually changed on this device. The previous
+      // version pushed every local customer on every save, allowing an older
+      // phone copy to overwrite newer changes made on another phone.
+      const ids=[...hdPendingRentalSyncIds];
+      for(const id of ids){
+        const c=R?.[id];
+        if(c){
+          const snapshot=JSON.parse(JSON.stringify(c));
+          await hdPushRental(id,snapshot);
+          if(R[id])R[id].cloudId=snapshot.cloudId||R[id].cloudId;
+          hdSetRentalSyncBaseline(id,R[id]||snapshot);
+          hdClearRentalDirty(id);
+        }
       }
+      // Process queued deletions even when the customer has already been
+      // removed from local memory. This makes deletes retry safely after an
+      // offline period and prevents another device from resurrecting them.
+      for(const id of [...hdDeletedRentalIds]){
+        try{
+          await hdDeleteChildren(id);
+          const {error}=await hdSupabase.from('rental_customers').delete().eq('id',id);
+          if(error)throw error;
+          hdDeletedRentalIds.delete(String(id));
+          hdClearRentalSyncBaseline(id);
+        }catch(e){
+          // Keep the tombstone queued; the next sync will retry it.
+          throw e;
+        }
+      }
+      hdSaveRentalSyncFingerprints();
       localStorage.setItem('happyDropsCloudLastSync',new Date().toISOString());
       hdSetCloudStatus('synced','Cloud synced successfully');
     }while(hdCloudSyncAgain);
+    return true;
   }catch(e){
     console.error('Cloud sync error',e);
-    hdSetCloudStatus(navigator.onLine?'error':'offline',navigator.onLine?'Cloud sync failed':'Offline');
+    hdSetCloudStatus(navigator.onLine?'error':'offline',(e&&e.message)?('Cloud sync failed: '+e.message):(navigator.onLine?'Cloud sync failed':'Offline'));
+    return false;
   }finally{
     hdCloudBusy=false;
     if(hdCloudSyncAgain){hdCloudSyncAgain=false;setTimeout(()=>hdCloudSyncRentals(),0);}
@@ -436,7 +478,7 @@ async function hdRefreshRentalsFromCloud(){
     return true;
   }catch(e){
     console.error('Cloud refresh error',e);
-    hdSetCloudStatus(navigator.onLine?'error':'offline',navigator.onLine?'Cloud refresh failed':'Offline');
+    hdSetCloudStatus(navigator.onLine?'error':'offline',(e&&e.message)?('Cloud refresh failed: '+e.message):(navigator.onLine?'Cloud refresh failed':'Offline'));
     return false;
   }
 }
@@ -451,9 +493,13 @@ async function hdHandleRentalRealtime(payload){
     // Ignore our own event while the local change is still waiting to be pushed.
     if(hdPendingRentalSyncIds.has(id))return;
     if(table==='rental_customers' && event==='DELETE'){
-      delete R[id];
-      hdPersistRentalLocalOnly();
-      if(document.getElementById('rentList'))renderBTCCRentsStatus();
+      if(!hdPendingRentalSyncIds.has(id)){
+        delete R[id];
+        hdClearRentalSyncBaseline(id);
+        hdPersistRentalLocalOnly();
+        hdSaveRentalSyncFingerprints();
+        if(document.getElementById('rentList'))renderBTCCRentsStatus();
+      }
       hdSetCloudStatus('synced','Cloud synced successfully');
       return;
     }
@@ -635,7 +681,16 @@ function save(){
  }
  saved.dealers=D;
  saved.rentals=typeof R!=="undefined"?R:{};
- if(typeof R!=="undefined"&&R){Object.keys(R).forEach(id=>hdMarkRentalDirty(R[id]?.cloudId||id));}
+ if(typeof R!=="undefined"&&R){
+   // Mark only rentals whose actual contents changed. This prevents one phone
+   // from re-uploading stale copies of every other customer's record.
+   Object.keys(R).forEach(id=>{
+     const c=R[id];
+     const cloudId=String(c?.cloudId||id);
+     if(!hdRentalSyncFingerprints[cloudId] || hdRentalSyncFingerprints[cloudId]!==hdRentalSyncFingerprint(c))hdMarkRentalDirty(cloudId);
+   });
+   hdSaveRentalSyncFingerprints();
+ }
  saved.dealerTransactions=typeof dealerTransactions!=="undefined"?dealerTransactions:{};
  saved.staff=staff;
  saved.staffOrder=staffOrder;
