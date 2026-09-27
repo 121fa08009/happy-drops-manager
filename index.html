@@ -137,6 +137,7 @@ let hdSupabase=null, hdSession=null, hdCloudBusy=false, hdCloudSyncAgain=false;
 let hdDeletedRentalIds=new Set();
 let hdPendingRentalSyncIds=new Set();
 let hdRentalRealtimeChannel=null;
+let hdCloudDeletedRentalIds=new Set();
 hdSetCloudStatus('connecting','Connecting to cloud…');
 try{hdDeletedRentalIds=new Set(JSON.parse(localStorage.getItem('happyDropsDeletedRentalIds')||'[]'));}catch(_){hdDeletedRentalIds=new Set();}
 try{hdPendingRentalSyncIds=new Set(JSON.parse(localStorage.getItem('happyDropsPendingRentalSyncIds')||'[]').map(String));}catch(_){hdPendingRentalSyncIds=new Set();}
@@ -275,13 +276,20 @@ function hdDedupeLocalRentals(source){
 }
 
 async function hdLoadRentals(){
+  hdCloudDeletedRentalIds=new Set();
   const {data:rows,error}=await hdSupabase.from('rental_customers').select('*').order('rental_date',{ascending:false}).order('rental_time',{ascending:false});
   if(error)throw error;
   const result={};
   const uuidName=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   for(const row of (rows||[])){
+    if(String(row.status||'').toLowerCase()==='deleted'){
+      // Cloud tombstones are authoritative. Record the id even if this phone
+      // still has a pending local change, so the deleted customer can never be
+      // resurrected by a stale upload.
+      hdCloudDeletedRentalIds.add(String(row.id));
+      continue;
+    }
     if(hdDeletedRentalIds.has(String(row.id))){
-      try{await hdDeleteChildren(row.id);await hdSupabase.from('rental_customers').delete().eq('id',row.id);}catch(e){console.warn('Could not remove deleted rental from cloud',row.id,e);}
       continue;
     }
     if(uuidName.test(String(row.name||''))){
@@ -346,6 +354,15 @@ function hdNormalizeRentalKeys(source){
 function hdMergeRentalRecords(local,cloud){
   const out={};
   const cloudIds=new Set(Object.keys(cloud||{}));
+  // A server-side tombstone always wins over local dirty state. This is the
+  // critical rule for cross-device deletes: once one phone deletes a customer,
+  // another phone cannot upload its stale copy and bring that customer back.
+  for(const id of hdCloudDeletedRentalIds){
+    if(local?.[id]) delete local[id];
+    hdPendingRentalSyncIds.delete(String(id));
+    hdClearRentalSyncBaseline(id);
+  }
+  hdSavePendingRentalSyncIds();
   for(const [id,c] of Object.entries(cloud||{})){
     const l=local?.[id];
     if(l && hdPendingRentalSyncIds.has(String(id))) out[id]=hdMergeRentalRecordsOne(l,c);
@@ -493,13 +510,27 @@ async function hdHandleRentalRealtime(payload){
     // Ignore our own event while the local change is still waiting to be pushed.
     if(hdPendingRentalSyncIds.has(id))return;
     if(table==='rental_customers' && event==='DELETE'){
-      if(!hdPendingRentalSyncIds.has(id)){
-        delete R[id];
-        hdClearRentalSyncBaseline(id);
-        hdPersistRentalLocalOnly();
-        hdSaveRentalSyncFingerprints();
-        if(document.getElementById('rentList'))renderBTCCRentsStatus();
-      }
+      // A remote delete is authoritative unless this device itself is still
+      // completing the same deletion. Never let an old local copy survive it.
+      delete R[id];
+      hdPendingRentalSyncIds.delete(id);
+      hdClearRentalSyncBaseline(id);
+      hdPersistRentalLocalOnly();
+      hdSavePendingRentalSyncIds();
+      hdSaveRentalSyncFingerprints();
+      if(document.getElementById('rentList'))renderBTCCRentsStatus();
+      hdSetCloudStatus('synced','Cloud synced successfully');
+      return;
+    }
+    if(table==='rental_customers' && event==='UPDATE' && String(row.status||'').toLowerCase()==='deleted'){
+      hdCloudDeletedRentalIds.add(id);
+      delete R[id];
+      hdPendingRentalSyncIds.delete(id);
+      hdClearRentalSyncBaseline(id);
+      hdPersistRentalLocalOnly();
+      hdSavePendingRentalSyncIds();
+      hdSaveRentalSyncFingerprints();
+      if(document.getElementById('rentList'))renderBTCCRentsStatus();
       hdSetCloudStatus('synced','Cloud synced successfully');
       return;
     }
@@ -1670,7 +1701,21 @@ function showBTCCDeleteConfirm(n){
   document.getElementById('btccDeleteCancel').onclick=()=>modal.remove();
   document.getElementById('btccDeleteConfirmBtn').onclick=()=>confirmDeleteRentalCustomer(n);
 }
-async function hdDeleteRentalCloud(n,c){if(!hdSupabase||!hdSession||!c?.cloudId)return;await hdDeleteChildren(c.cloudId);const {error}=await hdSupabase.from('rental_customers').delete().eq('id',c.cloudId);if(error)throw error;}
+async function hdDeleteRentalCloud(n,c){
+  if(!hdSupabase||!hdSession||!c?.cloudId)return;
+  const id=String(c.cloudId);
+  // Use a cloud tombstone instead of immediately hard-deleting the parent row.
+  // A hard delete can be blocked by child-table RLS/foreign-key policies, which
+  // was allowing the other phone to keep the customer forever.  The tombstone
+  // is an ordinary UPDATE on rental_customers (the same table already used by
+  // normal sync), so every device can observe the deletion reliably.
+  const {error}=await hdSupabase.from('rental_customers').update({status:'deleted',closed:true,refund_completed:!!c.refundCompleted}).eq('id',id);
+  if(error)throw error;
+  // Best-effort cleanup of child history. Do NOT make the deletion fail if a
+  // child table blocks DELETE; the parent tombstone is the synchronization
+  // source of truth and prevents resurrection on every other device.
+  try{await hdDeleteChildren(id);}catch(e){console.warn('Cloud child cleanup skipped for deleted rental',id,e);}
+}
 async function confirmDeleteRentalCustomer(n){
   n=n||window.currentBTCCCustomer;
   if(!n || !Object.prototype.hasOwnProperty.call(R,n)) return;
@@ -1686,6 +1731,7 @@ async function confirmDeleteRentalCustomer(n){
     if(cloudId && hdSupabase && hdSession){
       await hdDeleteRentalCloud(n,{...c,cloudId});
     }
+    hdSetCloudStatus('synced','Cloud synced successfully');
     window.btccRentalStatus='active';
     rentals();
   }catch(e){
