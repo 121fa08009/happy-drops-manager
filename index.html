@@ -2052,8 +2052,15 @@ function stock(){
   renderStockDates();
 }
 function hdStockDateKey(offset){
-  const d=new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate()-offset);
-  return d.toISOString().slice(0,10);
+  // Use the device's local calendar date. Do NOT use toISOString() here,
+  // because UTC conversion can move the stock date back by one day in India.
+  const d=new Date();
+  d.setHours(0,0,0,0);
+  d.setDate(d.getDate()-offset);
+  const yyyy=d.getFullYear();
+  const mm=String(d.getMonth()+1).padStart(2,"0");
+  const dd=String(d.getDate()).padStart(2,"0");
+  return yyyy+"-"+mm+"-"+dd;
 }
 function hdStockDateLabel(offset){
   const d=new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate()-offset);
