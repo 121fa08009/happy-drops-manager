@@ -341,7 +341,7 @@ async function hdLoadRentals(){
     }
     const rowName=String(row.name||'').trim();
     if(!rowName)continue;
-    const c={name:rowName,phone:row.mobile||'',deposit:Number(row.security_deposit)||0,pbt:Number(row.bt_quantity)||0,cc:Number(row.cc_quantity)||0,pbtPrice:(row.bt_price===null||row.bt_price===undefined||row.bt_price==='')?0:Number(row.bt_price),ccPrice:(row.cc_price===null||row.cc_price===undefined||row.cc_price==='')?0:Number(row.cc_price),rentalDate:row.rental_date,rentalTime:row.rental_time||'',returnDate:row.return_date||'',rentalSequence:1,returns:[],additions:[],refills:[],depositRefunds:[],activity:[],pending:row.status==='pending',closed:row.status==='closed',closedFinal:row.status==='closed',refundCompleted:!!row.refund_completed,cloudId:row.id};
+    const c={name:rowName,phone:row.mobile||'',deposit:Number(row.security_deposit)||0,pbt:Number(row.bt_quantity)||0,cc:Number(row.cc_quantity)||0,pbtPrice:(row.bt_price===null||row.bt_price===undefined||row.bt_price==='')?0:Number(row.bt_price),ccPrice:(row.cc_price===null||row.cc_price===undefined||row.cc_price==='')?0:Number(row.cc_price),rentalDate:row.rental_date,rentalTime:row.rental_time||'',returnDate:row.return_date||'',rentalSequence:0,returns:[],additions:[],refills:[],depositRefunds:[],activity:[],pending:row.status==='pending',closed:row.status==='closed',closedFinal:row.status==='closed',refundCompleted:!!row.refund_completed,cloudId:row.id};
     result[String(row.id)]=c;
   }
   const ids=Object.values(result).map(c=>c.cloudId);
@@ -917,7 +917,46 @@ const BTCC_CAN_ICON_SRC='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACAC
 function todayDateKey(){return localDateKey(new Date())}
 function localDateKey(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
 function rentalDateLabel(ds){if(!ds)return '';let a=ds.split('-').map(Number);if(a.length!==3||!a[0]||!a[1]||!a[2])return '';let taken=new Date(a[0],a[1]-1,a[2]);taken.setHours(0,0,0,0);let today=new Date();today.setHours(0,0,0,0);let diff=Math.round((today-taken)/86400000);let rel=diff===0?'Today':diff===1?'Yesterday':diff>1?diff+' days':'';let short=String(a[2]).padStart(2,'0')+'-'+String(a[1]).padStart(2,'0');return short+(rel?' ('+rel+')':'')}
-function ensureRentalSequences(){let byDate={};Object.keys(R).forEach(n=>{let c=R[n];if(!c)return;let d=String(c.rentalDate||'');if(!byDate[d])byDate[d]=[];byDate[d].push(n)});let changed=false;Object.keys(byDate).forEach(d=>{let used=byDate[d].map(n=>Number(R[n].rentalSequence)).filter(Number.isFinite).map(Number);let next=used.length?Math.max(...used)+1:1;byDate[d].forEach(n=>{if(!Number.isFinite(Number(R[n].rentalSequence))){R[n].rentalSequence=next++;changed=true}})});if(changed)save()}
+function hdRentalCreatedStamp(c){
+  if(!c)return Number.MAX_SAFE_INTEGER;
+  const direct=Number(c.createdFormTs);
+  if(Number.isFinite(direct)&&direct>0)return direct;
+  const act=(c.activity||[]).filter(x=>x&&x.type==="added").sort((a,b)=>(Number(a.ts)||0)-(Number(b.ts)||0))[0];
+  const ats=Number(act&&act.ts);
+  if(Number.isFinite(ats)&&ats>0)return ats;
+  const ds=String(c.rentalDate||"");
+  const tm=String(c.rentalTime||"00:00");
+  const t=new Date(ds+"T"+tm+":00").getTime();
+  return Number.isFinite(t)?t:Number.MAX_SAFE_INTEGER;
+}
+function ensureRentalSequences(){
+  let byDate={};
+  Object.keys(R||{}).forEach(n=>{const c=R[n];if(!c)return;const d=String(c.rentalDate||"");if(!byDate[d])byDate[d]=[];byDate[d].push(n)});
+  let changed=false;
+  Object.keys(byDate).forEach(d=>{
+    const names=byDate[d].slice().sort((a,b)=>{
+      const ta=hdRentalCreatedStamp(R[a]),tb=hdRentalCreatedStamp(R[b]);
+      if(ta!==tb)return ta-tb;
+      return String(a).localeCompare(String(b));
+    });
+    const used=new Set();
+    let next=1;
+    // Keep valid unique sequence numbers. Repair duplicate/missing numbers in creation order.
+    names.forEach(n=>{
+      const v=Number(R[n].rentalSequence);
+      if(Number.isInteger(v)&&v>0&&!used.has(v))used.add(v);
+      else {R[n].rentalSequence=0;changed=true;}
+    });
+    names.forEach(n=>{
+      if(Number(R[n].rentalSequence)>0) return;
+      while(used.has(next))next++;
+      R[n].rentalSequence=next++;
+      used.add(R[n].rentalSequence);
+      changed=true;
+    });
+  });
+  if(changed)save();
+}
 function rentalDateSeqLabel(c){let ds=c&&c.rentalDate;if(!ds)return '';let base=rentalDateLabel(ds);let seq=Number(c&&c.rentalSequence);return base?base.replace(' (','/'+(Number.isFinite(seq)?seq:'')+' ('):base}
 function dateFromKey(k){const p=k.split("-").map(Number);return new Date(p[0],p[1]-1,p[2])}
 function addDaysKey(k,n){const d=dateFromKey(k);d.setDate(d.getDate()+n);return localDateKey(d)}
