@@ -2112,7 +2112,7 @@ function clearStockForm(offset){
   ids.forEach(id=>{const e=document.getElementById(id);if(e)e.value="";});
   ["st_bw_m","st_bw_a","st_bw_e"].forEach(id=>{const e=document.getElementById(id);if(e)e.checked=false;});
 }
-const HD_STOCK_SHEETS_URL="https://script.google.com/macros/s/AKfycbzZWBkRYtKzOoqeoJakCMiUmIuu1hhYeAQ9HvPudRIJEpZ1B__h_oGsErDB8RQLlMrW/exec";
+const HD_STOCK_SHEETS_URL="https://script.google.com/macros/s/AKfycbygH3p4QW9uhYJ9QX67dmpCWv59Ipk5pBz-FuTl46D1U2wxRVKAoXjHO7fB-WaQ1rBz/exec";
 function saveStockForm(offset){
   const key=hdStockDateKey(offset), data=hdStockLoad(), g=id=>document.getElementById(id), n=id=>g(id)?.value||"";
   data[key]={st_250:n("st_250"),st_300:n("st_300"),st_500:n("st_500"),st_1000:n("st_1000"),st_c250:n("st_c250"),st_c300:n("st_c300"),st_c500:n("st_c500"),st_c1000:n("st_c1000"),st_newbt:n("st_newbt"),st_treadbt:n("st_treadbt"),st_tapbt:n("st_tapbt"),st_matka:n("st_matka"),st_newcc:n("st_newcc"),st_btcard:n("st_btcard"),st_cccard:n("st_cccard"),st_wbags:n("st_wbags"),st_narmada:n("st_narmada"),st_film:n("st_film"),st_pbt:n("st_pbt"),st_pcc:n("st_pcc"),st_bore_tds:n("st_bore_tds"),st_tds:n("st_tds"),st_bw_m:!!g("st_bw_m")?.checked,st_bw_a:!!g("st_bw_a")?.checked,st_bw_e:!!g("st_bw_e")?.checked,savedAt:new Date().toISOString()};
