@@ -34,12 +34,19 @@
 .hd-stock-form-back{flex:0 0 auto;min-height:34px;padding:5px 9px!important;font-size:12px!important;border-radius:7px!important}
 .hd-stock-section{border:1px solid #dce7ef;border-radius:8px;margin:3px 0;padding:6px 7px;background:#fff;box-sizing:border-box}
 .hd-stock-section h3{margin:0 0 2px;font-size:14px;font-weight:800;color:#17324d;line-height:1.15}
-.hd-stock-row{display:grid;grid-template-columns:minmax(0,1fr) 72px;align-items:center;gap:3px;margin:1px 0;min-width:0}
+.hd-stock-row{display:grid;grid-template-columns:170px 72px;align-items:center;justify-content:start;gap:8px;margin:1px 0;min-width:0}
 .hd-stock-row label{font-size:12px;color:#31566f;font-weight:700;line-height:1.1;min-width:0}
 .hd-stock-row input{margin:0;height:32px;padding:4px 6px;text-align:right;box-sizing:border-box;width:100%;min-width:0}
-.hd-stock-backwash{grid-template-columns:minmax(0,1fr) auto}.hd-stock-checks{display:flex;gap:11px;align-items:center;flex-wrap:wrap}
-.hd-stock-checks label{display:inline-flex;align-items:center;gap:3px;font-size:12px;font-weight:700;color:#31566f}.hd-stock-checks input{width:16px;height:16px;margin:0}
+.hd-stock-backwash{grid-template-columns:170px 1fr}.hd-stock-checks{display:flex;gap:10px;align-items:center;flex-wrap:nowrap;white-space:nowrap;min-width:0}
+.hd-stock-checks label{display:inline-flex;align-items:center;justify-content:center;position:relative;width:28px;height:28px;margin:0;cursor:pointer}
+.hd-stock-checks input{position:absolute;inset:0;width:28px;height:28px;margin:0;opacity:0;cursor:pointer;z-index:2}
+.hd-stock-check-box{width:28px;height:28px;border:1.5px solid #b8c7d1;border-radius:6px;background:#fff;display:flex;align-items:center;justify-content:center;box-sizing:border-box;color:#555;font-size:14px;font-weight:800;line-height:1;position:relative}
+.hd-stock-check-box::after{content:'✓';position:absolute;display:none;color:#1389c9;font-size:19px;font-weight:900;line-height:1}
+.hd-stock-checks input:checked + .hd-stock-check-box::after{display:block}
+.hd-stock-checks input:disabled + .hd-stock-check-box{background:#f3f5f6;border-color:#cbd4da;cursor:default}
+.hd-stock-checks input:disabled{cursor:default}
 .hd-stock-actions{display:flex;gap:6px;margin-top:8px}.hd-stock-actions .btn{flex:1;min-height:38px}
+.hd-stock-clear{width:100%;margin-top:6px;min-height:36px!important}
 @media(max-width:600px){
   .hd-stock-day-tabs{gap:4px;margin-top:6px;margin-bottom:6px}
   .hd-stock-day{padding:6px 3px;border-radius:7px}
@@ -47,15 +54,17 @@
   .hd-stock-form-back{min-height:32px;padding:4px 8px!important;font-size:11px!important}
   .hd-stock-section{margin:3px 0;padding:5px 6px;border-radius:7px}
   .hd-stock-section h3{font-size:13px;margin-bottom:2px}
-  .hd-stock-row{grid-template-columns:minmax(0,1fr) 68px;gap:3px;margin:1px 0}
+  .hd-stock-row{grid-template-columns:170px 68px;gap:8px;margin:1px 0}
   .hd-stock-row label{font-size:11px}
   .hd-stock-row input{height:30px;padding:3px 5px;font-size:12px}
-  .hd-stock-checks{gap:8px}.hd-stock-checks label{font-size:11px}
+  .hd-stock-checks{gap:8px;flex-wrap:nowrap}.hd-stock-checks label{width:28px;height:28px}.hd-stock-checks input{width:28px;height:28px}.hd-stock-check-box{width:28px;height:28px;font-size:13px}
   .hd-stock-actions{margin-top:6px;gap:5px}.hd-stock-actions .btn{min-height:36px}
 }
 @media(max-width:360px){
   .hd-stock-day b{font-size:10px}.hd-stock-day span{font-size:8px}
-  .hd-stock-row{grid-template-columns:minmax(0,1fr) 64px;gap:2px}
+  .hd-stock-row{grid-template-columns:155px 64px;gap:6px}
+  .hd-stock-backwash{grid-template-columns:155px 1fr}
+  .hd-stock-checks{gap:7px}.hd-stock-checks label{width:27px;height:27px}.hd-stock-checks input{width:27px;height:27px}.hd-stock-check-box{width:27px;height:27px;font-size:12px}
   .hd-stock-row label{font-size:10.5px}.hd-stock-row input{height:29px;font-size:11px}
 }
 </style><style id="happy-drops-logo-ui">
@@ -802,7 +811,7 @@ function ownerLogout(){
  document.getElementById("app").innerHTML=`<div class="card" style="max-width:520px;margin:20px auto;text-align:center">
  <div style="font-size:42px">🔒</div><h2>Owner Locked</h2><p class="small">Owner access has been locked.</p>
  <button class="btn" onclick="owner()">🔐 Unlock Owner</button>
- <button class="btn secondary" onclick="hdBack()">← Home</button></div>`;
+ <button class="btn secondary" onclick="home()">← Home</button></div>`;
 }
 function ownerDashboard(){
  ensureSyncBadge();
@@ -2063,7 +2072,7 @@ function renderStockDates(){
     '<div class="card" style="max-width:720px;margin:0 auto">'
     +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">'
     +'<div><h2 style="margin:3px 0">📦 Stock</h2><div class="small">Daily stock — last 3 days</div></div>'
-    +'<button class="btn secondary" onclick="hdBack()">← Home</button></div>'
+    +'<button class="btn secondary" onclick="home()">← Home</button></div>'
     +'<div class="hd-stock-day-tabs">'+tabs+'</div>'
     +'<div id="hdStockForm"></div></div>';
   renderStockForm(window.hdStockSelectedOffset||0);
@@ -2074,10 +2083,10 @@ function renderStockForm(offset,forceEdit){
   const val=k=>saved[k]!==undefined?saved[k]:"", chk=k=>saved[k]===true?" checked":"";
   const field=(id,label,step="1")=>'<div class="hd-stock-row"><label>'+label+'</label><input id="'+id+'" type="number" min="0" step="'+step+'" '+dis+' value="'+val(id)+'" placeholder=""></div>';
   const editBtn=hasSaved&&!editable?'<button class="btn" onclick="renderStockForm('+offset+',true)">✏️ Edit Form</button>':'';
-  const actionBtns=editable?'<button class="btn" onclick="saveStockForm('+offset+')">💾 Save</button><button class="btn secondary" onclick="renderStockForm('+offset+',false)">Cancel</button>':editBtn+'<button class="btn secondary" onclick="renderStockDates()">← Back</button>';
+  const actionBtns=editable?'<button class="btn" onclick="saveStockForm('+offset+')">💾 Save</button><button class="btn secondary" onclick="home()">Cancel</button>':editBtn+'<button class="btn secondary" onclick="home()">← Back</button>';
   document.getElementById("app").innerHTML=
     '<div class="card" style="max-width:720px;margin:0 auto">'
-    +'<div class="hd-stock-form-top"><div><h2 style="margin:3px 0">📦 Stock Form</h2><div class="small">'+hdStockDateLabel(offset)+'</div></div><button class="btn secondary hd-stock-form-back" onclick="renderStockDates()">← Back</button></div>'
+    +'<div class="hd-stock-form-top"><div><h2 style="margin:3px 0">📦 Stock Form</h2><div class="small">'+hdStockDateLabel(offset)+'</div></div><button class="btn secondary hd-stock-form-back" onclick="home()">← Home</button></div>'
     +'<div class="hd-stock-day-tabs hd-stock-day-tabs-inner">'+[0,1,2].map(i=>'<button class="hd-stock-day '+(i===offset?'active':'')+'" onclick="renderStockForm('+i+')"><b>'+hdStockDateLabel(i).split(' (')[0]+'</b><span>('+hdStockDateLabel(i).split(' (')[1]+'</span></button>').join('')+'</div>'
     +'<section class="hd-stock-section"><h3>Water Bottles Stock</h3>'+field('st_250','250ml Cases')+field('st_300','300ml Cases')+field('st_500','500ml Cases')+field('st_1000','1000ml Cases')+'</section>'
     +'<section class="hd-stock-section"><h3>Empty Bottles Stock</h3>'+field('st_c250','250ml Covers')+field('st_c300','300ml Covers')+field('st_c500','500ml Covers')+field('st_c1000','1000ml Covers')+'</section>'
@@ -2085,13 +2094,21 @@ function renderStockForm(offset,forceEdit){
     +'<section class="hd-stock-section"><h3>Monthly Cards</h3>'+field('st_btcard','BT Cards')+field('st_cccard','CC Cards')+'</section>'
     +'<section class="hd-stock-section"><h3>Water Bags</h3>'+field('st_wbags','Water Bags')+field('st_narmada','Narmada Bags')+field('st_film','Film Rolls')+'</section>'
     +'<section class="hd-stock-section"><h3>PBT/CC</h3>'+field('st_pbt','Plant BT')+field('st_pcc','Plant CC')+'</section>'
-    +'<section class="hd-stock-section"><h3>Plant</h3>'+field('st_tds','TDS','0.1')+'<div class="hd-stock-row hd-stock-backwash"><label>Backwash</label><div class="hd-stock-checks"><label><input id="st_bw_m" type="checkbox"'+chk('st_bw_m')+dis+'> M</label><label><input id="st_bw_a" type="checkbox"'+chk('st_bw_a')+dis+'> A</label><label><input id="st_bw_e" type="checkbox"'+chk('st_bw_e')+dis+'> E</label></div></div></section>'
-    +'<div class="hd-stock-actions">'+actionBtns+'</div></div>';
+    +'<section class="hd-stock-section"><h3>Plant</h3>'+field('st_bore_tds','Bore TDS','0.1')+field('st_tds','Plant TDS','0.1')+'<div class="hd-stock-row hd-stock-backwash"><label>Backwash</label><div class="hd-stock-checks"><label><input id="st_bw_m" type="checkbox"'+chk('st_bw_m')+dis+'><span class="hd-stock-check-box">M</span></label><label><input id="st_bw_a" type="checkbox"'+chk('st_bw_a')+dis+'><span class="hd-stock-check-box">A</span></label><label><input id="st_bw_e" type="checkbox"'+chk('st_bw_e')+dis+'><span class="hd-stock-check-box">E</span></label></div></div></section>'
+    +'<div class="hd-stock-actions">'+actionBtns+'</div>'
+    +'<button class="btn secondary hd-stock-clear" onclick="clearStockForm('+offset+')">🧹 Clear All</button></div>';
 }
-const HD_STOCK_SHEETS_URL="https://script.google.com/macros/s/AKfycbzhjpF08RR4TT4ft9u7mESFFHzkT2syczN3q9nUc1Sf7GeStkOTgv10iZXl4cvA6z4y/exec";
+function clearStockForm(offset){
+  if(!confirm("Clear all entries in this Stock Form? The saved data will not change until you press Save.")) return;
+  renderStockForm(offset,true);
+  const ids=["st_250","st_300","st_500","st_1000","st_c250","st_c300","st_c500","st_c1000","st_newbt","st_treadbt","st_tapbt","st_matka","st_newcc","st_btcard","st_cccard","st_wbags","st_narmada","st_film","st_pbt","st_pcc","st_bore_tds","st_tds"];
+  ids.forEach(id=>{const e=document.getElementById(id);if(e)e.value="";});
+  ["st_bw_m","st_bw_a","st_bw_e"].forEach(id=>{const e=document.getElementById(id);if(e)e.checked=false;});
+}
+const HD_STOCK_SHEETS_URL="https://script.google.com/macros/s/AKfycbzZWBkRYtKzOoqeoJakCMiUmIuu1hhYeAQ9HvPudRIJEpZ1B__h_oGsErDB8RQLlMrW/exec";
 function saveStockForm(offset){
   const key=hdStockDateKey(offset), data=hdStockLoad(), g=id=>document.getElementById(id), n=id=>g(id)?.value||"";
-  data[key]={st_250:n("st_250"),st_300:n("st_300"),st_500:n("st_500"),st_1000:n("st_1000"),st_c250:n("st_c250"),st_c300:n("st_c300"),st_c500:n("st_c500"),st_c1000:n("st_c1000"),st_newbt:n("st_newbt"),st_treadbt:n("st_treadbt"),st_tapbt:n("st_tapbt"),st_matka:n("st_matka"),st_newcc:n("st_newcc"),st_btcard:n("st_btcard"),st_cccard:n("st_cccard"),st_wbags:n("st_wbags"),st_narmada:n("st_narmada"),st_film:n("st_film"),st_pbt:n("st_pbt"),st_pcc:n("st_pcc"),st_tds:n("st_tds"),st_bw_m:!!g("st_bw_m")?.checked,st_bw_a:!!g("st_bw_a")?.checked,st_bw_e:!!g("st_bw_e")?.checked,savedAt:new Date().toISOString()};
+  data[key]={st_250:n("st_250"),st_300:n("st_300"),st_500:n("st_500"),st_1000:n("st_1000"),st_c250:n("st_c250"),st_c300:n("st_c300"),st_c500:n("st_c500"),st_c1000:n("st_c1000"),st_newbt:n("st_newbt"),st_treadbt:n("st_treadbt"),st_tapbt:n("st_tapbt"),st_matka:n("st_matka"),st_newcc:n("st_newcc"),st_btcard:n("st_btcard"),st_cccard:n("st_cccard"),st_wbags:n("st_wbags"),st_narmada:n("st_narmada"),st_film:n("st_film"),st_pbt:n("st_pbt"),st_pcc:n("st_pcc"),st_bore_tds:n("st_bore_tds"),st_tds:n("st_tds"),st_bw_m:!!g("st_bw_m")?.checked,st_bw_a:!!g("st_bw_a")?.checked,st_bw_e:!!g("st_bw_e")?.checked,savedAt:new Date().toISOString()};
   hdStockSaveAll(data);
 
   const sheetData={
@@ -2101,12 +2118,12 @@ function saveStockForm(offset){
     newBT:n("st_newbt"), newTreadBT:n("st_treadbt"), newTapBT:n("st_tapbt"), matka:n("st_matka"), newCoolingCans:n("st_newcc"),
     btCards:n("st_btcard"), ccCards:n("st_cccard"),
     waterBags:n("st_wbags"), narmadaBags:n("st_narmada"), filmRolls:n("st_film"),
-    plantBT:n("st_pbt"), plantCC:n("st_pcc"), tds:n("st_tds"),
+    plantBT:n("st_pbt"), plantCC:n("st_pcc"),
+    boreTDS:n("st_bore_tds"), plantTDS:n("st_tds"),
     m:!!g("st_bw_m")?.checked, a:!!g("st_bw_a")?.checked, e:!!g("st_bw_e")?.checked
   };
 
-  // Send a copy to Google Sheets. Local save is completed first, so the app
-  // continues to work even if the internet is temporarily unavailable.
+  // Send to Google Sheets without blocking the local save.
   try{
     fetch(HD_STOCK_SHEETS_URL,{
       method:"POST",
