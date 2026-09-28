@@ -2144,7 +2144,51 @@ function renderStockForm(offset,forceEdit){
     +'<section class="hd-stock-section"><h3>Plant</h3>'+field('st_bore_tds','Bore TDS','0.1')+field('st_tds','Plant TDS','0.1')+'<div class="hd-stock-row hd-stock-backwash"><label>Backwash</label><div class="hd-stock-checks"><label><input id="st_bw_m" type="checkbox"'+chk('st_bw_m')+dis+'><span class="hd-stock-check-box">M</span></label><label><input id="st_bw_a" type="checkbox"'+chk('st_bw_a')+dis+'><span class="hd-stock-check-box">A</span></label><label><input id="st_bw_e" type="checkbox"'+chk('st_bw_e')+dis+'><span class="hd-stock-check-box">E</span></label></div></div></section>'
     +'<div class="hd-stock-actions">'+actionBtns+'</div>'
     +'<button class="btn secondary hd-stock-clear" onclick="clearStockForm('+offset+')">🧹 Clear All</button></div>';
+
+  // Refresh this date from Google Sheets. Google Sheets is the shared source
+  // for Stock, so changes made there are pulled into the app when the form opens.
+  syncStockFromSheet(offset,forceEdit===true);
 }
+
+async function syncStockFromSheet(offset,keepEditable){
+  try{
+    const key=hdStockDateKey(offset);
+    const url=HD_STOCK_SHEETS_URL+'?action=get&date='+encodeURIComponent(key)+'&_='+Date.now();
+    const response=await fetch(url,{cache:'no-store'});
+    if(!response.ok)return;
+    const result=await response.json();
+    if(!result || !result.success || !result.found || !result.data)return;
+
+    const row=result.data;
+    const synced={
+      st_250:row.bottles250||'', st_300:row.bottles300||'', st_500:row.bottles500||'', st_1000:row.bottles1000||'',
+      st_c250:row.covers250||'', st_c300:row.covers300||'', st_c500:row.covers500||'', st_c1000:row.covers1000||'',
+      st_newbt:row.newBT||'', st_treadbt:row.newTreadBT||'', st_tapbt:row.newTapBT||'', st_matka:row.matka||'', st_newcc:row.newCoolingCans||'',
+      st_btcard:row.btCards||'', st_cccard:row.ccCards||'',
+      st_wbags:row.waterBags||'', st_narmada:row.narmadaBags||'', st_film:row.filmRolls||'',
+      st_pbt:row.plantBT||'', st_pcc:row.plantCC||'',
+      st_bore_tds:row.boreTDS||'', st_tds:row.plantTDS||'',
+      st_bw_m:row.m===true || String(row.m).toLowerCase()==='true',
+      st_bw_a:row.a===true || String(row.a).toLowerCase()==='true',
+      st_bw_e:row.e===true || String(row.e).toLowerCase()==='true',
+      savedAt:new Date().toISOString(),
+      syncedFromGoogleSheet:true
+    };
+
+    const all=hdStockLoad();
+    const old=all[key]||{};
+    const changed=JSON.stringify(old)!==JSON.stringify(synced);
+    if(changed){
+      all[key]=synced;
+      hdStockSaveAll(all);
+      // Refresh only after the cloud values have been stored.
+      renderStockForm(offset,keepEditable);
+    }
+  }catch(e){
+    // Keep the locally saved Stock data if Google Sheets cannot be reached.
+  }
+}
+
 function deleteStockForm(offset){
   const key=hdStockDateKey(offset);
   const label=hdStockDateLabel(offset);
