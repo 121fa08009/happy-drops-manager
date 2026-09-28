@@ -2090,7 +2090,8 @@ function renderStockForm(offset,forceEdit){
   const val=k=>saved[k]!==undefined?saved[k]:"", chk=k=>saved[k]===true?" checked":"";
   const field=(id,label,step="1")=>'<div class="hd-stock-row"><label>'+label+'</label><input id="'+id+'" type="number" min="0" step="'+step+'" '+dis+' value="'+val(id)+'" placeholder=""></div>';
   const editBtn=hasSaved&&!editable?'<button class="btn" onclick="renderStockForm('+offset+',true)">✏️ Edit Form</button>':'';
-  const actionBtns=editable?'<button class="btn" onclick="saveStockForm('+offset+')">💾 Save</button><button class="btn secondary" onclick="home()">Cancel</button>':editBtn+'<button class="btn secondary" onclick="home()">← Back</button>';
+  const deleteBtn='<button class="btn danger" onclick="deleteStockForm('+offset+')">🗑️ Delete</button>';
+  const actionBtns=editable?'<button class="btn" onclick="saveStockForm('+offset+')">💾 Save</button><button class="btn secondary" onclick="home()">Cancel</button>'+deleteBtn:editBtn+'<button class="btn secondary" onclick="home()">← Back</button>'+deleteBtn;
   document.getElementById("app").innerHTML=
     '<div class="card" style="max-width:720px;margin:0 auto">'
     +'<div class="hd-stock-form-top"><div><h2 style="margin:3px 0">📦 Stock Form</h2><div class="small">'+hdStockDateLabel(offset)+'</div></div><button class="btn secondary hd-stock-form-back" onclick="home()">← Home</button></div>'
@@ -2105,6 +2106,32 @@ function renderStockForm(offset,forceEdit){
     +'<div class="hd-stock-actions">'+actionBtns+'</div>'
     +'<button class="btn secondary hd-stock-clear" onclick="clearStockForm('+offset+')">🧹 Clear All</button></div>';
 }
+function deleteStockForm(offset){
+  const key=hdStockDateKey(offset);
+  const label=hdStockDateLabel(offset);
+  if(!confirm("Delete all Stock data for "+label+"? This will also delete the same date row from Google Sheets.")) return;
+
+  // Delete this date from the app's local Stock storage.
+  const data=hdStockLoad();
+  delete data[key];
+  hdStockSaveAll(data);
+
+  // Delete the matching date row from Google Sheets.
+  try{
+    fetch(HD_STOCK_SHEETS_URL,{
+      method:"POST",
+      mode:"no-cors",
+      headers:{"Content-Type":"text/plain;charset=utf-8"},
+      body:JSON.stringify({action:"delete",date:key}),
+      keepalive:true
+    }).catch(()=>{});
+  }catch(e){}
+
+  // Show a completely fresh form for the same date.
+  alert("Stock deleted for "+label+".");
+  renderStockForm(offset,true);
+}
+
 function clearStockForm(offset){
   if(!confirm("Clear all entries in this Stock Form? The saved data will not change until you press Save.")) return;
   renderStockForm(offset,true);
