@@ -2118,9 +2118,7 @@ function renderStockDates(){
     '<div class="card" style="max-width:720px;margin:0 auto">'
     +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">'
     +'<div><h2 style="margin:3px 0">📦 Stock</h2><div class="small">Daily stock — last 3 days</div></div>'
-    +'<div style="display:flex;gap:5px;align-items:center">'
-    +'<button id="hdStockRefreshBtn" class="btn secondary" onclick="hdRefreshStockFromSheet()">🔄 Refresh</button>'
-    +'<button class="btn secondary" onclick="home()">← Home</button></div></div>'
+    +'<button class="btn secondary" onclick="home()">← Home</button></div>'
     +'<div class="hd-stock-day-tabs">'+tabs+'</div>'
     +'<div id="hdStockForm"></div></div>';
   renderStockForm(window.hdStockSelectedOffset||0);
@@ -2147,6 +2145,9 @@ function renderStockForm(offset,forceEdit){
     +'<div class="hd-stock-actions">'+actionBtns+'</div>'
     +'<button class="btn secondary hd-stock-clear" onclick="clearStockForm('+offset+')">🧹 Clear All</button></div>';
 
+  // Refresh this date from Google Sheets. Google Sheets is the shared source
+  // for Stock, so changes made there are pulled into the app when the form opens.
+  syncStockFromSheet(offset,forceEdit===true);
 }
 
 async function hdRefreshStockFromSheet(){
@@ -2155,9 +2156,7 @@ async function hdRefreshStockFromSheet(){
   if(btn){btn.disabled=true;btn.textContent='🔄 Refreshing...';}
   try{
     await new Promise((resolve,reject)=>{
-      syncStockFromSheet(offset,false,function(ok,found){
-        if(ok) resolve(); else reject(new Error('Refresh failed'));
-      });
+      syncStockFromSheet(offset,false,()=>resolve());
     });
     renderStockForm(offset);
     alert('✅ Stock refreshed from Google Sheets.');
