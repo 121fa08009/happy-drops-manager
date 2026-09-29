@@ -2174,7 +2174,7 @@ async function hdRefreshStockFromSheet(){
 
 function syncStockFromSheet(offset,keepEditable,onDone){
   const key=hdStockDateKey(offset);
-  const callbackName='hdStockSync_'+Date.now()+'_'+Math.random().toString(36).slice(2);
+  const callbackName='hdStockSheetCallback';
   const script=document.createElement('script');
   let finished=false;
   let timer=null;
@@ -2188,67 +2188,72 @@ function syncStockFromSheet(offset,keepEditable,onDone){
   };
 
   window[callbackName]=(result)=>{
-    if(!result || result.success!==true){
+    try{
+      if(!result || result.success!==true){
+        finish(false,false);
+        return;
+      }
+      if(result.found!==true || !result.data){
+        finish(true,false);
+        return;
+      }
+
+      const row=result.data;
+      const synced={
+        st_250:row.bottles250==null?'':row.bottles250,
+        st_300:row.bottles300==null?'':row.bottles300,
+        st_500:row.bottles500==null?'':row.bottles500,
+        st_1000:row.bottles1000==null?'':row.bottles1000,
+        st_c250:row.covers250==null?'':row.covers250,
+        st_c300:row.covers300==null?'':row.covers300,
+        st_c500:row.covers500==null?'':row.covers500,
+        st_c1000:row.covers1000==null?'':row.covers1000,
+        st_newbt:row.newBT==null?'':row.newBT,
+        st_treadbt:row.newTreadBT==null?'':row.newTreadBT,
+        st_tapbt:row.newTapBT==null?'':row.newTapBT,
+        st_matka:row.matka==null?'':row.matka,
+        st_newcc:row.newCoolingCans==null?'':row.newCoolingCans,
+        st_btcard:row.btCards==null?'':row.btCards,
+        st_cccard:row.ccCards==null?'':row.ccCards,
+        st_wbags:row.waterBags==null?'':row.waterBags,
+        st_narmada:row.narmadaBags==null?'':row.narmadaBags,
+        st_film:row.filmRolls==null?'':row.filmRolls,
+        st_pbt:row.plantBT==null?'':row.plantBT,
+        st_pcc:row.plantCC==null?'':row.plantCC,
+        st_bore_tds:row.boreTDS==null?'':row.boreTDS,
+        st_tds:row.plantTDS==null?'':row.plantTDS,
+        st_bw_m:row.m===true || String(row.m).toLowerCase()==='true',
+        st_bw_a:row.a===true || String(row.a).toLowerCase()==='true',
+        st_bw_e:row.e===true || String(row.e).toLowerCase()==='true'
+      };
+
+      const all=hdStockLoad();
+      const old=all[key]||{};
+      const fields=[
+        'st_250','st_300','st_500','st_1000','st_c250','st_c300','st_c500','st_c1000',
+        'st_newbt','st_treadbt','st_tapbt','st_matka','st_newcc','st_btcard','st_cccard',
+        'st_wbags','st_narmada','st_film','st_pbt','st_pcc','st_bore_tds','st_tds',
+        'st_bw_m','st_bw_a','st_bw_e'
+      ];
+      const changed=fields.some(k=>String(old[k]??'')!==String(synced[k]??''));
+
+      synced.savedAt=old.savedAt||new Date().toISOString();
+      synced.syncedFromGoogleSheet=true;
+      all[key]=synced;
+      hdStockSaveAll(all);
+
+      finish(true,true);
+      if(changed)renderStockForm(offset,keepEditable);
+    }catch(e){
       finish(false,false);
-      return;
     }
-    if(result.found!==true || !result.data){
-      finish(true,false);
-      return;
-    }
-
-    const row=result.data;
-    const synced={
-      st_250:row.bottles250==null?'':row.bottles250,
-      st_300:row.bottles300==null?'':row.bottles300,
-      st_500:row.bottles500==null?'':row.bottles500,
-      st_1000:row.bottles1000==null?'':row.bottles1000,
-      st_c250:row.covers250==null?'':row.covers250,
-      st_c300:row.covers300==null?'':row.covers300,
-      st_c500:row.covers500==null?'':row.covers500,
-      st_c1000:row.covers1000==null?'':row.covers1000,
-      st_newbt:row.newBT==null?'':row.newBT,
-      st_treadbt:row.newTreadBT==null?'':row.newTreadBT,
-      st_tapbt:row.newTapBT==null?'':row.newTapBT,
-      st_matka:row.matka==null?'':row.matka,
-      st_newcc:row.newCoolingCans==null?'':row.newCoolingCans,
-      st_btcard:row.btCards==null?'':row.btCards,
-      st_cccard:row.ccCards==null?'':row.ccCards,
-      st_wbags:row.waterBags==null?'':row.waterBags,
-      st_narmada:row.narmadaBags==null?'':row.narmadaBags,
-      st_film:row.filmRolls==null?'':row.filmRolls,
-      st_pbt:row.plantBT==null?'':row.plantBT,
-      st_pcc:row.plantCC==null?'':row.plantCC,
-      st_bore_tds:row.boreTDS==null?'':row.boreTDS,
-      st_tds:row.plantTDS==null?'':row.plantTDS,
-      st_bw_m:row.m===true || String(row.m).toLowerCase()==='true',
-      st_bw_a:row.a===true || String(row.a).toLowerCase()==='true',
-      st_bw_e:row.e===true || String(row.e).toLowerCase()==='true'
-    };
-
-    const all=hdStockLoad();
-    const old=all[key]||{};
-    const fields=[
-      'st_250','st_300','st_500','st_1000','st_c250','st_c300','st_c500','st_c1000',
-      'st_newbt','st_treadbt','st_tapbt','st_matka','st_newcc','st_btcard','st_cccard',
-      'st_wbags','st_narmada','st_film','st_pbt','st_pcc','st_bore_tds','st_tds',
-      'st_bw_m','st_bw_a','st_bw_e'
-    ];
-    const changed=fields.some(k=>String(old[k]??'')!==String(synced[k]??''));
-
-    synced.savedAt=old.savedAt||new Date().toISOString();
-    synced.syncedFromGoogleSheet=true;
-    all[key]=synced;
-    hdStockSaveAll(all);
-
-    finish(true,true);
-    renderStockForm(offset,keepEditable);
   };
 
-  timer=setTimeout(()=>finish(false,false),12000);
+  timer=setTimeout(()=>finish(false,false),30000);
   script.onerror=()=>finish(false,false);
-  script.src=HD_STOCK_SHEETS_URL+'?action=get&date='+encodeURIComponent(key)+'&callback='+encodeURIComponent(callbackName)+'&_='+Date.now();
-  document.head.appendChild(script);
+  script.async=true;
+  script.src=HD_STOCK_SHEETS_URL+'?action=get&date='+encodeURIComponent(key)+'&callback='+callbackName+'&_='+Date.now();
+  document.body.appendChild(script);
 }
 
 function deleteStockForm(offset){
