@@ -2135,7 +2135,7 @@ function renderStockForm(offset,forceEdit){
   const actionBtns=editable?'<button class="btn" onclick="saveStockForm('+offset+')">💾 Save</button><button class="btn secondary" onclick="home()">Cancel</button>'+deleteBtn:editBtn+'<button class="btn secondary" onclick="home()">← Back</button>'+deleteBtn;
   document.getElementById("app").innerHTML=
     '<div class="card" style="max-width:720px;margin:0 auto">'
-    +'<div class="hd-stock-form-top"><div><h2 style="margin:3px 0">📦 Stock Form</h2><div class="small">'+hdStockDateLabel(offset)+'</div></div><button class="btn secondary hd-stock-form-back" onclick="home()">← Home</button></div>'
+    +'<div class="hd-stock-form-top"><div><h2 style="margin:3px 0">📦 Stock Form</h2><div class="small">'+hdStockDateLabel(offset)+'</div></div><div style="display:flex;gap:5px;align-items:center"><button id="hdStockRefreshBtn" class="btn secondary hd-stock-form-back" onclick="hdRefreshStockFromSheet()">🔄 Refresh</button><button class="btn secondary hd-stock-form-back" onclick="home()">← Home</button></div></div>'
     +'<div class="hd-stock-day-tabs hd-stock-day-tabs-inner">'+[0,1,2].map(i=>'<button class="hd-stock-day '+(i===offset?'active':'')+'" onclick="renderStockForm('+i+')"><b>'+hdStockDateLabel(i).split(' (')[0]+'</b><span>('+hdStockDateLabel(i).split(' (')[1]+'</span></button>').join('')+'</div>'
     +'<section class="hd-stock-section"><h3>Water Bottles Stock</h3>'+field('st_250','250ml Cases')+field('st_300','300ml Cases')+field('st_500','500ml Cases')+field('st_1000','1000ml Cases')+'</section>'
     +'<section class="hd-stock-section"><h3>Empty Bottles Stock</h3>'+field('st_c250','250ml Covers')+field('st_c300','300ml Covers')+field('st_c500','500ml Covers')+field('st_c1000','1000ml Covers')+'</section>'
@@ -2637,10 +2637,4 @@ function hdBack(fallback){
   function hideHappyDropsLaunch(){
     var el=document.getElementById('hdLaunchSplash');
     if(!el)return;
-    setTimeout(function(){el.classList.add('hd-launch-hide');setTimeout(function(){el.remove();},120);},300);
-  }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',hideHappyDropsLaunch,{once:true});
-  else hideHappyDropsLaunch();
-})();
-</script>
-</body></html>
+    setTimeout(function(){el.classList.add('hd-launch-hide');setTimeout(function(){el.remove();},120);},300
