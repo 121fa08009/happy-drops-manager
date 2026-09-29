@@ -2147,9 +2147,6 @@ function renderStockForm(offset,forceEdit){
     +'<div class="hd-stock-actions">'+actionBtns+'</div>'
     +'<button class="btn secondary hd-stock-clear" onclick="clearStockForm('+offset+')">🧹 Clear All</button></div>';
 
-  // Refresh this date from Google Sheets. Google Sheets is the shared source
-  // for Stock, so changes made there are pulled into the app when the form opens.
-  syncStockFromSheet(offset,forceEdit===true);
 }
 
 async function hdRefreshStockFromSheet(){
@@ -2637,4 +2634,10 @@ function hdBack(fallback){
   function hideHappyDropsLaunch(){
     var el=document.getElementById('hdLaunchSplash');
     if(!el)return;
-    setTimeout(function(){el.classList.add('hd-launch-hide');setTimeout(function(){el.remove();},120);},300
+    setTimeout(function(){el.classList.add('hd-launch-hide');setTimeout(function(){el.remove();},120);},300);
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',hideHappyDropsLaunch,{once:true});
+  else hideHappyDropsLaunch();
+})();
+</script>
+</body></html>
