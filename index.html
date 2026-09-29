@@ -2118,7 +2118,9 @@ function renderStockDates(){
     '<div class="card" style="max-width:720px;margin:0 auto">'
     +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">'
     +'<div><h2 style="margin:3px 0">📦 Stock</h2><div class="small">Daily stock — last 3 days</div></div>'
-    +'<button class="btn secondary" onclick="home()">← Home</button></div>'
+    +'<div style="display:flex;gap:5px;align-items:center">'
+    +'<button id="hdStockRefreshBtn" class="btn secondary" onclick="hdRefreshStockFromSheet()">🔄 Refresh</button>'
+    +'<button class="btn secondary" onclick="home()">← Home</button></div></div>'
     +'<div class="hd-stock-day-tabs">'+tabs+'</div>'
     +'<div id="hdStockForm"></div></div>';
   renderStockForm(window.hdStockSelectedOffset||0);
@@ -2150,7 +2152,26 @@ function renderStockForm(offset,forceEdit){
   syncStockFromSheet(offset,forceEdit===true);
 }
 
-function syncStockFromSheet(offset,keepEditable){
+async function hdRefreshStockFromSheet(){
+  const offset=window.hdStockSelectedOffset||0;
+  const btn=document.getElementById('hdStockRefreshBtn');
+  if(btn){btn.disabled=true;btn.textContent='🔄 Refreshing...';}
+  try{
+    await new Promise((resolve,reject)=>{
+      syncStockFromSheet(offset,false,function(ok,found){
+        if(ok) resolve(); else reject(new Error('Refresh failed'));
+      });
+    });
+    renderStockForm(offset);
+    alert('✅ Stock refreshed from Google Sheets.');
+  }catch(e){
+    alert('❌ Could not refresh Stock from Google Sheets. Please check the Web App deployment and internet connection.');
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent='🔄 Refresh';}
+  }
+}
+
+function syncStockFromSheet(offset,keepEditable,onDone){
   const key=hdStockDateKey(offset);
   const callbackName='hdStockSync_'+Date.now()+'_'+Math.random().toString(36).slice(2);
   const script=document.createElement('script');
@@ -2165,7 +2186,8 @@ function syncStockFromSheet(offset,keepEditable){
 
   window[callbackName]=(result)=>{
     clearTimeout(timer);
-    if(!result || !result.success || !result.found || !result.data){cleanup();return;}
+    if(!result || !result.success){if(typeof onDone==='function')onDone(false,false);cleanup();return;}
+    if(!result.found || !result.data){if(typeof onDone==='function')onDone(true,false);cleanup();return;}
 
     const row=result.data;
     const synced={
@@ -2213,13 +2235,15 @@ function syncStockFromSheet(offset,keepEditable){
       hdStockSaveAll(all);
       cleanup();
       renderStockForm(offset,keepEditable);
+      if(typeof onDone==='function')onDone(true,true);
       return;
     }
+    if(typeof onDone==='function')onDone(true,true);
     cleanup();
   };
 
   script.src=HD_STOCK_SHEETS_URL+'?action=get&date='+encodeURIComponent(key)+'&callback='+encodeURIComponent(callbackName)+'&_='+Date.now();
-  script.onerror=()=>{clearTimeout(timer);cleanup();};
+  script.onerror=()=>{clearTimeout(timer);if(typeof onDone==='function')onDone(false,false);cleanup();};
   document.head.appendChild(script);
 }
 
