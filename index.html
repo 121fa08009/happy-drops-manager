@@ -2090,6 +2090,14 @@ function stock(){
   window.hdStockSelectedOffset=0;
   renderStockDates();
 }
+
+const HD_STOCK_SHEETS_URL="https://script.google.com/macros/s/AKfycbxJua-Od2IwzMLUsupQyFypqHTc2vTXof6ryOzXaOVb3U3vQGReAYb9MDvlvy2g6FXC/exec";
+const HD_STOCK_SYNC_INTERVAL_MS=5000;
+let hdStockSyncTimer=null;
+let hdStockSyncBusy=false;
+let hdStockLastSyncedKey="";
+let hdStockLastServerSignature="";
+
 function hdStockDateKey(offset){
   // Use the device's local calendar date. Do NOT use toISOString() here,
   // because UTC conversion can move the stock date back by one day in India.
@@ -2108,8 +2116,174 @@ function hdStockDateLabel(offset){
 }
 function hdStockLoad(){try{return JSON.parse(localStorage.getItem("happyDropsStockForms")||"{}")||{};}catch(e){return {};}}
 function hdStockSaveAll(data){try{localStorage.setItem("happyDropsStockForms",JSON.stringify(data));}catch(e){}}
+
+function hdStockValueObject(row){
+  return {
+    st_250:row.bottles250==null?'':row.bottles250,
+    st_300:row.bottles300==null?'':row.bottles300,
+    st_500:row.bottles500==null?'':row.bottles500,
+    st_1000:row.bottles1000==null?'':row.bottles1000,
+    st_c250:row.covers250==null?'':row.covers250,
+    st_c300:row.covers300==null?'':row.covers300,
+    st_c500:row.covers500==null?'':row.covers500,
+    st_c1000:row.covers1000==null?'':row.covers1000,
+    st_newbt:row.newBT==null?'':row.newBT,
+    st_treadbt:row.newTreadBT==null?'':row.newTreadBT,
+    st_tapbt:row.newTapBT==null?'':row.newTapBT,
+    st_matka:row.matka==null?'':row.matka,
+    st_newcc:row.newCoolingCans==null?'':row.newCoolingCans,
+    st_btcard:row.btCards==null?'':row.btCards,
+    st_cccard:row.ccCards==null?'':row.ccCards,
+    st_wbags:row.waterBags==null?'':row.waterBags,
+    st_narmada:row.narmadaBags==null?'':row.narmadaBags,
+    st_film:row.filmRolls==null?'':row.filmRolls,
+    st_pbt:row.plantBT==null?'':row.plantBT,
+    st_pcc:row.plantCC==null?'':row.plantCC,
+    st_bore_tds:row.boreTDS==null?'':row.boreTDS,
+    st_tds:row.plantTDS==null?'':row.plantTDS,
+    st_bw_m:row.m===true || String(row.m).toLowerCase()==='true',
+    st_bw_a:row.a===true || String(row.a).toLowerCase()==='true',
+    st_bw_e:row.e===true || String(row.e).toLowerCase()==='true'
+  };
+}
+
+function hdStockFields(){
+  return ['st_250','st_300','st_500','st_1000','st_c250','st_c300','st_c500','st_c1000','st_newbt','st_treadbt','st_tapbt','st_matka','st_newcc','st_btcard','st_cccard','st_wbags','st_narmada','st_film','st_pbt','st_pcc','st_bore_tds','st_tds','st_bw_m','st_bw_a','st_bw_e'];
+}
+function hdStockSignature(obj){
+  return hdStockFields().map(k=>String(obj&&obj[k]!==undefined?obj[k]:'')).join('|');
+}
+
+/*
+  Cross-origin communication is done with the officially supported Apps Script
+  JSONP pattern. No CORS headers, fetch(), or iframe bridge are required.
+  The Sheet is the shared source of truth for all phones.
+*/
+function hdStockJsonp(action,params){
+  return new Promise((resolve,reject)=>{
+    const callbackName='hdStockJSONP_'+Date.now()+'_'+Math.random().toString(36).slice(2);
+    const script=document.createElement('script');
+    let done=false;
+    const cleanup=()=>{
+      if(script.parentNode)script.parentNode.removeChild(script);
+      try{delete window[callbackName];}catch(e){window[callbackName]=undefined;}
+      clearTimeout(timer);
+    };
+    const finish=(ok,result)=>{
+      if(done)return;
+      done=true;
+      cleanup();
+      if(ok)resolve(result); else reject(new Error((result&&result.error)||'Google Sheets request failed.'));
+    };
+    window[callbackName]=(result)=>finish(true,result);
+    script.async=true;
+    script.onerror=()=>finish(false,{error:'The Google Sheets Web App could not be loaded.'});
+    const q=[];
+    q.push('action='+encodeURIComponent(action));
+    q.push('callback='+encodeURIComponent(callbackName));
+    q.push('prefix='+encodeURIComponent(callbackName));
+    Object.keys(params||{}).forEach(k=>{
+      if(params[k]!==undefined && params[k]!==null)q.push(encodeURIComponent(k)+'='+encodeURIComponent(String(params[k])));
+    });
+    q.push('_='+Date.now());
+    script.src=HD_STOCK_SHEETS_URL+'?'+q.join('&');
+    document.head.appendChild(script);
+    const timer=setTimeout(()=>finish(false,{error:'Timed out waiting for Google Sheets.'}),20000);
+  });
+}
+
+async function hdStockReadFromSheet(offset,options){
+  options=options||{};
+  const key=hdStockDateKey(offset);
+  if(hdStockSyncBusy && !options.force)return {ok:false,busy:true};
+  hdStockSyncBusy=true;
+  try{
+    const result=await hdStockJsonp('get',{date:key});
+    if(!result || result.success!==true)throw new Error((result&&result.error)||'Google Sheets returned an error.');
+
+    const all=hdStockLoad();
+    const old=all[key]||{};
+
+    if(result.found!==true || !result.data){
+      // If the shared Sheet has no row, that date is deleted from the shared
+      // source of truth. Remove the local copy too.
+      if(Object.keys(old).length){
+        delete all[key];
+        hdStockSaveAll(all);
+      }
+      hdStockLastServerSignature='';
+      hdStockLastSyncedKey=key;
+      if(options.render!==false && window.hdStockSelectedOffset===offset){
+        renderStockForm(offset,true,true);
+      }
+      return {ok:true,found:false,changed:Object.keys(old).length>0};
+    }
+
+    const synced=hdStockValueObject(result.data);
+    const sig=hdStockSignature(synced);
+    const oldSig=hdStockSignature(old);
+    const changed=sig!==oldSig || hdStockLastServerSignature!==sig || options.force;
+
+    if(changed){
+      synced.savedAt=old.savedAt||new Date().toISOString();
+      synced.syncedFromGoogleSheet=true;
+      synced.serverDate=result.date||key;
+      all[key]=synced;
+      hdStockSaveAll(all);
+      hdStockLastServerSignature=sig;
+      hdStockLastSyncedKey=key;
+      if(options.render!==false && window.hdStockSelectedOffset===offset){
+        renderStockForm(offset,false,true);
+      }
+    }else{
+      hdStockLastServerSignature=sig;
+      hdStockLastSyncedKey=key;
+    }
+    return {ok:true,found:true,changed:changed,data:synced};
+  }catch(e){
+    return {ok:false,found:false,error:String(e&&e.message||e)};
+  }finally{
+    hdStockSyncBusy=false;
+  }
+}
+
+async function hdRefreshStockFromSheet(){
+  const offset=window.hdStockSelectedOffset||0;
+  const btn=document.getElementById('hdStockRefreshBtn');
+  if(btn){btn.disabled=true;btn.textContent='🔄 Refreshing...';}
+  try{
+    const result=await hdStockReadFromSheet(offset,{force:true,render:true});
+    if(!result.ok)throw new Error(result.error||'Refresh failed');
+    if(!result.found){
+      alert('⚠️ No Google Sheets row found for '+hdStockDateLabel(offset)+'.');
+      return;
+    }
+    renderStockForm(offset,false,true);
+    alert('✅ Stock refreshed from Google Sheets.');
+  }catch(e){
+    alert('❌ Refresh failed. Google Sheets could not return the stock data to the app.');
+  }finally{
+    const b=document.getElementById('hdStockRefreshBtn');
+    if(b){b.disabled=false;b.textContent='🔄 Refresh';}
+  }
+}
+
+function hdEnsureStockAutoSync(){
+  if(hdStockSyncTimer)return;
+  hdStockSyncTimer=setInterval(()=>{
+    if(document.visibilityState==='hidden')return;
+    if(!document.getElementById('hdStockRefreshBtn'))return;
+    hdStockReadFromSheet(window.hdStockSelectedOffset||0,{render:true}).catch(()=>{});
+  },HD_STOCK_SYNC_INTERVAL_MS);
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='visible' && document.getElementById('hdStockRefreshBtn')){
+      hdStockReadFromSheet(window.hdStockSelectedOffset||0,{force:true,render:true}).catch(()=>{});
+    }
+  });
+}
+
 function renderStockDates(){
-  const data=hdStockLoad();
+  hdEnsureStockAutoSync();
   const tabs=[0,1,2].map(offset=>
     '<button class="hd-stock-day '+(offset===window.hdStockSelectedOffset?'active':'')+'" onclick="renderStockForm('+offset+')">'
     +'<b>'+hdStockDateLabel(offset).split(' (')[0]+'</b><span>('+hdStockDateLabel(offset).split(' (')[1]+'</span></button>'
@@ -2123,8 +2297,10 @@ function renderStockDates(){
     +'<div id="hdStockForm"></div></div>';
   renderStockForm(window.hdStockSelectedOffset||0);
 }
-function renderStockForm(offset,forceEdit){
+
+function renderStockForm(offset,forceEdit,skipSync){
   window.hdStockSelectedOffset=offset;
+  hdEnsureStockAutoSync();
   const key=hdStockDateKey(offset), data=hdStockLoad(), saved=data[key]||{}, hasSaved=Object.keys(saved).length>0, editable=forceEdit===true||!hasSaved, dis=editable?"":" disabled";
   const val=k=>saved[k]!==undefined?saved[k]:"", chk=k=>saved[k]===true?" checked":"";
   const field=(id,label,step="1")=>'<div class="hd-stock-row"><label>'+label+'</label><input id="'+id+'" type="number" min="0" step="'+step+'" '+dis+' value="'+val(id)+'" placeholder=""></div>';
@@ -2145,188 +2321,73 @@ function renderStockForm(offset,forceEdit){
     +'<div class="hd-stock-actions">'+actionBtns+'</div>'
     +'<button class="btn secondary hd-stock-clear" onclick="clearStockForm('+offset+')">🧹 Clear All</button></div>';
 
-}
-
-async function hdRefreshStockFromSheet(){
-  const offset=window.hdStockSelectedOffset||0;
-  const btn=document.getElementById('hdStockRefreshBtn');
-  if(btn){btn.disabled=true;btn.textContent='🔄 Refreshing...';}
-  try{
-    const result=await syncStockFromSheetBridge(offset,false);
-    if(!result.ok){
-      throw new Error(result.error||'Google Sheets request failed or timed out.');
-    }
-    if(!result.found){
-      alert('⚠️ No Google Sheets row found for '+hdStockDateLabel(offset)+'.');
-      return;
-    }
-    renderStockForm(offset);
-    alert('✅ Stock refreshed from Google Sheets.');
-  }catch(e){
-    alert('❌ Refresh failed. Google Sheets could not return the stock data to the app.');
-  }finally{
-    const b=document.getElementById('hdStockRefreshBtn');
-    if(b){b.disabled=false;b.textContent='🔄 Refresh';}
+  if(!skipSync){
+    // Every time a Stock date is opened, immediately pull the shared Sheet value.
+    setTimeout(()=>{
+      if(window.hdStockSelectedOffset===offset && document.getElementById('hdStockRefreshBtn')){
+        hdStockReadFromSheet(offset,{render:true}).catch(()=>{});
+      }
+    },80);
   }
 }
 
-/*
-  Google Sheets -> App bridge.
-  We deliberately use a hidden iframe + postMessage instead of JSONP/fetch.
-  This avoids the cross-origin response problem that was causing Refresh to fail
-  on the GitHub Pages/PWA version of Happy Drops Manager.
-*/
-function syncStockFromSheetBridge(offset,keepEditable){
-  return new Promise((resolve)=>{
-    const key=hdStockDateKey(offset);
-    const frame=document.createElement('iframe');
-    frame.style.cssText='position:fixed;width:1px;height:1px;left:-10px;top:-10px;border:0;opacity:0;pointer-events:none;';
-    frame.setAttribute('aria-hidden','true');
+async function saveStockForm(offset){
+  const key=hdStockDateKey(offset), data=hdStockLoad(), g=id=>document.getElementById(id), n=id=>g(id)?.value||"";
+  const stockLocal={st_250:n("st_250"),st_300:n("st_300"),st_500:n("st_500"),st_1000:n("st_1000"),st_c250:n("st_c250"),st_c300:n("st_c300"),st_c500:n("st_c500"),st_c1000:n("st_c1000"),st_newbt:n("st_newbt"),st_treadbt:n("st_treadbt"),st_tapbt:n("st_tapbt"),st_matka:n("st_matka"),st_newcc:n("st_newcc"),st_btcard:n("st_btcard"),st_cccard:n("st_cccard"),st_wbags:n("st_wbags"),st_narmada:n("st_narmada"),st_film:n("st_film"),st_pbt:n("st_pbt"),st_pcc:n("st_pcc"),st_bore_tds:n("st_bore_tds"),st_tds:n("st_tds"),st_bw_m:!!g("st_bw_m")?.checked,st_bw_a:!!g("st_bw_a")?.checked,st_bw_e:!!g("st_bw_e")?.checked,savedAt:new Date().toISOString()};
+  const sheetData={
+    date:key,
+    bottles250:n("st_250"),bottles300:n("st_300"),bottles500:n("st_500"),bottles1000:n("st_1000"),
+    covers250:n("st_c250"),covers300:n("st_c300"),covers500:n("st_c500"),covers1000:n("st_c1000"),
+    newBT:n("st_newbt"),newTreadBT:n("st_treadbt"),newTapBT:n("st_tapbt"),matka:n("st_matka"),newCoolingCans:n("st_newcc"),
+    btCards:n("st_btcard"),ccCards:n("st_cccard"),waterBags:n("st_wbags"),narmadaBags:n("st_narmada"),filmRolls:n("st_film"),
+    plantBT:n("st_pbt"),plantCC:n("st_pcc"),boreTDS:n("st_bore_tds"),plantTDS:n("st_tds"),
+    m:!!g("st_bw_m")?.checked,a:!!g("st_bw_a")?.checked,e:!!g("st_bw_e")?.checked
+  };
 
-    let finished=false;
-    let timer=null;
-
-    const cleanup=()=>{
-      if(timer)clearTimeout(timer);
-      window.removeEventListener('message',onMessage,false);
-      if(frame.parentNode)frame.parentNode.removeChild(frame);
-    };
-
-    const finish=(payload)=>{
-      if(finished)return;
-      finished=true;
-      cleanup();
-      resolve(payload);
-    };
-
-    const onMessage=(event)=>{
-      const data=event.data;
-      if(!data || data.type!=='HD_STOCK_GET_RESULT')return;
-      if(data.date && data.date!==key)return;
-      if(data.result && data.result.success===true){
-        const result=data.result;
-        if(result.found!==true || !result.data){
-          finish({ok:true,found:false});
-          return;
-        }
-
-        try{
-          const row=result.data;
-          const synced={
-            st_250:row.bottles250==null?'':row.bottles250,
-            st_300:row.bottles300==null?'':row.bottles300,
-            st_500:row.bottles500==null?'':row.bottles500,
-            st_1000:row.bottles1000==null?'':row.bottles1000,
-            st_c250:row.covers250==null?'':row.covers250,
-            st_c300:row.covers300==null?'':row.covers300,
-            st_c500:row.covers500==null?'':row.covers500,
-            st_c1000:row.covers1000==null?'':row.covers1000,
-            st_newbt:row.newBT==null?'':row.newBT,
-            st_treadbt:row.newTreadBT==null?'':row.newTreadBT,
-            st_tapbt:row.newTapBT==null?'':row.newTapBT,
-            st_matka:row.matka==null?'':row.matka,
-            st_newcc:row.newCoolingCans==null?'':row.newCoolingCans,
-            st_btcard:row.btCards==null?'':row.btCards,
-            st_cccard:row.ccCards==null?'':row.ccCards,
-            st_wbags:row.waterBags==null?'':row.waterBags,
-            st_narmada:row.narmadaBags==null?'':row.narmadaBags,
-            st_film:row.filmRolls==null?'':row.filmRolls,
-            st_pbt:row.plantBT==null?'':row.plantBT,
-            st_pcc:row.plantCC==null?'':row.plantCC,
-            st_bore_tds:row.boreTDS==null?'':row.boreTDS,
-            st_tds:row.plantTDS==null?'':row.plantTDS,
-            st_bw_m:row.m===true || String(row.m).toLowerCase()==='true',
-            st_bw_a:row.a===true || String(row.a).toLowerCase()==='true',
-            st_bw_e:row.e===true || String(row.e).toLowerCase()==='true'
-          };
-
-          const all=hdStockLoad();
-          const old=all[key]||{};
-          synced.savedAt=old.savedAt||new Date().toISOString();
-          synced.syncedFromGoogleSheet=true;
-          all[key]=synced;
-          hdStockSaveAll(all);
-          finish({ok:true,found:true});
-        }catch(err){
-          finish({ok:false,found:false,error:String(err)});
-        }
-      }else{
-        finish({ok:false,found:false,error:(data.result&&data.result.error)||'Google Sheets bridge returned an error.'});
-      }
-    };
-
-    window.addEventListener('message',onMessage,false);
-    document.body.appendChild(frame);
-
-    timer=setTimeout(()=>finish({ok:false,found:false,error:'Timed out waiting for Google Sheets.'}),30000);
-
-    frame.src=HD_STOCK_SHEETS_URL+'?action=get&mode=iframe&date='+encodeURIComponent(key)+'&_='+Date.now();
-  });
+  const saveBtn=document.querySelector('#hdStockRefreshBtn')?.parentElement?.previousElementSibling;
+  try{
+    // Write to Google Sheets first. Only after the server confirms do we update
+    // the phone's local copy. This prevents a phone from showing a value that
+    // never reached the shared Sheet.
+    const result=await hdStockJsonp('save',{date:key,data:JSON.stringify(sheetData)});
+    if(!result || result.success!==true)throw new Error((result&&result.error)||'Google Sheets save failed.');
+    data[key]=stockLocal;
+    hdStockSaveAll(data);
+    hdStockLastServerSignature=hdStockSignature(stockLocal);
+    hdStockLastSyncedKey=key;
+    alert('Stock saved for '+hdStockDateLabel(offset)+'.');
+    renderStockForm(offset,false,true);
+  }catch(e){
+    alert('❌ Stock was not saved to Google Sheets. Please check the internet connection and try again.');
+  }
 }
 
-function deleteStockForm(offset){
+async function deleteStockForm(offset){
   const key=hdStockDateKey(offset);
   const label=hdStockDateLabel(offset);
-  if(!confirm("Delete all Stock data for "+label+"? This will also delete the same date row from Google Sheets.")) return;
+  if(!confirm("Delete all Stock data for "+label+"? This will delete the same date from Google Sheets and all phones will sync the deletion.")) return;
 
-  // Delete this date from the app's local Stock storage.
-  const data=hdStockLoad();
-  delete data[key];
-  hdStockSaveAll(data);
-
-  // Delete the matching date row from Google Sheets.
   try{
-    fetch(HD_STOCK_SHEETS_URL,{
-      method:"POST",
-      mode:"no-cors",
-      headers:{"Content-Type":"text/plain;charset=utf-8"},
-      body:JSON.stringify({action:"delete",date:key}),
-      keepalive:true
-    }).catch(()=>{});
-  }catch(e){}
-
-  // Show a completely fresh form for the same date.
-  alert("Stock deleted for "+label+".");
-  renderStockForm(offset,true);
+    const result=await hdStockJsonp('delete',{date:key});
+    if(!result || result.success!==true)throw new Error((result&&result.error)||'Google Sheets delete failed.');
+    const data=hdStockLoad();
+    delete data[key];
+    hdStockSaveAll(data);
+    hdStockLastServerSignature='';
+    hdStockLastSyncedKey=key;
+    alert('Stock deleted for '+label+'.');
+    renderStockForm(offset,true,true);
+  }catch(e){
+    alert('❌ Stock was not deleted from Google Sheets. Please try again.');
+  }
 }
 
 function clearStockForm(offset){
   if(!confirm("Clear all entries in this Stock Form? The saved data will not change until you press Save.")) return;
-  renderStockForm(offset,true);
+  renderStockForm(offset,true,true);
   const ids=["st_250","st_300","st_500","st_1000","st_c250","st_c300","st_c500","st_c1000","st_newbt","st_treadbt","st_tapbt","st_matka","st_newcc","st_btcard","st_cccard","st_wbags","st_narmada","st_film","st_pbt","st_pcc","st_bore_tds","st_tds"];
   ids.forEach(id=>{const e=document.getElementById(id);if(e)e.value="";});
   ["st_bw_m","st_bw_a","st_bw_e"].forEach(id=>{const e=document.getElementById(id);if(e)e.checked=false;});
-}
-const HD_STOCK_SHEETS_URL="https://script.google.com/macros/s/AKfycbxJua-Od2IwzMLUsupQyFypqHTc2vTXof6ryOzXaOVb3U3vQGReAYb9MDvlvy2g6FXC/exec";
-function saveStockForm(offset){
-  const key=hdStockDateKey(offset), data=hdStockLoad(), g=id=>document.getElementById(id), n=id=>g(id)?.value||"";
-  data[key]={st_250:n("st_250"),st_300:n("st_300"),st_500:n("st_500"),st_1000:n("st_1000"),st_c250:n("st_c250"),st_c300:n("st_c300"),st_c500:n("st_c500"),st_c1000:n("st_c1000"),st_newbt:n("st_newbt"),st_treadbt:n("st_treadbt"),st_tapbt:n("st_tapbt"),st_matka:n("st_matka"),st_newcc:n("st_newcc"),st_btcard:n("st_btcard"),st_cccard:n("st_cccard"),st_wbags:n("st_wbags"),st_narmada:n("st_narmada"),st_film:n("st_film"),st_pbt:n("st_pbt"),st_pcc:n("st_pcc"),st_bore_tds:n("st_bore_tds"),st_tds:n("st_tds"),st_bw_m:!!g("st_bw_m")?.checked,st_bw_a:!!g("st_bw_a")?.checked,st_bw_e:!!g("st_bw_e")?.checked,savedAt:new Date().toISOString()};
-  hdStockSaveAll(data);
-
-  const sheetData={
-    date:key,
-    bottles250:n("st_250"), bottles300:n("st_300"), bottles500:n("st_500"), bottles1000:n("st_1000"),
-    covers250:n("st_c250"), covers300:n("st_c300"), covers500:n("st_c500"), covers1000:n("st_c1000"),
-    newBT:n("st_newbt"), newTreadBT:n("st_treadbt"), newTapBT:n("st_tapbt"), matka:n("st_matka"), newCoolingCans:n("st_newcc"),
-    btCards:n("st_btcard"), ccCards:n("st_cccard"),
-    waterBags:n("st_wbags"), narmadaBags:n("st_narmada"), filmRolls:n("st_film"),
-    plantBT:n("st_pbt"), plantCC:n("st_pcc"),
-    boreTDS:n("st_bore_tds"), plantTDS:n("st_tds"),
-    m:!!g("st_bw_m")?.checked, a:!!g("st_bw_a")?.checked, e:!!g("st_bw_e")?.checked
-  };
-
-  // Send to Google Sheets without blocking the local save.
-  try{
-    fetch(HD_STOCK_SHEETS_URL,{
-      method:"POST",
-      mode:"no-cors",
-      headers:{"Content-Type":"text/plain;charset=utf-8"},
-      body:JSON.stringify(sheetData),
-      keepalive:true
-    }).catch(()=>{});
-  }catch(e){}
-
-  alert("Stock saved for "+hdStockDateLabel(offset)+"."); renderStockForm(offset,false);
 }
 
 function money(){
