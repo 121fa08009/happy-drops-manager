@@ -2092,8 +2092,6 @@ function stock(){
 }
 
 const HD_STOCK_SHEETS_URL="https://script.google.com/macros/s/AKfycbxJua-Od2IwzMLUsupQyFypqHTc2vTXof6ryOzXaOVb3U3vQGReAYb9MDvlvy2g6FXC/exec";
-const HD_STOCK_SYNC_INTERVAL_MS=5000;
-let hdStockSyncTimer=null;
 let hdStockSyncBusy=false;
 let hdStockLastSyncedKey="";
 let hdStockLastServerSignature="";
@@ -2157,7 +2155,8 @@ function hdStockSignature(obj){
 /*
   Cross-origin communication is done with the officially supported Apps Script
   JSONP pattern. No CORS headers, fetch(), or iframe bridge are required.
-  The Sheet is the shared source of truth for all phones.
+  The Sheet is the shared source of truth when the user explicitly presses Refresh.
+  Stock forms do NOT automatically read from Google Sheets.
 */
 function hdStockJsonp(action,params){
   return new Promise((resolve,reject)=>{
@@ -2268,22 +2267,7 @@ async function hdRefreshStockFromSheet(){
   }
 }
 
-function hdEnsureStockAutoSync(){
-  if(hdStockSyncTimer)return;
-  hdStockSyncTimer=setInterval(()=>{
-    if(document.visibilityState==='hidden')return;
-    if(!document.getElementById('hdStockRefreshBtn'))return;
-    hdStockReadFromSheet(window.hdStockSelectedOffset||0,{render:true}).catch(()=>{});
-  },HD_STOCK_SYNC_INTERVAL_MS);
-  document.addEventListener('visibilitychange',()=>{
-    if(document.visibilityState==='visible' && document.getElementById('hdStockRefreshBtn')){
-      hdStockReadFromSheet(window.hdStockSelectedOffset||0,{force:true,render:true}).catch(()=>{});
-    }
-  });
-}
-
 function renderStockDates(){
-  hdEnsureStockAutoSync();
   const tabs=[0,1,2].map(offset=>
     '<button class="hd-stock-day '+(offset===window.hdStockSelectedOffset?'active':'')+'" onclick="renderStockForm('+offset+')">'
     +'<b>'+hdStockDateLabel(offset).split(' (')[0]+'</b><span>('+hdStockDateLabel(offset).split(' (')[1]+'</span></button>'
@@ -2300,7 +2284,6 @@ function renderStockDates(){
 
 function renderStockForm(offset,forceEdit,skipSync){
   window.hdStockSelectedOffset=offset;
-  hdEnsureStockAutoSync();
   const key=hdStockDateKey(offset), data=hdStockLoad(), saved=data[key]||{}, hasSaved=Object.keys(saved).length>0, editable=forceEdit===true||!hasSaved, dis=editable?"":" disabled";
   const val=k=>saved[k]!==undefined?saved[k]:"", chk=k=>saved[k]===true?" checked":"";
   const field=(id,label,step="1")=>'<div class="hd-stock-row"><label>'+label+'</label><input id="'+id+'" type="number" min="0" step="'+step+'" '+dis+' value="'+val(id)+'" placeholder=""></div>';
@@ -2321,14 +2304,6 @@ function renderStockForm(offset,forceEdit,skipSync){
     +'<div class="hd-stock-actions">'+actionBtns+'</div>'
     +'<button class="btn secondary hd-stock-clear" onclick="clearStockForm('+offset+')">🧹 Clear All</button></div>';
 
-  if(!skipSync){
-    // Every time a Stock date is opened, immediately pull the shared Sheet value.
-    setTimeout(()=>{
-      if(window.hdStockSelectedOffset===offset && document.getElementById('hdStockRefreshBtn')){
-        hdStockReadFromSheet(offset,{render:true}).catch(()=>{});
-      }
-    },80);
-  }
 }
 
 async function saveStockForm(offset){
@@ -2355,7 +2330,7 @@ async function saveStockForm(offset){
     hdStockSaveAll(data);
     hdStockLastServerSignature=hdStockSignature(stockLocal);
     hdStockLastSyncedKey=key;
-    alert('Stock saved for '+hdStockDateLabel(offset)+'.');
+    alert('✅ Stock saved to Google Sheets for '+hdStockDateLabel(offset)+'.');
     renderStockForm(offset,false,true);
   }catch(e){
     alert('❌ Stock was not saved to Google Sheets. Please check the internet connection and try again.');
