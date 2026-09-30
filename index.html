@@ -2195,7 +2195,7 @@ function hdStockJsonp(action,params){
     Object.keys(params||{}).forEach(k=>{
       if(params[k]!==undefined && params[k]!==null)q.push(encodeURIComponent(k)+'='+encodeURIComponent(String(params[k])));
     });
-    q.push('_='+Date.now());
+    q.push('_='+Date.now()+'_'+Math.random().toString(36).slice(2));
     iframe.src=HD_STOCK_SHEETS_URL+'?'+q.join('&');
     document.body.appendChild(iframe);
     timer=setTimeout(()=>finish(false,{error:'Timed out waiting for Google Sheets bridge.'}),30000);
