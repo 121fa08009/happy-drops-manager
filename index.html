@@ -2160,14 +2160,11 @@ function hdStockSignature(obj){
 */
 function hdStockJsonp(action,params){
   return new Promise((resolve,reject)=>{
-    const token='hdStockBridge_'+Date.now()+'_'+Math.random().toString(36).slice(2);
-    const iframe=document.createElement('iframe');
-    let done=false;
-    let timer=null;
+    const cb='hdStockGoogleCallback';
+    let done=false, timer=null, script=null;
     const cleanup=()=>{
-      window.removeEventListener('message',onMessage);
       if(timer)clearTimeout(timer);
-      if(iframe.parentNode)iframe.parentNode.removeChild(iframe);
+      if(script&&script.parentNode)script.parentNode.removeChild(script);
     };
     const finish=(ok,result)=>{
       if(done)return;
@@ -2175,86 +2172,80 @@ function hdStockJsonp(action,params){
       cleanup();
       if(ok)resolve(result); else reject(new Error((result&&result.error)||'Google Sheets request failed.'));
     };
-    const onMessage=(event)=>{
-      const d=event&&event.data;
-      if(!d || d.source!=='HappyDropsStockBridge' || d.token!==token)return;
-      finish(d.success===true,d.result||{success:false,error:'Google Sheets bridge returned no result.'});
-    };
-    window.addEventListener('message',onMessage);
-    iframe.style.position='fixed';
-    iframe.style.width='1px';
-    iframe.style.height='1px';
-    iframe.style.border='0';
-    iframe.style.opacity='0';
-    iframe.style.pointerEvents='none';
-    iframe.setAttribute('aria-hidden','true');
-    const q=[];
-    q.push('bridge=1');
-    q.push('token='+encodeURIComponent(token));
-    q.push('action='+encodeURIComponent(action));
+    window[cb]=(result)=>finish(!!(result&&result.success===true),result||{success:false,error:'No response from Google Sheets.'});
+    script=document.createElement('script');
+    script.async=true;
+    script.onerror=()=>finish(false,{error:'Google Sheets Web App could not be reached.'});
+    const q=['action='+encodeURIComponent(action),'callback='+encodeURIComponent(cb),'_='+Date.now()+'_'+Math.random().toString(36).slice(2)];
     Object.keys(params||{}).forEach(k=>{
-      if(params[k]!==undefined && params[k]!==null)q.push(encodeURIComponent(k)+'='+encodeURIComponent(String(params[k])));
+      if(params[k]!==undefined&&params[k]!==null)q.push(encodeURIComponent(k)+'='+encodeURIComponent(String(params[k])));
     });
-    q.push('_='+Date.now()+'_'+Math.random().toString(36).slice(2));
-    iframe.src=HD_STOCK_SHEETS_URL+'?'+q.join('&');
-    document.body.appendChild(iframe);
-    timer=setTimeout(()=>finish(false,{error:'Timed out waiting for Google Sheets bridge.'}),30000);
+    script.src=HD_STOCK_SHEETS_URL+'?'+q.join('&');
+    document.head.appendChild(script);
+    timer=setTimeout(()=>finish(false,{error:'Google Sheets response timed out.'}),20000);
+  });
+}
+
+function hdGvizReadStock(dateKey){
+  return new Promise((resolve,reject)=>{
+    const cb='hdStockGvizCallback';
+    let done=false,timer=null,script=null;
+    const cleanup=()=>{if(timer)clearTimeout(timer);if(script&&script.parentNode)script.parentNode.removeChild(script);};
+    const finish=(ok,result)=>{if(done)return;done=true;cleanup();if(ok)resolve(result);else reject(new Error(result&&result.error||'Google Sheet could not be read.'));};
+    window[cb]=(resp)=>{
+      try{
+        if(!resp||resp.status!=='ok')throw new Error('Google Sheet returned an invalid response.');
+        const rows=(resp.table&&resp.table.rows)||[];
+        let found=null;
+        for(let i=0;i<rows.length;i++){
+          const cells=(rows[i]&&rows[i].c)||[];
+          const raw=cells[0]&&cells[0].v!=null?String(cells[0].v):'';
+          let d=raw;
+          const m=raw.match(/^Date\((\d+),(\d+),(\d+)\)$/);
+          if(m)d=m[1]+'-'+String(Number(m[2])+1).padStart(2,'0')+'-'+String(m[3]).padStart(2,'0');
+          if(d===dateKey){found=cells;break;}
+        }
+        if(!found){finish(true,{success:true,found:false,date:dateKey});return;}
+        const v=i=>found[i]&&found[i].v!=null?found[i].v:'';
+        const data={date:dateKey,bottles250:v(1),bottles300:v(2),bottles500:v(3),bottles1000:v(4),covers250:v(5),covers300:v(6),covers500:v(7),covers1000:v(8),newBT:v(9),newTreadBT:v(10),newTapBT:v(11),matka:v(12),newCoolingCans:v(13),btCards:v(14),ccCards:v(15),waterBags:v(16),narmadaBags:v(17),filmRolls:v(18),plantBT:v(19),plantCC:v(20),boreTDS:v(21),plantTDS:v(22),m:String(v(23)).toLowerCase()==='true',a:String(v(24)).toLowerCase()==='true',e:String(v(25)).toLowerCase()==='true'};
+        finish(true,{success:true,found:true,date:dateKey,data:data});
+      }catch(err){finish(false,{error:String(err&&err.message||err)});}
+    };
+    script=document.createElement('script');script.async=true;script.onerror=()=>finish(false,{error:'The Google Sheet is not publicly readable. Set Share → Anyone with the link → Viewer, then try Refresh again.'});
+    const url='https://docs.google.com/spreadsheets/d/16uQ1gze5tIxUCuDOfhl7FD8hDYcXR0kF6sIqdDwdDAI/gviz/tq?tqx=out:json&_='+Date.now();
+    script.src=url;document.head.appendChild(script);timer=setTimeout(()=>finish(false,{error:'Google Sheet response timed out.'}),20000);
   });
 }
 
 async function hdStockReadFromSheet(offset,options){
   options=options||{};
   const key=hdStockDateKey(offset);
-  if(hdStockSyncBusy && !options.force)return {ok:false,busy:true};
+  if(hdStockSyncBusy&&!options.force)return {ok:false,busy:true};
   hdStockSyncBusy=true;
   try{
-    const result=await hdStockJsonp('get',{date:key});
-    if(!result || result.success!==true)throw new Error((result&&result.error)||'Google Sheets returned an error.');
-
-    const all=hdStockLoad();
-    const old=all[key]||{};
-
-    if(result.found!==true || !result.data){
-      // If the shared Sheet has no row, that date is deleted from the shared
-      // source of truth. Remove the local copy too.
-      if(Object.keys(old).length){
-        delete all[key];
-        hdStockSaveAll(all);
-      }
-      hdStockLastServerSignature='';
-      hdStockLastSyncedKey=key;
-      if(options.render!==false && window.hdStockSelectedOffset===offset){
-        renderStockForm(offset,true,true);
-      }
+    let result;
+    try{
+      result=await hdGvizReadStock(key);
+    }catch(primaryError){
+      result=await hdStockJsonp('get',{date:key});
+    }
+    if(!result||result.success!==true)throw new Error((result&&result.error)||'Google Sheets returned an error.');
+    const all=hdStockLoad(),old=all[key]||{};
+    if(result.found!==true||!result.data){
+      if(Object.keys(old).length){delete all[key];hdStockSaveAll(all);}
+      hdStockLastServerSignature='';hdStockLastSyncedKey=key;
+      if(options.render!==false&&window.hdStockSelectedOffset===offset)renderStockForm(offset,true,true);
       return {ok:true,found:false,changed:Object.keys(old).length>0};
     }
-
-    const synced=hdStockValueObject(result.data);
-    const sig=hdStockSignature(synced);
-    const oldSig=hdStockSignature(old);
-    const changed=sig!==oldSig || hdStockLastServerSignature!==sig || options.force;
-
+    const synced=hdStockValueObject(result.data),sig=hdStockSignature(synced),oldSig=hdStockSignature(old),changed=sig!==oldSig||hdStockLastServerSignature!==sig||options.force;
     if(changed){
-      synced.savedAt=old.savedAt||new Date().toISOString();
-      synced.syncedFromGoogleSheet=true;
-      synced.serverDate=result.date||key;
-      all[key]=synced;
-      hdStockSaveAll(all);
-      hdStockLastServerSignature=sig;
-      hdStockLastSyncedKey=key;
-      if(options.render!==false && window.hdStockSelectedOffset===offset){
-        renderStockForm(offset,false,true);
-      }
-    }else{
-      hdStockLastServerSignature=sig;
-      hdStockLastSyncedKey=key;
-    }
+      synced.savedAt=old.savedAt||new Date().toISOString();synced.syncedFromGoogleSheet=true;synced.serverDate=result.date||key;all[key]=synced;hdStockSaveAll(all);
+      hdStockLastServerSignature=sig;hdStockLastSyncedKey=key;
+      if(options.render!==false&&window.hdStockSelectedOffset===offset)renderStockForm(offset,false,true);
+    }else{hdStockLastServerSignature=sig;hdStockLastSyncedKey=key;}
     return {ok:true,found:true,changed:changed,data:synced};
-  }catch(e){
-    return {ok:false,found:false,error:String(e&&e.message||e)};
-  }finally{
-    hdStockSyncBusy=false;
-  }
+  }catch(e){return {ok:false,found:false,error:String(e&&e.message||e)};}
+  finally{hdStockSyncBusy=false;}
 }
 
 function hdStockAlert(message){
@@ -2300,7 +2291,7 @@ async function hdRefreshStockFromSheet(){
     renderStockForm(offset,false,true);
     hdStockAlert('✅ Stock refreshed from Google Sheets.');
   }catch(e){
-    hdStockAlert('❌ Refresh failed. Google Sheets could not return the stock data to the app.');
+    hdStockAlert('❌ Refresh failed.\n\n'+String(e&&e.message||e));
   }finally{
     const b=document.getElementById('hdStockRefreshBtn');
     if(b){b.disabled=false;b.textContent='🔄 Refresh';}
