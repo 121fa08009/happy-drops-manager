@@ -41,6 +41,14 @@
 .hd-stock-day-tabs-inner{margin-top:7px}.hd-stock-form-top{display:flex;align-items:center;justify-content:space-between;gap:5px;margin-bottom:3px}
 .hd-stock-form-back{flex:0 0 auto;min-height:34px;padding:5px 9px!important;font-size:12px!important;border-radius:7px!important}
 .hd-stock-section{border:1px solid #dce7ef;border-radius:8px;margin:3px 0;padding:6px 7px;background:#fff;box-sizing:border-box}
+/* Stock section colors: visual differentiation only */
+.hd-stock-section:nth-of-type(1){background:#f0f8ff;border-color:#8fc7ed}.hd-stock-section:nth-of-type(1) h3{color:#087fc1}
+.hd-stock-section:nth-of-type(2){background:#fff5f5;border-color:#efaaaa}.hd-stock-section:nth-of-type(2) h3{color:#c62828}
+.hd-stock-section:nth-of-type(3){background:#f3fbf3;border-color:#9bd3a5}.hd-stock-section:nth-of-type(3) h3{color:#237a32}
+.hd-stock-section:nth-of-type(4){background:#fff9ed;border-color:#e7c27a}.hd-stock-section:nth-of-type(4) h3{color:#a95a00}
+.hd-stock-section:nth-of-type(5){background:#f7f2ff;border-color:#c4a6ed}.hd-stock-section:nth-of-type(5) h3{color:#7041b5}
+.hd-stock-section:nth-of-type(6){background:#eefcfb;border-color:#8fd4ce}.hd-stock-section:nth-of-type(6) h3{color:#14766e}
+.hd-stock-section:nth-of-type(7){background:#f5f7ff;border-color:#aebee8}.hd-stock-section:nth-of-type(7) h3{color:#3f5f9f}
 .hd-stock-section h3{margin:0 0 2px;font-size:14px;font-weight:800;color:#17324d;line-height:1.15}
 .hd-stock-row{display:grid;grid-template-columns:170px 72px;align-items:center;justify-content:start;gap:8px;margin:1px 0;min-width:0}
 .hd-stock-row label{font-size:12px;color:#31566f;font-weight:700;line-height:1.1;min-width:0}
@@ -2185,8 +2193,18 @@ function hdStockTabClass(offset){
   return 'hd-stock-yesterday';
 }
 function hdStockTabAction(offset){
-  if(offset===2)return 'openStockDatePicker()';
+  if(offset===2)return 'hdStockThirdTap(event)';
   return 'renderStockForm('+offset+')';
+}
+function hdStockThirdTap(event){
+  if(event){event.preventDefault();event.stopPropagation();}
+  const now=Date.now();
+  const last=Number(window.hdStockThirdTapAt||0);
+  window.hdStockThirdTapAt=now;
+  if(now-last<=450){
+    window.hdStockThirdTapAt=0;
+    openStockDatePicker();
+  }
 }
 function openStockDatePicker(){
   const current=hdStockThirdDateKey();
