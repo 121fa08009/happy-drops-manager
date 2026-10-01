@@ -50,10 +50,10 @@
 .hd-stock-section:nth-of-type(6){background:#eefcfb;border-color:#8fd4ce}.hd-stock-section:nth-of-type(6) h3{color:#14766e}
 .hd-stock-section:nth-of-type(7){background:#f5f7ff;border-color:#aebee8}.hd-stock-section:nth-of-type(7) h3{color:#3f5f9f}
 .hd-stock-section h3{margin:0 0 2px;font-size:14px;font-weight:800;color:#17324d;line-height:1.15}
-.hd-stock-row{display:grid;grid-template-columns:170px 72px;align-items:center;justify-content:start;gap:8px;margin:1px 0;min-width:0}
-.hd-stock-row label{font-size:12px;color:#31566f;font-weight:700;line-height:1.1;min-width:0}
+.hd-stock-row{display:grid;grid-template-columns:100px 68px;align-items:center;justify-content:start;gap:3px;margin:1px 0;min-width:0}
+.hd-stock-row label{font-size:12px;color:#31566f;font-weight:700;line-height:1.1;min-width:0;white-space:nowrap}
 .hd-stock-row input{margin:0;height:32px;padding:4px 6px;text-align:right;box-sizing:border-box;width:100%;min-width:0}
-.hd-stock-backwash{grid-template-columns:170px 1fr}.hd-stock-checks{display:flex;gap:10px;align-items:center;flex-wrap:nowrap;white-space:nowrap;min-width:0}
+.hd-stock-backwash{grid-template-columns:100px 1fr}.hd-stock-checks{display:flex;gap:10px;align-items:center;flex-wrap:nowrap;white-space:nowrap;min-width:0}
 .hd-stock-checks label{display:inline-flex;align-items:center;justify-content:center;position:relative;width:28px;height:28px;margin:0;cursor:pointer}
 .hd-stock-checks input{position:absolute;inset:0;width:28px;height:28px;margin:0;opacity:0;cursor:pointer;z-index:2}
 .hd-stock-check-box{width:28px;height:28px;border:1.5px solid #b8c7d1;border-radius:6px;background:#fff;display:flex;align-items:center;justify-content:center;box-sizing:border-box;color:#555;font-size:14px;font-weight:800;line-height:1;position:relative}
@@ -70,7 +70,7 @@
   .hd-stock-form-back{min-height:32px;padding:4px 8px!important;font-size:11px!important}
   .hd-stock-section{margin:3px 0;padding:5px 6px;border-radius:7px}
   .hd-stock-section h3{font-size:13px;margin-bottom:2px}
-  .hd-stock-row{grid-template-columns:170px 68px;gap:8px;margin:1px 0}
+  .hd-stock-row{grid-template-columns:100px 68px;gap:3px;margin:1px 0}
   .hd-stock-row label{font-size:11px}
   .hd-stock-row input{height:30px;padding:3px 5px;font-size:12px}
   .hd-stock-checks{gap:8px;flex-wrap:nowrap}.hd-stock-checks label{width:28px;height:28px}.hd-stock-checks input{width:28px;height:28px}.hd-stock-check-box{width:28px;height:28px;font-size:13px}
@@ -78,8 +78,8 @@
 }
 @media(max-width:360px){
   .hd-stock-day b{font-size:10px}.hd-stock-day span{font-size:8px}
-  .hd-stock-row{grid-template-columns:155px 64px;gap:6px}
-  .hd-stock-backwash{grid-template-columns:155px 1fr}
+  .hd-stock-row{grid-template-columns:96px 64px;gap:3px}
+  .hd-stock-backwash{grid-template-columns:96px 1fr}
   .hd-stock-checks{gap:7px}.hd-stock-checks label{width:27px;height:27px}.hd-stock-checks input{width:27px;height:27px}.hd-stock-check-box{width:27px;height:27px;font-size:12px}
   .hd-stock-row label{font-size:10.5px}.hd-stock-row input{height:29px;font-size:11px}
 }
@@ -206,7 +206,12 @@ function hdClearRentalDirty(id){if(!id)return;hdPendingRentalSyncIds.delete(Stri
 function hdMarkRentalDeleted(id){if(!id)return;hdDeletedRentalIds.add(String(id));localStorage.setItem('happyDropsDeletedRentalIds',JSON.stringify([...hdDeletedRentalIds]));hdPendingRentalSyncIds.delete(String(id));hdSavePendingRentalSyncIds();}
 function hdUnmarkRentalDeleted(id){if(!id)return;hdDeletedRentalIds.delete(String(id));localStorage.setItem('happyDropsDeletedRentalIds',JSON.stringify([...hdDeletedRentalIds]));}
 function hdCloudMessage(text,color){const e=document.getElementById('cloudAuthMsg');if(e){e.textContent=text;e.style.color=color||'#1769aa';}}
-function hdSetCloudStatus(state,text){const e=document.getElementById('hdCloudStatus');const t=document.getElementById('hdCloudStatusText');if(e){e.dataset.state=state||'connecting';e.title=text||'Cloud sync status';e.setAttribute('aria-label',text||'Cloud sync status');}if(t)t.textContent=text||'Cloud';}
+function hdSetCloudStatus(state,text){const e=document.getElementById('hdCloudStatus');const t=document.getElementById('hdCloudStatusText');
+  // Cloud colour is a connectivity indicator, not a sync-progress indicator.
+  // Once the user is online and signed in, keep it GREEN; only offline is GREY.
+  const displayState=(!navigator.onLine)?'offline':(hdSession?'synced':(state||'connecting'));
+  if(e){e.dataset.state=displayState;e.title=text||'Cloud sync status';e.setAttribute('aria-label',text||'Cloud sync status');}
+  if(t)t.textContent=text||'Cloud';}
 async function hdManualCloudSync(){if(!hdSupabase||!hdSession){hdSetCloudStatus('connecting','Cloud login required');return;}hdSetCloudStatus('syncing','Syncing…');try{const pushed=await hdCloudSyncRentals();if(pushed===false)throw new Error('Cloud push failed; see the sync status message.');const refreshed=await hdRefreshRentalsFromCloud();if(!refreshed)throw new Error('Cloud refresh failed.');hdSetCloudStatus('synced','Cloud synced successfully');}catch(e){console.error('Manual cloud sync error',e);hdSetCloudStatus(navigator.onLine?'error':'offline',e?.message|| (navigator.onLine?'Cloud sync failed':'Offline'));}}
 
 function hdShowAuth(){let old=document.getElementById('cloudAuthOverlay');if(old)old.remove();const e=document.createElement('div');e.id='cloudAuthOverlay';e.innerHTML=`<div id="cloudAuthBox"><h3>🔐 Happy Drops</h3><p>Enter your PIN to open Happy Drops Manager.</p><input id="hdLoginPin" type="password" inputmode="numeric" maxlength="4" placeholder="Enter PIN" autocomplete="off" onkeydown="if(event.key==='Enter')hdSignIn()"><button class="btn" style="width:100%;margin-top:8px" onclick="hdSignIn()">Login</button><div id="cloudAuthMsg"></div></div>`;document.body.appendChild(e);e.style.display='flex';setTimeout(()=>document.getElementById('hdLoginPin')?.focus(),50);}
