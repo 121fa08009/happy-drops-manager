@@ -2201,6 +2201,13 @@ function hdStockThirdTap(event){
   const now=Date.now();
   const last=Number(window.hdStockThirdTapAt||0);
   window.hdStockThirdTapAt=now;
+
+  // Single tap: behave exactly like Today/Yesterday and show the
+  // stock data for the third column's current date.
+  renderStockForm(2);
+
+  // Double tap: open the existing past-date picker so the user can
+  // choose a different date.
   if(now-last<=450){
     window.hdStockThirdTapAt=0;
     openStockDatePicker();
