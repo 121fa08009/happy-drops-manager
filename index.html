@@ -431,7 +431,22 @@ function hdInitCloud(){
       if(error)throw error;hdSession=data?.session||null;
       if(hdSession){await hdCloudBootstrap();setTimeout(()=>hdStartPushRegistration(),250);}else hdShowAuth();
     }).catch(e=>{console.error('Supabase session error',e);hdSetCloudStatus(navigator.onLine?'error':'offline',navigator.onLine?'Cloud session error: '+(e?.message||e):'Offline');hdShowAuth();});
-    hdSupabase.auth.onAuthStateChange((_event,session)=>{hdSession=session||null;if(hdSession){hdSetCloudStatus('connecting','Cloud session active — syncing…');setTimeout(()=>hdCloudBootstrap(),0);}else hdSetCloudStatus('connecting','Cloud login required');});
+    hdSupabase.auth.onAuthStateChange((event,session)=>{
+      hdSession=session||null;
+      if(hdSession){
+        // Do not restart the full rental bootstrap on token refresh events.
+        // Supabase refreshes the anonymous session periodically; treating every
+        // refresh as a new connection caused the cloud badge to flap red/green.
+        if(event==='SIGNED_IN'){
+          hdSetCloudStatus('connecting','Cloud session active — syncing…');
+          setTimeout(()=>hdCloudBootstrap(),0);
+        }else if(event==='INITIAL_SESSION'){
+          hdSetCloudStatus('connecting','Connecting to cloud…');
+        }
+      }else if(event==='SIGNED_OUT'){
+        hdSetCloudStatus('connecting','Cloud login required');
+      }
+    });
     window.addEventListener('online',()=>{if(hdSupabase&&hdSession)hdCloudBootstrap();});
     window.addEventListener('offline',()=>hdSetCloudStatus('offline','Offline'));
   }catch(e){console.error('Supabase init error',e);hdSetCloudStatus(navigator.onLine?'error':'offline',navigator.onLine?'Cloud initialization error: '+(e?.message||e):'Offline');}
@@ -2346,7 +2361,10 @@ function shareMoneyWhatsApp(){
 
 ensureSyncBadge();
 setTimeout(hdInitCloud,150);
-setInterval(()=>{if(hdSupabase&&hdSession&&!hdCloudBusy)hdRefreshRentalsFromCloud().catch(e=>console.warn('Rental cloud poll error',e));},5000);
+// Cloud bootstrap is the authoritative initial load. Do not poll the rental
+// tables every few seconds: a transient read failure must not turn a healthy
+// authenticated session red or repeatedly overwrite local rental state.
+
 if("serviceWorker" in navigator){window.addEventListener("load",()=>{navigator.serviceWorker.register("./service-worker.js",{scope:"./"}).catch(e=>console.error("Service worker registration failed",e));});}
 </script>
 <script>
@@ -2474,21 +2492,4 @@ function hdBack(fallback){
     try{
       const args=Array.isArray(st.hdArgs)?st.hdArgs:[];
       fn.apply(window,args);
-      try{ localStorage.setItem('hdCurrentPage',JSON.stringify({hdPage:st.hdPage,hdArgs:args})); }catch(e){}
-    }finally{ restoring=false; }
-  });
-})();
-</script>
-
-<script id="hd-launch-splash-script">
-(function(){
-  function hideHappyDropsLaunch(){
-    var el=document.getElementById('hdLaunchSplash');
-    if(!el)return;
-    setTimeout(function(){el.classList.add('hd-launch-hide');setTimeout(function(){el.remove();},120);},300);
-  }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',hideHappyDropsLaunch,{once:true});
-  else hideHappyDropsLaunch();
-})();
-</script>
-</body></html>
+      try{ localStorage.setItem('hdCurrentPage',JSON
