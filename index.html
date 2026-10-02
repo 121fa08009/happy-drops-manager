@@ -30,14 +30,6 @@
 .hd-stock-day{flex:1 1 0;min-width:0;border:1px solid #cbdbe6;border-radius:8px;background:#f5f9fc;color:#31566f;padding:7px 4px;cursor:pointer;text-align:center;line-height:1.1;box-sizing:border-box}
 .hd-stock-day b{display:block;font-size:12px;white-space:nowrap}.hd-stock-day span{display:block;font-size:10px;margin-top:2px;color:#60788a;white-space:nowrap}
 .hd-stock-day.active{background:#087fc1;color:#fff;border-color:#087fc1}.hd-stock-day.active span{color:#e9f7ff}
-.hd-stock-day.hd-stock-today{background:#dff3e3;color:#176b2c;border-color:#54a96a}.hd-stock-day.hd-stock-today span{color:#276f3a}
-.hd-stock-day.hd-stock-yesterday{background:#fde2e2;color:#a11b1b;border-color:#df6b6b}.hd-stock-day.hd-stock-yesterday span{color:#a11b1b}
-.hd-stock-day.hd-stock-picker{background:#dfeeff;color:#135aa0;border-color:#5b9de9}.hd-stock-day.hd-stock-picker span{color:#135aa0}
-.hd-stock-day.hd-stock-tomorrow{background:#fff0d6;color:#a95a00;border-color:#e5a23c}.hd-stock-day.hd-stock-tomorrow span{color:#a95a00}
-.hd-stock-day.hd-stock-today.active{background:#45a85a;color:#fff;border-color:#45a85a}.hd-stock-day.hd-stock-today.active span{color:#fff}
-.hd-stock-day.hd-stock-yesterday.active{background:#d94b4b;color:#fff;border-color:#d94b4b}.hd-stock-day.hd-stock-yesterday.active span{color:#fff}
-.hd-stock-day.hd-stock-picker.active{background:#368bd6;color:#fff;border-color:#368bd6}.hd-stock-day.hd-stock-picker.active span{color:#fff}
-.hd-stock-day.hd-stock-tomorrow.active{background:#e79a2b;color:#fff;border-color:#e79a2b}.hd-stock-day.hd-stock-tomorrow.active span{color:#fff}
 .hd-stock-day-tabs-inner{margin-top:7px}.hd-stock-form-top{display:flex;align-items:center;justify-content:space-between;gap:5px;margin-bottom:3px}
 .hd-stock-form-back{flex:0 0 auto;min-height:34px;padding:5px 9px!important;font-size:12px!important;border-radius:7px!important}
 .hd-stock-section{border:1px solid #dce7ef;border-radius:8px;margin:3px 0;padding:6px 7px;background:#fff;box-sizing:border-box}
@@ -75,6 +67,8 @@
   .hd-stock-checks{gap:7px}.hd-stock-checks label{width:27px;height:27px}.hd-stock-checks input{width:27px;height:27px}.hd-stock-check-box{width:27px;height:27px;font-size:12px}
   .hd-stock-row label{font-size:10.5px}.hd-stock-row input{height:29px;font-size:11px}
 }
+</style><style id="hd-stock-final-date-tabs">
+.hd-stock-day.hd-stock-today{background:#dff3e4!important;color:#187a35!important;border-color:#8bcf9b!important}.hd-stock-day.hd-stock-yesterday{background:#ffe1e1!important;color:#b42323!important;border-color:#ef9a9a!important}.hd-stock-day.hd-stock-tomorrow{background:#ffe6c7!important;color:#a95b00!important;border-color:#f0b36b!important}.hd-stock-day.hd-stock-picker{background:#dbeafe!important;color:#1457a6!important;border-color:#8db7ee!important}.hd-stock-day.hd-stock-today.active,.hd-stock-day.hd-stock-yesterday.active,.hd-stock-day.hd-stock-tomorrow.active,.hd-stock-day.hd-stock-picker.active{filter:brightness(.96);box-shadow:inset 0 0 0 2px rgba(0,0,0,.08)}.hd-stock-date-picker-hidden{position:fixed;left:-1000px;top:-1000px;width:1px;height:1px;opacity:.01}
 </style><style id="happy-drops-logo-ui">
 .hd-logo-img{object-fit:contain;display:block}
 .hd-header-logo{width:38px;height:38px;margin-left:0;flex:0 0 auto;object-fit:contain}
@@ -182,7 +176,6 @@
 
 </style>
 <script>
-
 const HAPPY_DROPS_SUPABASE_URL='https://gyrdmfnyypqoxhueqsjo.supabase.co';
 const HAPPY_DROPS_SUPABASE_PUBLISHABLE_KEY='sb_publishable_M1kXdYZnF8xjILQ_nzMbFQ_MIlblTa0';
 let hdSupabase=null, hdSession=null, hdCloudBusy=false, hdCloudSyncAgain=false;
@@ -221,13 +214,10 @@ async function hdDeleteChildren(id){for(const table of ['rental_additions','rent
 async function hdPushRental(name,c){
   const safeName=String(name||c?.name||'').trim();
   if(!safeName)return;
-  let cloudId=c?.cloudId;
-  if(!cloudId)cloudId=hdUuid();
-  c.cloudId=cloudId;
+  let cloudId=c?.cloudId; if(!cloudId)cloudId=hdUuid(); c.cloudId=cloudId;
   const {data:baseRow,error:baseErr}=await hdSupabase.from('rental_customers').upsert(hdRentalBase(cloudId,safeName,c),{onConflict:'id'}).select('id').single();
   if(baseErr)throw baseErr;
-  const actualId=baseRow?.id||cloudId;
-  c.cloudId=actualId;
+  const actualId=baseRow?.id||cloudId; c.cloudId=actualId;
   await hdDeleteChildren(actualId);
   const adds=(c.additions||[]).map(x=>({rental_customer_id:actualId,bt_quantity:Number(x.pbt)||0,cc_quantity:Number(x.cc)||0,deposit_amount:Number(x.deposit)||0,note:x.note||null,created_at:new Date(Number(x.ts)||Date.now()).toISOString()})).filter(x=>x.bt_quantity||x.cc_quantity);
   if(adds.length){const {error}=await hdSupabase.from('rental_additions').insert(adds);if(error)throw error;}
@@ -238,57 +228,225 @@ async function hdPushRental(name,c){
   const dr=(c.depositRefunds||[]).flatMap(x=>{const out=[];if(Number(x.deposit)>0)out.push({rental_customer_id:actualId,transaction_type:'deposit',amount:Number(x.deposit),created_at:new Date(Number(x.ts)||Date.now()).toISOString()});if(Number(x.refund)>0)out.push({rental_customer_id:actualId,transaction_type:'refund',amount:Number(x.refund),created_at:new Date(Number(x.ts)||Date.now()).toISOString()});return out;});
   if(dr.length){const {error}=await hdSupabase.from('rental_deposit_transactions').insert(dr);if(error)throw error;}
   const acts=(c.activity||[]).map(x=>({rental_customer_id:actualId,activity_type:String(x.type||'activity'),description:JSON.stringify(x),bt_quantity:Number(x.pbt)||null,cc_quantity:Number(x.cc)||null,amount:Number(x.amount)||null,details:x,created_at:new Date(Number(x.ts)||Date.now()).toISOString()}));
-  if(acts.length){const {error}=await hdSupabase.from('rental_activity').insert(acts);if(error){console.error('Rental activity cloud sync error',error);throw error;}}
+  if(acts.length){const {error}=await hdSupabase.from('rental_activity').insert(acts);if(error)throw error;}
 }
-async function hdLoadRentals(){const {data:rows,error}=await hdSupabase.from('rental_customers').select('*').order('rental_date',{ascending:false}).order('rental_time',{ascending:false});if(error)throw error;const result={};const uuidName=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;for(const row of (rows||[])){if(uuidName.test(String(row.name||''))){try{await hdDeleteChildren(row.id);await hdSupabase.from('rental_customers').delete().eq('id',row.id);}catch(e){console.warn('Could not remove legacy UUID rental',e)}continue;}const c={phone:row.mobile||'',deposit:Number(row.security_deposit)||0,pbt:Number(row.bt_quantity)||0,cc:Number(row.cc_quantity)||0,pbtPrice:(row.bt_price===null||row.bt_price===undefined||row.bt_price==='')?0:Number(row.bt_price),ccPrice:(row.cc_price===null||row.cc_price===undefined||row.cc_price==='')?0:Number(row.cc_price),rentalDate:row.rental_date,rentalTime:row.rental_time||'',returnDate:row.return_date||'',rentalSequence:1,returns:[],additions:[],refills:[],depositRefunds:[],activity:[],pending:row.status==='pending',closed:row.status==='closed',refundCompleted:!!row.refund_completed,cloudId:row.id};result[row.name]=c;}
- const ids=Object.values(result).map(c=>c.cloudId);if(!ids.length)return result;
- const tables=['rental_additions','rental_returns','rental_refills','rental_deposit_transactions','rental_activity'];
- for(const table of tables){const {data,error}=await hdSupabase.from(table).select('*').in('rental_customer_id',ids).order('created_at',{ascending:true});if(error)throw error;for(const row of (data||[])){const c=Object.values(result).find(x=>x.cloudId===row.rental_customer_id);if(!c)continue;const ts=new Date(row.created_at).getTime()||Date.now();if(table==='rental_additions')c.additions.push({date:row.created_at?.slice(0,10)||'',pbt:row.bt_quantity,cc:row.cc_quantity,deposit:Number(row.deposit_amount)||0,ts});else if(table==='rental_returns')c.returns.push({date:row.created_at?.slice(0,10)||'',pbt:row.bt_quantity,cc:row.cc_quantity,ts});else if(table==='rental_refills')c.refills.push({date:row.created_at?.slice(0,10)||'',pbt:row.bt_quantity,cc:row.cc_quantity,amount:(Number(row.bt_quantity)||0)*15+(Number(row.cc_quantity)||0)*30,ts});else if(table==='rental_deposit_transactions'){c.depositRefunds=c.depositRefunds||[];let last=c.depositRefunds.find(x=>x.ts===ts);if(!last){last={deposit:0,refund:0,ts};c.depositRefunds.push(last);}if(row.transaction_type==='deposit')last.deposit+=Number(row.amount)||0;else last.refund+=Number(row.amount)||0;}else if(table==='rental_activity'){let x=row.details||{};if(typeof x==='string'){try{x=JSON.parse(x)}catch(_){x={type:row.activity_type,amount:row.amount}}}c.activity.push({...x,ts});}}}
- return result;}
-async function hdCloudBootstrap(){if(!hdSupabase||!hdSession)return;try{const cloud=await hdLoadRentals();const cloudCount=Object.keys(cloud).length;let local=typeof R!=='undefined'?R:{};const uuidName=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;local=Object.fromEntries(Object.entries(local).filter(([n])=>!uuidName.test(String(n))));if(cloudCount>0){R=cloud;ensureRentalSequences();save();}else if(Object.keys(local).length){R=local;for(const [n,c] of Object.entries(R)){await hdPushRental(n,c);}ensureRentalSequences();}else{R={};}hdCloudBadge();}catch(e){console.error('Cloud load error',e);alert('Cloud connection error: '+(e.message||e));}}
+
+function hdRentalFingerprint(c){
+  const phone=String(c?.phone||'').replace(/\D/g,'');
+  const name=String(c?.name||'').trim().toLowerCase();
+  return [name,phone,String(c?.rentalDate||''),String(c?.rentalTime||''),Number(c?.pbt)||0,Number(c?.cc)||0,Number(c?.deposit)||0,Number.isFinite(+c?.pbtPrice)?+c.pbtPrice:'',Number.isFinite(+c?.ccPrice)?+c.ccPrice:''].join('|');
+}
+// Legacy duplicate identity: older sync versions could create the same customer
+// more than once with slightly different saved time/price fields. For CLOSED
+// records, the customer's name + mobile + rental date + original quantities +
+// deposit identify the same completed rental, so clock/price differences are ignored.
+function hdClosedDuplicateFingerprint(c){
+  if(!c || !(c.closed===true || c.closedFinal===true))return '';
+  const phone=String(c?.phone||'').replace(/\D/g,'');
+  const name=String(c?.name||'').trim().toLowerCase();
+  const date=String(c?.rentalDate||'');
+  if(!name && !phone && !date)return '';
+  return [name,phone,date,Number(c?.pbt)||0,Number(c?.cc)||0,Number(c?.deposit)||0].join('|');
+}
+function hdMergeDuplicateRental(a,b){
+  const preferB=!!b?.closed && !a?.closed;
+  const base=preferB?{...a,...b}:{...b,...a};
+  const fields=['returns','additions','refills','depositRefunds','activity'];
+  for(const f of fields){
+    const out=[],seen=new Set();
+    for(const x of [...(a?.[f]||[]),...(b?.[f]||[])]){
+      const k=JSON.stringify(x);
+      if(!seen.has(k)){seen.add(k);out.push(x);}
+    }
+    base[f]=out;
+  }
+  if(a?.closed||b?.closed||a?.closedFinal||b?.closedFinal){
+    base.closed=true;base.closedFinal=true;base.pending=false;base.refundCompleted=!!(a?.refundCompleted||b?.refundCompleted);
+    // A completed/closed duplicate must remain fully settled.
+    base.pbt=0;base.cc=0;base.refundCompleted=true;
+  }
+  base.cloudId=preferB?(b.cloudId||a.cloudId):(a.cloudId||b.cloudId);
+  return base;
+}
+function hdDedupeLocalRentals(source){
+  const out={},seen=new Map(),closedSeen=new Map();
+  for(const [id,c] of Object.entries(source||{})){
+    if(!c)continue;
+    const exact=hdRentalFingerprint(c);
+    const legacy=hdClosedDuplicateFingerprint(c);
+    const key=legacy||exact;
+    const map=legacy?closedSeen:seen;
+    if(map.has(key)){
+      const keepId=map.get(key);
+      out[keepId]=hdMergeDuplicateRental(out[keepId],c);
+    }else{map.set(key,id);out[id]=c;}
+  }
+  return out;
+}
+
+function hdNormalizeRentalKeys(source){
+  const out={};
+  for(const [key,raw] of Object.entries(source||{})){
+    const c=raw||{}; const name=String(c.name||key||'Customer').trim(); if(!name)continue;
+    c.name=name; if(!c.cloudId)c.cloudId=hdUuid(); out[name]=c;
+  }
+  return out;
+}
+function hdMergeRentalRecordsOne(local,cloud){
+  const out={...(cloud||{}),...(local||{})}; out.name=local?.name||cloud?.name; out.cloudId=local?.cloudId||cloud?.cloudId;
+  for(const field of ['returns','additions','refills','depositRefunds','activity']){
+    const merged=[],seen=new Set();
+    for(const x of [...(cloud?.[field]||[]),...(local?.[field]||[])]){const k=JSON.stringify(x);if(!seen.has(k)){seen.add(k);merged.push(x);}}
+    out[field]=merged;
+  } return out;
+}
+function hdMergeRentalRecords(local,cloud){
+  const out={}; const cloudById={};
+  for(const [name,c] of Object.entries(cloud||{}))cloudById[String(c.cloudId||name)]=name;
+  for(const [name,c] of Object.entries(cloud||{})){
+    const localName=Object.keys(local||{}).find(n=>String(local[n]?.cloudId||'')===String(c.cloudId||''))||name;
+    out[name]=local?.[localName]&&hdPendingRentalSyncIds.has(localName)?hdMergeRentalRecordsOne(local[localName],c):c;
+  }
+  for(const [name,c] of Object.entries(local||{})){
+    if(Object.prototype.hasOwnProperty.call(out,name))continue;
+    if(hdPendingRentalSyncIds.has(name) && !hdDeletedRentalIds.has(String(c.cloudId||'')))out[name]=c;
+  }
+  return out;
+}
+async function hdApplyCloudSnapshot(cloud){
+  const local=hdNormalizeRentalKeys(typeof R!=='undefined'?JSON.parse(JSON.stringify(R)):{});
+  const cloudCopy=hdNormalizeRentalKeys(cloud||{});
+  R=hdMergeRentalRecords(local,cloudCopy); ensureRentalSequences();
+  for(const [name,c] of Object.entries(cloudCopy)){if(R[name]&&!hdPendingRentalSyncIds.has(name))hdSetRentalSyncBaseline(name,R[name]);}
+  hdSaveRentalSyncFingerprints(); hdPersistRentalLocalOnly();
+  if(document.getElementById('rentList')){try{renderBTCCRentsStatus();}catch(e){console.warn('Rental list refresh error',e);}}
+}
+async function hdLoadRentals(){
+  const {data:rows,error}=await hdSupabase.from('rental_customers').select('*').order('rental_date',{ascending:false}).order('rental_time',{ascending:false});
+  if(error)throw error;
+  const result={}; const uuidName=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  for(const row of (rows||[])){
+    if(String(row.status||'').toLowerCase()==='deleted')continue;
+    if(uuidName.test(String(row.name||''))){try{await hdDeleteChildren(row.id);await hdSupabase.from('rental_customers').delete().eq('id',row.id);}catch(e){console.warn('Could not remove legacy UUID rental',e)}continue;}
+    const rowName=String(row.name||'').trim(); if(!rowName)continue;
+    result[rowName]={name:rowName,phone:row.mobile||'',deposit:Number(row.security_deposit)||0,pbt:Number(row.bt_quantity)||0,cc:Number(row.cc_quantity)||0,pbtPrice:(row.bt_price===null||row.bt_price===undefined||row.bt_price==='')?0:Number(row.bt_price),ccPrice:(row.cc_price===null||row.cc_price===undefined||row.cc_price==='')?0:Number(row.cc_price),rentalDate:row.rental_date,rentalTime:row.rental_time||'',returnDate:row.return_date||'',rentalSequence:0,returns:[],additions:[],refills:[],depositRefunds:[],activity:[],pending:row.status==='pending',closed:row.status==='closed',closedFinal:row.status==='closed',refundCompleted:!!row.refund_completed,cloudId:row.id};
+  }
+  const ids=Object.values(result).map(c=>c.cloudId).filter(Boolean); if(!ids.length)return result;
+  const byId=new Map(Object.values(result).map(c=>[String(c.cloudId),c]));
+  for(const table of ['rental_additions','rental_returns','rental_refills','rental_deposit_transactions','rental_activity']){
+    const {data,error}=await hdSupabase.from(table).select('*').in('rental_customer_id',ids).order('created_at',{ascending:true}); if(error)throw error;
+    for(const row of (data||[])){const c=byId.get(String(row.rental_customer_id));if(!c)continue;const ts=new Date(row.created_at).getTime()||Date.now();
+      if(table==='rental_additions')c.additions.push({date:row.created_at?.slice(0,10)||'',pbt:Number(row.bt_quantity)||0,cc:Number(row.cc_quantity)||0,deposit:Number(row.deposit_amount)||0,ts});
+      else if(table==='rental_returns')c.returns.push({date:row.created_at?.slice(0,10)||'',pbt:Number(row.bt_quantity)||0,cc:Number(row.cc_quantity)||0,ts});
+      else if(table==='rental_refills')c.refills.push({date:row.created_at?.slice(0,10)||'',pbt:Number(row.bt_quantity)||0,cc:Number(row.cc_quantity)||0,amount:(Number(row.bt_quantity)||0)*15+(Number(row.cc_quantity)||0)*30,ts});
+      else if(table==='rental_deposit_transactions'){let last=c.depositRefunds.find(x=>x.ts===ts);if(!last){last={deposit:0,refund:0,ts};c.depositRefunds.push(last);}if(row.transaction_type==='deposit')last.deposit+=Number(row.amount)||0;else if(row.transaction_type==='refund')last.refund+=Number(row.amount)||0;}
+      else {let x=row.details||{};if(typeof x==='string'){try{x=JSON.parse(x)}catch(_){x={type:row.activity_type,amount:row.amount}}}c.activity.push({...x,ts});}
+    }
+  }
+  return result;
+}
+
+async function hdLoadRentalsAndMerge(){const cloud=await hdLoadRentals();await hdApplyCloudSnapshot(cloud);return cloud;}
+async function hdCloudBootstrap(){
+  if(!hdSupabase||!hdSession)return;
+  try{
+    const cloud=await hdLoadRentals();
+    const cloudCount=Object.keys(cloud).length;
+    let local=hdNormalizeRentalKeys(typeof R!=='undefined'?R:{});
+    if(cloudCount>0){
+      R=cloud;
+      ensureRentalSequences();
+      hdSaveRentalSyncFingerprints();
+      hdPersistRentalLocalOnly();
+    }else if(Object.keys(local).length){
+      R=local;
+      for(const [name,c] of Object.entries(R))await hdPushRental(name,c);
+      hdSaveRentalSyncFingerprints();
+      hdPersistRentalLocalOnly();
+    }else R={};
+    hdSavePendingRentalSyncIds();
+    hdCloudBadge();
+    hdSetCloudStatus('synced','Cloud synced successfully');
+  }catch(e){
+    console.error('Cloud bootstrap error',e);
+    hdCloudBadge();
+    hdSetCloudStatus(navigator.onLine?'error':'offline',navigator.onLine?('Cloud sync failed: '+(e?.message||e)):'Offline');
+  }
+}
 async function hdCloudSyncRentals(){
   if(!hdSupabase||!hdSession)return false;
-  if(hdCloudBusy)return true;
+  if(hdCloudBusy){hdCloudSyncAgain=true;return true;}
   hdCloudBusy=true;
-  hdSetCloudStatus?.('syncing','Syncing to cloud…');
+  hdSetCloudStatus('syncing','Syncing to cloud…');
   try{
-    for(const [n,c] of Object.entries(R||{})) await hdPushRental(n,c);
-    // Preserve the current delete queue from the master app without changing
-    // Manager 3's proven rental write path.
-    for(const id of [...hdDeletedRentalIds]){
-      await hdDeleteChildren(id);
-      const {error}=await hdSupabase.from('rental_customers').delete().eq('id',id);
-      if(error)throw error;
-      hdDeletedRentalIds.delete(String(id));
-      hdPendingRentalSyncIds.delete(String(id));
-    }
-    try{localStorage.setItem('happyDropsDeletedRentalIds',JSON.stringify([...hdDeletedRentalIds]));}catch(_){ }
-    try{localStorage.setItem('happyDropsPendingRentalSyncIds',JSON.stringify([...hdPendingRentalSyncIds]));}catch(_){ }
-    localStorage.setItem('happyDropsCloudLastSync',new Date().toISOString());
-    hdSetCloudStatus?.('synced','Cloud connected and synced');
+    do{
+      hdCloudSyncAgain=false;
+      const names=[...hdPendingRentalSyncIds];
+      for(const name of names){
+        const c=R?.[name];
+        if(c){
+          const snapshot=JSON.parse(JSON.stringify(c));
+          await hdPushRental(name,snapshot);
+          if(R[name])R[name].cloudId=snapshot.cloudId||R[name].cloudId;
+          hdSetRentalSyncBaseline(name,R[name]||snapshot);
+        }
+        hdClearRentalDirty(name);
+      }
+      for(const id of [...hdDeletedRentalIds]){
+        await hdDeleteChildren(id);
+        const {error}=await hdSupabase.from('rental_customers').delete().eq('id',id);
+        if(error)throw error;
+        hdDeletedRentalIds.delete(String(id));
+        hdClearRentalDirty(id);
+        hdClearRentalSyncBaseline(id);
+      }
+      try{localStorage.setItem('happyDropsDeletedRentalIds',JSON.stringify([...hdDeletedRentalIds]));}catch(_){ }
+      hdSavePendingRentalSyncIds();
+      hdSaveRentalSyncFingerprints();
+      localStorage.setItem('happyDropsCloudLastSync',new Date().toISOString());
+      hdSetCloudStatus('synced','Cloud synced successfully');
+    }while(hdCloudSyncAgain);
     return true;
   }catch(e){
     console.error('Cloud sync error',e);
-    hdSetCloudStatus?.(navigator.onLine?'error':'offline',navigator.onLine?('Cloud sync failed: '+(e?.message||e)):'Offline');
+    hdSetCloudStatus(navigator.onLine?'error':'offline',navigator.onLine?('Cloud sync failed: '+(e?.message||e)):'Offline');
     return false;
-  }finally{hdCloudBusy=false;}
+  }finally{
+    hdCloudBusy=false;
+    if(hdCloudSyncAgain){hdCloudSyncAgain=false;setTimeout(()=>hdCloudSyncRentals(),0);}
+  }
 }
 async function hdRefreshRentalsFromCloud(){
   if(!hdSupabase||!hdSession||hdCloudBusy)return false;
-  hdCloudBusy=true;
   try{
-    const cloud=await hdLoadRentals();
-    R=cloud;
+    await hdLoadRentalsAndMerge();
     localStorage.setItem('happyDropsCloudLastSync',new Date().toISOString());
-    hdSetCloudStatus?.('synced','Cloud connected and synced');
+    hdSetCloudStatus('synced','Cloud synced successfully');
     return true;
   }catch(e){
     console.error('Cloud refresh error',e);
-    hdSetCloudStatus?.(navigator.onLine?'error':'offline',navigator.onLine?('Cloud refresh failed: '+(e?.message||e)):'Offline');
+    hdSetCloudStatus(navigator.onLine?'error':'offline',navigator.onLine?('Cloud refresh failed: '+(e?.message||e)):'Offline');
     return false;
-  }finally{hdCloudBusy=false;}
+  }
 }
-function hdInitCloud(){try{if(!window.supabase||!window.supabase.createClient)return;hdSupabase=window.supabase.createClient(HAPPY_DROPS_SUPABASE_URL,HAPPY_DROPS_SUPABASE_PUBLISHABLE_KEY);hdSupabase.auth.getSession().then(async ({data})=>{hdSession=data.session||null;if(hdSession){hdSetCloudStatus?.('connecting','Connecting to cloud…');await hdCloudBootstrap();if(hdSession)hdSetCloudStatus?.('synced','Cloud connected and synced');}else hdShowAuth();}).catch(e=>{console.error('Supabase session error',e);hdSetCloudStatus?.('error','Cloud session error: '+(e?.message||e));});hdSupabase.auth.onAuthStateChange((_event,session)=>{hdSession=session||null;if(hdSession)hdSetCloudStatus?.('connecting','Connecting to cloud…');else hdSetCloudStatus?.('connecting','Cloud login required');});}catch(e){console.error('Supabase init error',e);hdSetCloudStatus?.('error','Cloud initialization error: '+(e?.message||e));}}
+async function hdHandleRentalRealtime(payload){return;}
+async function hdStartRentalRealtime(){return;}
+function hdInitCloud(){
+  try{
+    if(!window.supabase||!window.supabase.createClient)return;
+    hdSupabase=window.supabase.createClient(HAPPY_DROPS_SUPABASE_URL,HAPPY_DROPS_SUPABASE_PUBLISHABLE_KEY);
+    hdSupabase.auth.getSession().then(async ({data})=>{
+      hdSession=data.session||null;
+      if(hdSession){await hdCloudBootstrap();setTimeout(()=>hdStartPushRegistration(),250);}
+      else hdShowAuth();
+    }).catch(e=>{console.error('Supabase session error',e);hdSetCloudStatus('error','Cloud session error: '+(e?.message||e));});
+    hdSupabase.auth.onAuthStateChange((_event,session)=>{
+      hdSession=session||null;
+      if(hdSession)hdSetCloudStatus('connecting','Connected — syncing…');
+      else hdSetCloudStatus('connecting','Cloud login required');
+    });
+  }catch(e){console.error('Supabase init error',e);hdSetCloudStatus('error','Cloud initialization error: '+(e?.message||e));}
+}
 
 // Happy Drops Manager Web Push registration
 const HD_VAPID_PUBLIC_KEY = "BAfyUjWhYjRl6aExLadqGEFlc8b_CMRol2VJFReuST8tYg64dqi-iGCxh6Kueja0jqtE8S40fZjU5BkViO1xKUM";
@@ -375,7 +533,6 @@ async function hdStartPushRegistration(){
 }
 
 </script>
-</script>
 <script>
 let saved=null;try{const raw=localStorage.getItem("happyDropsManagerV12")||localStorage.getItem("happyDropsManagerV9")||localStorage.getItem("happyDropsManagerV8")||localStorage.getItem("happyDropsManagerV7");saved=raw?JSON.parse(raw):null}catch(e){saved=null;try{localStorage.removeItem("happyDropsManagerV12");localStorage.removeItem("happyDropsManagerV9");}catch(_){} }
 const P={BT:{s:"BT",r:5},PBT:{s:"PBT",r:5},C:{s:"C",r:15},CC:{s:"CC",r:20},WB:{s:"WB",r:60},"250":{s:"250ML",r:5,b:45},"300":{s:"300ML",r:5.25,b:40},"500":{s:"500ML",r:5.5,b:32},"1000":{s:"1000ML",r:8,b:15}};
@@ -446,12 +603,11 @@ function save(){
  saved.dealers=D;
  saved.rentals=typeof R!=="undefined"?R:{};
  if(typeof R!=="undefined"&&R){
-   // Mark only rentals whose actual contents changed. This prevents one phone
-   // from re-uploading stale copies of every other customer's record.
-   Object.keys(R).forEach(id=>{
-     const c=R[id];
-     const cloudId=String(c?.cloudId||id);
-     if(!hdRentalSyncFingerprints[cloudId] || hdRentalSyncFingerprints[cloudId]!==hdRentalSyncFingerprint(c))hdMarkRentalDirty(cloudId);
+   // Rental UI is keyed by customer name. Keep the pending queue keyed the same
+   // way; Supabase UUIDs are stored only inside c.cloudId.
+   Object.keys(R).forEach(name=>{
+     const c=R[name];
+     if(!hdRentalSyncFingerprints[name] || hdRentalSyncFingerprints[name]!==hdRentalSyncFingerprint(c))hdMarkRentalDirty(name);
    });
    hdSaveRentalSyncFingerprints();
  }
@@ -1474,19 +1630,14 @@ function showBTCCDeleteConfirm(n){
   document.getElementById('btccDeleteConfirmBtn').onclick=()=>confirmDeleteRentalCustomer(n);
 }
 async function hdDeleteRentalCloud(n,c){
-  if(!hdSupabase||!hdSession||!c?.cloudId)return;
+  if(!hdSupabase||!hdSession||!c?.cloudId)return true;
   const id=String(c.cloudId);
-  // Use a cloud tombstone instead of immediately hard-deleting the parent row.
-  // A hard delete can be blocked by child-table RLS/foreign-key policies, which
-  // was allowing the other phone to keep the customer forever.  The tombstone
-  // is an ordinary UPDATE on rental_customers (the same table already used by
-  // normal sync), so every device can observe the deletion reliably.
-  const {error}=await hdSupabase.from('rental_customers').update({status:'deleted',closed:true,refund_completed:!!c.refundCompleted}).eq('id',id);
+  await hdDeleteChildren(id);
+  const {error}=await hdSupabase.from('rental_customers').delete().eq('id',id);
   if(error)throw error;
-  // Best-effort cleanup of child history. Do NOT make the deletion fail if a
-  // child table blocks DELETE; the parent tombstone is the synchronization
-  // source of truth and prevents resurrection on every other device.
-  try{await hdDeleteChildren(id);}catch(e){console.warn('Cloud child cleanup skipped for deleted rental',id,e);}
+  hdDeletedRentalIds.delete(id);
+  try{localStorage.setItem('happyDropsDeletedRentalIds',JSON.stringify([...hdDeletedRentalIds]));}catch(_){ }
+  return true;
 }
 async function confirmDeleteRentalCustomer(n){
   n=n||window.currentBTCCCustomer;
@@ -1775,499 +1926,249 @@ function moveProduct(i,dir){
 
 
 
-function stock(){
-  drawer.classList.remove("open");
-  // Every time Stock is opened, always start on Today.
-  window.hdStockSelectedOffset=hdStockIsAfterCutoff()?1:0;
-  window.hdStockCustomDateKey=null;
-  renderStockDates();
+function hdStockISTNow(){
+  return new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Kolkata'}));
 }
-
-const HD_STOCK_SHEETS_URL="https://script.google.com/macros/s/AKfycbxJua-Od2IwzMLUsupQyFypqHTc2vTXof6ryOzXaOVb3U3vQGReAYb9MDvlvy2g6FXC/exec";
-const HD_STOCK_SYNC_INTERVAL_MS=5000;
-let hdStockSyncTimer=null;
-let hdStockSyncBusy=false;
-let hdStockLastSyncedKey="";
-let hdStockLastServerSignature="";
-
-function hdStockISTParts(){
-  const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date());
-  const out={}; parts.forEach(p=>{if(p.type!=='literal')out[p.type]=p.value;});
-  return {year:+out.year,month:+out.month,day:+out.day,hour:+out.hour,minute:+out.minute};
-}
-function hdStockTodayKey(){
-  const p=hdStockISTParts();
-  return p.year+'-'+String(p.month).padStart(2,'0')+'-'+String(p.day).padStart(2,'0');
-}
-function hdStockAddDays(key,days){
-  const [y,m,d]=String(key).split('-').map(Number);
-  const dt=new Date(Date.UTC(y,m-1,d));
-  dt.setUTCDate(dt.getUTCDate()+days);
-  return dt.getUTCFullYear()+'-'+String(dt.getUTCMonth()+1).padStart(2,'0')+'-'+String(dt.getUTCDate()).padStart(2,'0');
-}
-function hdStockDateParts(key){
-  const [y,m,d]=String(key).split('-').map(Number);
-  return {year:y,month:m,day:d};
-}
-function hdStockDaysBeforeToday(key){
-  const [y,m,d]=hdStockTodayKey().split('-').map(Number);
-  const [ky,km,kd]=String(key).split('-').map(Number);
-  const today=Date.UTC(y,m-1,d), chosen=Date.UTC(ky,km-1,kd);
-  return Math.round((today-chosen)/86400000);
-}
-function hdStockIsAfterCutoff(){
-  const p=hdStockISTParts();
-  return p.hour>=20;
-}
-function hdStockThirdDefaultKey(){
-  // 12:00 AM through 7:59 PM IST: 2 days before.
-  // 8:00 PM through 11:59 PM IST: Yesterday.
-  return hdStockAddDays(hdStockTodayKey(),hdStockIsAfterCutoff()?-1:-2);
-}
-function hdStockThirdDateKey(){
-  return window.hdStockCustomDateKey || hdStockThirdDefaultKey();
-}
-function hdStockCurrentDateKey(offset){
-  const today=hdStockTodayKey();
-  if(!hdStockIsAfterCutoff()){
-    if(offset===0)return today;
-    if(offset===1)return hdStockAddDays(today,-1);
-    return hdStockThirdDateKey();
-  }
-  // After 8 PM IST the three columns are Tomorrow, Today, Yesterday.
-  if(offset===0)return hdStockAddDays(today,1);
-  if(offset===1)return today;
-  return hdStockThirdDateKey();
+function hdStockISTDateKey(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+function hdStockIsDateKey(v){return typeof v==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(v);}
+function stockRelativeNameForKey(key){
+  if(!hdStockIsDateKey(key))return "";
+  const today=hdStockISTDateKey(hdStockISTNow());
+  const a=new Date(today+"T00:00:00"),b=new Date(key+"T00:00:00");
+  const diff=Math.round((b-a)/86400000);
+  if(diff===0)return "Today"; if(diff===1)return "Tomorrow"; if(diff===-1)return "Yesterday";
+  if(diff<0)return Math.abs(diff)+" days before"; return diff+" days after";
 }
 function hdStockDateKey(offset){
-  return hdStockCurrentDateKey(offset);
-}
-function hdStockRelativeName(key){
-  const diff=hdStockDaysBeforeToday(key);
-  if(diff===0)return 'Today';
-  if(diff===1)return 'Yesterday';
-  if(diff===-1)return 'Tomorrow';
-  if(diff>1)return diff+' days before';
-  return Math.abs(diff)+' days after';
-}
-function hdStockFormatDate(key){
-  const p=hdStockDateParts(key);
-  return String(p.day).padStart(2,'0')+'/'+String(p.month).padStart(2,'0')+'/'+String(p.year).slice(-2);
+  if(hdStockIsDateKey(offset))return offset;
+  const d=hdStockISTNow();d.setHours(0,0,0,0);d.setDate(d.getDate()-Number(offset||0));return hdStockISTDateKey(d);
 }
 function hdStockDateLabel(offset){
-  const key=hdStockCurrentDateKey(offset);
-  return hdStockRelativeName(key)+' ('+hdStockFormatDate(key)+')';
+  const key=hdStockDateKey(offset),p=key.split("-").map(Number);
+  const dd=String(p[2]).padStart(2,"0"),mm=String(p[1]).padStart(2,"0"),yy=String(p[0]).slice(-2);
+  return stockRelativeNameForKey(key)+" ("+dd+"/"+mm+"/"+yy+")";
 }
-function hdStockTabClass(offset){
-  if(offset===2)return 'hd-stock-picker';
-  const key=hdStockCurrentDateKey(offset);
-  const rel=hdStockRelativeName(key);
-  if(rel==='Tomorrow')return 'hd-stock-tomorrow';
-  if(rel==='Today')return 'hd-stock-today';
-  return 'hd-stock-yesterday';
+function hdStockCutoffAfter8PM(){return hdStockISTNow().getHours()>=20;}
+function hdStockTabOffsets(){return hdStockCutoffAfter8PM()?[-1,0,1]:[0,1,2];}
+function hdStockTabClass(slot,offset){
+  if(slot===2)return "hd-stock-picker";
+  if(offset===0)return "hd-stock-today";
+  if(offset===-1)return "hd-stock-tomorrow";
+  if(offset===1)return "hd-stock-yesterday";
+  return "hd-stock-picker";
 }
-function hdStockTabAction(offset){
-  if(offset===2)return 'openStockDatePicker()';
-  return 'renderStockForm('+offset+')';
+function hdStockTabHtml(slot,offset,selectedKey){
+  const key=hdStockDateKey(offset),active=key===selectedKey,cls=hdStockTabClass(slot,offset)+(active?" active":""),action=slot===2?"openStockDatePicker('"+key+"')":"renderStockForm('"+key+"')",label=hdStockDateLabel(key),parts=label.split(" (");
+  return '<button class="hd-stock-day '+cls+'" onclick="'+action+'"><b>'+parts[0]+'</b><span>('+parts[1]+'</span></button>';
 }
-function openStockDatePicker(){
-  const current=hdStockThirdDateKey();
-  const max=hdStockAddDays(hdStockTodayKey(),-1);
-  let old=document.getElementById('hdStockDatePickerWrap');
-  if(old)old.remove();
-  const wrap=document.createElement('div');
-  wrap.id='hdStockDatePickerWrap';
-  wrap.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box';
-  wrap.innerHTML='<div style="background:#fff;border-radius:14px;padding:18px;width:min(340px,100%);box-shadow:0 12px 35px rgba(0,0,0,.25)">'+
-    '<h3 style="margin:0 0 6px;color:#17324d">📅 Select past Stock date</h3>'+
-    '<div style="font-size:12px;color:#60788a;margin-bottom:12px">Future dates are not available.</div>'+
-    '<input id="hdStockDatePickerInput" type="date" max="'+max+'" value="'+(current<=max?current:max)+'" style="width:100%;box-sizing:border-box;padding:10px;border:1px solid #cbdbe6;border-radius:8px;font-size:16px">'+
-    '<div style="display:flex;gap:8px;margin-top:12px"><button class="btn" style="flex:1" onclick="confirmStockDatePicker()">Select Date</button><button class="btn secondary" style="flex:1" onclick="closeStockDatePicker()">Cancel</button></div>'+
-    '</div>';
-  document.body.appendChild(wrap);
-  const input=document.getElementById('hdStockDatePickerInput');
-  if(input){input.addEventListener('change',()=>{});setTimeout(()=>{try{if(input.showPicker)input.showPicker();}catch(e){}},80);}
+function stock(){
+  drawer.classList.remove("open");
+  window.hdStockSelectedDateKey=hdStockDateKey(0);window.hdStockSelectedOffset=0;renderStockDates();
 }
-function closeStockDatePicker(){const e=document.getElementById('hdStockDatePickerWrap');if(e)e.remove();}
-function confirmStockDatePicker(){
-  const input=document.getElementById('hdStockDatePickerInput');
-  const selected=input&&input.value?input.value:'';
-  const max=hdStockAddDays(hdStockTodayKey(),-1);
-  if(!selected||selected>max){return;}
-  window.hdStockCustomDateKey=selected;
-  window.hdStockSelectedOffset=2;
-  closeStockDatePicker();
-  renderStockForm(2);
+function openStockDatePicker(defaultKey){
+  const todayKey=hdStockDateKey(0);let input=document.getElementById("hdStockDatePicker");
+  if(!input){input=document.createElement("input");input.id="hdStockDatePicker";input.type="date";input.className="hd-stock-date-picker-hidden";document.body.appendChild(input);}
+  input.max=todayKey;input.value=hdStockIsDateKey(defaultKey)?defaultKey:todayKey;
+  input.onchange=function(){if(!this.value)return;window.hdStockSelectedDateKey=this.value;renderStockForm(this.value);};
+  try{if(input.showPicker)input.showPicker();else input.click();}catch(e){input.click();}
 }
-function hdStockLoad(){try{return JSON.parse(localStorage.getItem("happyDropsStockForms")||"{}")||{};}catch(e){return {};}}
-function hdStockSaveAll(data){try{localStorage.setItem("happyDropsStockForms",JSON.stringify(data));}catch(e){}}
-
-function hdStockValueObject(row){
-  return {
-    st_250:row.bottles250==null?'':row.bottles250,
-    st_300:row.bottles300==null?'':row.bottles300,
-    st_500:row.bottles500==null?'':row.bottles500,
-    st_1000:row.bottles1000==null?'':row.bottles1000,
-    st_c250:row.covers250==null?'':row.covers250,
-    st_c300:row.covers300==null?'':row.covers300,
-    st_c500:row.covers500==null?'':row.covers500,
-    st_c1000:row.covers1000==null?'':row.covers1000,
-    st_newbt:row.newBT==null?'':row.newBT,
-    st_treadbt:row.newTreadBT==null?'':row.newTreadBT,
-    st_tapbt:row.newTapBT==null?'':row.newTapBT,
-    st_matka:row.matka==null?'':row.matka,
-    st_newcc:row.newCoolingCans==null?'':row.newCoolingCans,
-    st_btcard:row.btCards==null?'':row.btCards,
-    st_cccard:row.ccCards==null?'':row.ccCards,
-    st_wbags:row.waterBags==null?'':row.waterBags,
-    st_narmada:row.narmadaBags==null?'':row.narmadaBags,
-    st_film:row.filmRolls==null?'':row.filmRolls,
-    st_pbt:row.plantBT==null?'':row.plantBT,
-    st_pcc:row.plantCC==null?'':row.plantCC,
-    st_bore_tds:row.boreTDS==null?'':row.boreTDS,
-    st_tds:row.plantTDS==null?'':row.plantTDS,
-    st_bw_m:row.m===true || String(row.m).toLowerCase()==='true',
-    st_bw_a:row.a===true || String(row.a).toLowerCase()==='true',
-    st_bw_e:row.e===true || String(row.e).toLowerCase()==='true'
-  };
+function renderStockDates(){
+  const selectedKey=window.hdStockSelectedDateKey||hdStockDateKey(0),offsets=hdStockTabOffsets(),tabs=offsets.map((o,i)=>hdStockTabHtml(i,o,selectedKey)).join("");
+  document.getElementById("app").innerHTML='<div class="card" style="max-width:720px;margin:0 auto"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div><h2 style="margin:3px 0">📦 Stock</h2><div class="small">Daily stock</div></div><button class="btn secondary" onclick="home()">← Home</button></div><div class="hd-stock-day-tabs">'+tabs+'</div><div id="hdStockForm"></div></div>';
+  renderStockForm(hdStockDateKey(0));
 }
-
-function hdStockFields(){
-  return ['st_250','st_300','st_500','st_1000','st_c250','st_c300','st_c500','st_c1000','st_newbt','st_treadbt','st_tapbt','st_matka','st_newcc','st_btcard','st_cccard','st_wbags','st_narmada','st_film','st_pbt','st_pcc','st_bore_tds','st_tds','st_bw_m','st_bw_a','st_bw_e'];
-}
-function hdStockSignature(obj){
-  return hdStockFields().map(k=>String(obj&&obj[k]!==undefined?obj[k]:'')).join('|');
-}
-
-/*
-  Cross-origin communication is done with the officially supported Apps Script
-  JSONP pattern. No CORS headers, fetch(), or iframe bridge are required.
-  The Sheet is the shared source of truth for all phones.
-*/
-/*
-  STOCK CLOUD READ ARCHITECTURE
-  ----------------------------
-  Mobile -> Google Sheet:
-    Save/Edit/Delete continue using the Apps Script Web App.
-
-  Google Sheet -> Mobile:
-    Manual Refresh reads the public Google Sheet through Google's
-    Visualization endpoint first. This is intentionally NOT fetch() and
-    does not depend on Apps Script CORS/JSONP response handling.
-
-  IMPORTANT:
-    The spreadsheet must be shared as "Anyone with the link - Viewer"
-    (or otherwise publicly readable) for the Visualization endpoint to work.
-*/
-const HD_STOCK_GVIZ_URL='https://docs.google.com/spreadsheets/d/16uQ1gze5tIxUCuDOfhl7FD8hDYcXR0kF6sIqdDwdDAI/gviz/tq';
-
-function hdStockAppsScriptJsonp(action,params){
-  return new Promise((resolve,reject)=>{
-    const callbackName='hdStockJSONP_'+Date.now()+'_'+Math.random().toString(36).slice(2);
-    const script=document.createElement('script');
-    let done=false;
-    let timer=null;
-    const cleanup=()=>{
-      if(timer)clearTimeout(timer);
-      if(script.parentNode)script.parentNode.removeChild(script);
-      try{delete window[callbackName];}catch(e){window[callbackName]=undefined;}
-    };
-    const finish=(ok,result)=>{
-      if(done)return;
-      done=true;
-      cleanup();
-      if(ok)resolve(result); else reject(new Error((result&&result.error)||'Google Sheets Web App request failed.'));
-    };
-    window[callbackName]=(result)=>finish(true,result);
-    script.async=true;
-    script.onerror=()=>finish(false,{error:'The Google Sheets Web App could not be loaded.'});
-    const q=['action='+encodeURIComponent(action),'callback='+encodeURIComponent(callbackName)];
-    Object.keys(params||{}).forEach(k=>{
-      if(params[k]!==undefined&&params[k]!==null)q.push(encodeURIComponent(k)+'='+encodeURIComponent(String(params[k])));
-    });
-    q.push('_='+Date.now());
-    script.src=HD_STOCK_SHEETS_URL+'?'+q.join('&');
-    document.head.appendChild(script);
-    timer=setTimeout(()=>finish(false,{error:'Timed out waiting for the Google Sheets Web App.'}),15000);
-  });
-}
-
-function hdStockGvizRead(){
-  return new Promise((resolve,reject)=>{
-    const callbackName='hdStockGVIZ_'+Date.now()+'_'+Math.random().toString(36).slice(2);
-    const script=document.createElement('script');
-    let done=false;
-    let timer=null;
-    const cleanup=()=>{
-      if(timer)clearTimeout(timer);
-      if(script.parentNode)script.parentNode.removeChild(script);
-      try{delete window[callbackName];}catch(e){window[callbackName]=undefined;}
-    };
-    const finish=(ok,result)=>{
-      if(done)return;
-      done=true;
-      cleanup();
-      if(ok)resolve(result); else reject(new Error(result&&result.error||'Google Sheets could not be read.'));
-    };
-
-    window[callbackName]=(result)=>{
-      if(!result){finish(false,{error:'Google Sheets returned an empty response.'});return;}
-      if(result.status && String(result.status).toLowerCase()!=='ok'){
-        finish(false,{error:'Google Sheets returned status: '+result.status});
-        return;
-      }
-      finish(true,result);
-    };
-
-    script.async=true;
-    script.onerror=()=>finish(false,{error:'Google Sheets is not publicly readable from this app.'});
-
-    const tqx='out:json;responseHandler:'+callbackName;
-    const params='tqx='+encodeURIComponent(tqx)+'&headers=1&_='+Date.now();
-    script.src=HD_STOCK_GVIZ_URL+'?'+params;
-    document.head.appendChild(script);
-    timer=setTimeout(()=>finish(false,{error:'Timed out reading the Google Sheet.'}),15000);
-  });
-}
-
-function hdStockGvizCell(row,index){
-  const c=row&&row.c&&row.c[index];
-  return c&&c.v!==undefined&&c.v!==null?c.v:'';
-}
-
-function hdStockGvizDate(value){
-  if(value===null||value===undefined||value==='')return '';
-  const s=String(value);
-  let m=s.match(/^Date\((\d{4}),(\d{1,2}),(\d{1,2})\)$/);
-  if(m)return m[1]+'-'+String(Number(m[2])+1).padStart(2,'0')+'-'+String(m[3]).padStart(2,'0');
-  m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
-  if(m)return m[1]+'-'+String(m[2]).padStart(2,'0')+'-'+String(m[3]).padStart(2,'0');
-  m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
-  if(m)return m[3]+'-'+String(m[2]).padStart(2,'0')+'-'+String(m[1]).padStart(2,'0');
-  return s.trim();
-}
-
-function hdStockGvizRowToObject(row){
-  return {
-    date:hdStockGvizDate(hdStockGvizCell(row,0)),
-    bottles250:hdStockGvizCell(row,1), bottles300:hdStockGvizCell(row,2), bottles500:hdStockGvizCell(row,3), bottles1000:hdStockGvizCell(row,4),
-    covers250:hdStockGvizCell(row,5), covers300:hdStockGvizCell(row,6), covers500:hdStockGvizCell(row,7), covers1000:hdStockGvizCell(row,8),
-    newBT:hdStockGvizCell(row,9), newTreadBT:hdStockGvizCell(row,10), newTapBT:hdStockGvizCell(row,11), matka:hdStockGvizCell(row,12), newCoolingCans:hdStockGvizCell(row,13),
-    btCards:hdStockGvizCell(row,14), ccCards:hdStockGvizCell(row,15),
-    waterBags:hdStockGvizCell(row,16), narmadaBags:hdStockGvizCell(row,17), filmRolls:hdStockGvizCell(row,18),
-    plantBT:hdStockGvizCell(row,19), plantCC:hdStockGvizCell(row,20),
-    boreTDS:hdStockGvizCell(row,21), plantTDS:hdStockGvizCell(row,22),
-    m:hdStockGvizCell(row,23)===true || String(hdStockGvizCell(row,23)).toLowerCase()==='true',
-    a:hdStockGvizCell(row,24)===true || String(hdStockGvizCell(row,24)).toLowerCase()==='true',
-    e:hdStockGvizCell(row,25)===true || String(hdStockGvizCell(row,25)).toLowerCase()==='true'
-  };
-}
-
-async function hdStockReadFromGviz(offset){
-  const key=hdStockDateKey(offset);
-  const result=await hdStockGvizRead();
-  const rows=(result&&result.table&&Array.isArray(result.table.rows))?result.table.rows:[];
-  let match=null;
-  for(const row of rows){
-    const obj=hdStockGvizRowToObject(row);
-    if(obj.date===key){match=obj;break;}
-  }
-  if(!match)return {ok:true,found:false,date:key,source:'gviz'};
-  return {ok:true,found:true,date:key,data:match,source:'gviz'};
-}
-
-async function hdStockReadFromSheet(offset,options){
-  options=options||{};
-  const key=hdStockDateKey(offset);
-  if(hdStockSyncBusy && !options.force)return {ok:false,busy:true};
-  hdStockSyncBusy=true;
-  try{
-    let result;
-    let gvizError='';
-    try{
-      result=await hdStockReadFromGviz(offset);
-    }catch(e){
-      gvizError=String(e&&e.message||e);
-    }
-
-    /* Fallback to Apps Script JSONP if the Sheet is not publicly readable. */
-    if(!result){
-      try{
-        result=await hdStockAppsScriptJsonp('get',{date:key});
-      }catch(e){
-        throw new Error(gvizError?('Google Sheet read failed: '+gvizError+' | Apps Script fallback failed: '+String(e&&e.message||e)):String(e&&e.message||e));
-      }
-    }
-
-    if(!result || result.success!==true && result.ok!==true){
-      throw new Error((result&&result.error)||'Google Sheets returned an invalid response.');
-    }
-
-    const all=hdStockLoad();
-    const old=all[key]||{};
-
-    if(result.found!==true || !result.data){
-      if(Object.keys(old).length){delete all[key];hdStockSaveAll(all);}
-      hdStockLastServerSignature='';
-      hdStockLastSyncedKey=key;
-      if(options.render!==false && window.hdStockSelectedOffset===offset)renderStockForm(offset,true,true);
-      return {ok:true,found:false,changed:Object.keys(old).length>0};
-    }
-
-    const synced=hdStockValueObject(result.data);
-    const sig=hdStockSignature(synced);
-    const oldSig=hdStockSignature(old);
-    const changed=sig!==oldSig || hdStockLastServerSignature!==sig || options.force;
-    if(changed){
-      synced.savedAt=old.savedAt||new Date().toISOString();
-      synced.syncedFromGoogleSheet=true;
-      synced.serverDate=result.date||key;
-      all[key]=synced;
-      hdStockSaveAll(all);
-      hdStockLastServerSignature=sig;
-      hdStockLastSyncedKey=key;
-    }else{
-      hdStockLastServerSignature=sig;
-      hdStockLastSyncedKey=key;
-    }
-    return {ok:true,found:true,changed:changed,data:synced};
-  }catch(e){
-    return {ok:false,found:false,error:String(e&&e.message||e)};
-  }finally{
-    hdStockSyncBusy=false;
-  }
+function renderStockForm(dateOrOffset,forceEdit){
+  const key=hdStockDateKey(dateOrOffset);window.hdStockSelectedDateKey=key;window.hdStockSelectedOffset=0;
+  const data=hdStockLoad(),saved=data[key]||{},hasSaved=Object.keys(saved).length>0,editable=forceEdit===true||!hasSaved,dis=editable?"":" disabled";
+  const val=k=>saved[k]!==undefined?saved[k]:"",chk=k=>saved[k]===true?" checked":"",field=(id,label,step="1")=>'<div class="hd-stock-row"><label>'+label+'</label><input id="'+id+'" type="number" min="0" step="'+step+'" '+dis+' value="'+val(id)+'" placeholder=""></div>';
+  const editBtn=hasSaved&&!editable?'<button class="btn" onclick="renderStockForm(\''+key+'\',true)">✏️ Edit Form</button>':'';
+  const deleteBtn='<button class="btn danger" onclick="deleteStockForm(\''+key+'\')">🗑️ Delete</button>';
+  const actionBtns=editable?'<button class="btn" onclick="saveStockForm(\''+key+'\')">💾 Save</button><button class="btn secondary" onclick="home()">Cancel</button>'+deleteBtn:editBtn+'<button class="btn secondary" onclick="home()">← Back</button>'+deleteBtn;
+  const offsets=hdStockTabOffsets();
+  document.getElementById("app").innerHTML='<div class="card" style="max-width:720px;margin:0 auto"><div class="hd-stock-form-top"><div><h2 style="margin:3px 0">📦 Stock Form</h2><div class="small">'+hdStockDateLabel(key)+'</div></div><div style="display:flex;gap:5px;align-items:center"><button id="hdStockRefreshBtn" class="btn secondary hd-stock-form-back" onclick="hdRefreshStockFromSheet()">🔄 Refresh</button><button class="btn secondary hd-stock-form-back" onclick="home()">← Home</button></div></div><div class="hd-stock-day-tabs hd-stock-day-tabs-inner">'+offsets.map((o,i)=>hdStockTabHtml(i,o,key)).join('')+'</div><section class="hd-stock-section"><h3>Water Bottles Stock</h3>'+field('st_250','250ml Cases')+field('st_300','300ml Cases')+field('st_500','500ml Cases')+field('st_1000','1000ml Cases')+'</section><section class="hd-stock-section"><h3>Empty Bottles Stock</h3>'+field('st_c250','250ml Covers')+field('st_c300','300ml Covers')+field('st_c500','500ml Covers')+field('st_c1000','1000ml Covers')+'</section><section class="hd-stock-section"><h3>New Cans</h3>'+field('st_newbt','New BT')+field('st_treadbt','New Tread BT')+field('st_tapbt','New Tap BT')+field('st_matka','Matka')+field('st_newcc','New Cooling Cans')+'</section><section class="hd-stock-section"><h3>Monthly Cards</h3>'+field('st_btcard','BT Cards')+field('st_cccard','CC Cards')+'</section><section class="hd-stock-section"><h3>Water Bags</h3>'+field('st_wbags','Water Bags')+field('st_narmada','Narmada Bags')+field('st_film','Film Rolls')+'</section><section class="hd-stock-section"><h3>PBT/CC</h3>'+field('st_pbt','Plant BT')+field('st_pcc','Plant CC')+'</section><section class="hd-stock-section"><h3>Plant</h3>'+field('st_bore_tds','Bore TDS','0.1')+field('st_tds','Plant TDS','0.1')+'<div class="hd-stock-row hd-stock-backwash"><label>Backwash</label><div class="hd-stock-checks"><label><input id="st_bw_m" type="checkbox"'+chk('st_bw_m')+dis+'><span class="hd-stock-check-box">M</span></label><label><input id="st_bw_a" type="checkbox"'+chk('st_bw_a')+dis+'><span class="hd-stock-check-box">A</span></label><label><input id="st_bw_e" type="checkbox"'+chk('st_bw_e')+dis+'><span class="hd-stock-check-box">E</span></label></div></div></section><div class="hd-stock-actions">'+actionBtns+'</div><button class="btn secondary hd-stock-clear" onclick="clearStockForm(\''+key+'\')">🧹 Clear All</button></div>';
 }
 
 async function hdRefreshStockFromSheet(){
-  const offset=window.hdStockSelectedOffset||0;
+  const offset=window.hdStockSelectedDateKey||hdStockDateKey(0);
   const btn=document.getElementById('hdStockRefreshBtn');
   if(btn){btn.disabled=true;btn.textContent='🔄 Refreshing...';}
   try{
-    const result=await hdStockReadFromSheet(offset,{force:true,render:false});
-    if(!result.ok)throw new Error(result.error||'Refresh failed');
+    const result=await syncStockFromSheetBridge(offset,false);
+    if(!result.ok){
+      throw new Error(result.error||'Google Sheets request failed or timed out.');
+    }
     if(!result.found){
       alert('⚠️ No Google Sheets row found for '+hdStockDateLabel(offset)+'.');
       return;
     }
-    renderStockForm(offset,false,true);
+    renderStockForm(offset);
     alert('✅ Stock refreshed from Google Sheets.');
   }catch(e){
-    alert('❌ Refresh failed. Google Sheets could not return the stock data to the app.\n\n'+String(e&&e.message||e));
+    alert('❌ Refresh failed. Google Sheets could not return the stock data to the app.');
   }finally{
     const b=document.getElementById('hdStockRefreshBtn');
     if(b){b.disabled=false;b.textContent='🔄 Refresh';}
   }
 }
 
-function renderStockDates(){
-  const tabs=[0,1,2].map(offset=>{
-    const label=hdStockDateLabel(offset);
-    const parts=label.split(' (');
-    const action=hdStockTabAction(offset);
-    return '<button class="hd-stock-day '+hdStockTabClass(offset)+' '+(offset===window.hdStockSelectedOffset?'active':'')+'" onclick="'+action+'">'
-      +'<b>'+parts[0]+'</b><span>('+parts[1]+'</span></button>';
-  }).join("");
-  document.getElementById("app").innerHTML=
-    '<div class="card" style="max-width:720px;margin:0 auto">'
-    +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">'
-    +'<div><h2 style="margin:3px 0">📦 Stock</h2><div class="small">Daily stock — date history</div></div>'
-    +'<button class="btn secondary" onclick="home()">← Home</button></div>'
-    +'<div class="hd-stock-day-tabs">'+tabs+'</div>'
-    +'<div id="hdStockForm"></div></div>';
-  // Always open Today when the Stock page itself is opened.
-  renderStockForm(window.hdStockSelectedOffset||0);
-}
+/*
+  Google Sheets -> App bridge.
+  We deliberately use a hidden iframe + postMessage instead of JSONP/fetch.
+  This avoids the cross-origin response problem that was causing Refresh to fail
+  on the GitHub Pages/PWA version of Happy Drops Manager.
+*/
+function syncStockFromSheetBridge(offset,keepEditable){
+  return new Promise((resolve)=>{
+    const key=hdStockDateKey(offset);
+    const frame=document.createElement('iframe');
+    frame.style.cssText='position:fixed;width:1px;height:1px;left:-10px;top:-10px;border:0;opacity:0;pointer-events:none;';
+    frame.setAttribute('aria-hidden','true');
 
-function renderStockForm(offset,forceEdit,skipSync){
-  if(offset!==2)window.hdStockCustomDateKey=null;
-  window.hdStockSelectedOffset=offset;
-  const key=hdStockDateKey(offset), data=hdStockLoad(), saved=data[key]||{}, hasSaved=Object.keys(saved).length>0, editable=forceEdit===true||!hasSaved, dis=editable?"":" disabled";
-  const val=k=>saved[k]!==undefined?saved[k]:"", chk=k=>saved[k]===true?" checked":"";
-  const field=(id,label,step="1")=>'<div class="hd-stock-row"><label>'+label+'</label><input id="'+id+'" type="number" min="0" step="'+step+'" '+dis+' value="'+val(id)+'" placeholder=""></div>';
-  const editBtn=hasSaved&&!editable?'<button class="btn" onclick="renderStockForm('+offset+',true)">✏️ Edit Form</button>':'';
-  const deleteBtn='<button class="btn danger" onclick="deleteStockForm('+offset+')">🗑️ Delete</button>';
-  const actionBtns=editable?'<button class="btn" onclick="saveStockForm('+offset+')">💾 Save</button><button class="btn secondary" onclick="home()">Cancel</button>'+deleteBtn:editBtn+'<button class="btn secondary" onclick="home()">← Back</button>'+deleteBtn;
-  document.getElementById("app").innerHTML=
-    '<div class="card" style="max-width:720px;margin:0 auto">'
-    +'<div class="hd-stock-form-top"><div><h2 style="margin:3px 0">📦 Stock Form</h2><div class="small">'+hdStockDateLabel(offset)+'</div></div><div style="display:flex;gap:5px;align-items:center"><button id="hdStockRefreshBtn" class="btn secondary hd-stock-form-back" onclick="hdRefreshStockFromSheet()">🔄 Refresh</button><button class="btn secondary hd-stock-form-back" onclick="home()">← Home</button></div></div>'
-    +'<div class="hd-stock-day-tabs hd-stock-day-tabs-inner">'+[0,1,2].map(i=>{const lb=hdStockDateLabel(i).split(' (');return '<button class="hd-stock-day '+hdStockTabClass(i)+' '+(i===offset?'active':'')+'" onclick="'+hdStockTabAction(i)+'"><b>'+lb[0]+'</b><span>('+lb[1]+'</span></button>';}).join('')+'</div>'
-    +'<section class="hd-stock-section"><h3>Water Bottles Stock</h3>'+field('st_250','250ml Cases')+field('st_300','300ml Cases')+field('st_500','500ml Cases')+field('st_1000','1000ml Cases')+'</section>'
-    +'<section class="hd-stock-section"><h3>Empty Bottles Stock</h3>'+field('st_c250','250ml Covers')+field('st_c300','300ml Covers')+field('st_c500','500ml Covers')+field('st_c1000','1000ml Covers')+'</section>'
-    +'<section class="hd-stock-section"><h3>New Cans</h3>'+field('st_newbt','New BT')+field('st_treadbt','New Tread BT')+field('st_tapbt','New Tap BT')+field('st_matka','Matka')+field('st_newcc','New Cooling Cans')+'</section>'
-    +'<section class="hd-stock-section"><h3>Monthly Cards</h3>'+field('st_btcard','BT Cards')+field('st_cccard','CC Cards')+'</section>'
-    +'<section class="hd-stock-section"><h3>Water Bags</h3>'+field('st_wbags','Water Bags')+field('st_narmada','Narmada Bags')+field('st_film','Film Rolls')+'</section>'
-    +'<section class="hd-stock-section"><h3>PBT/CC</h3>'+field('st_pbt','Plant BT')+field('st_pcc','Plant CC')+'</section>'
-    +'<section class="hd-stock-section"><h3>Plant</h3>'+field('st_bore_tds','Bore TDS','0.1')+field('st_tds','Plant TDS','0.1')+'<div class="hd-stock-row hd-stock-backwash"><label>Backwash</label><div class="hd-stock-checks"><label><input id="st_bw_m" type="checkbox"'+chk('st_bw_m')+dis+'><span class="hd-stock-check-box">M</span></label><label><input id="st_bw_a" type="checkbox"'+chk('st_bw_a')+dis+'><span class="hd-stock-check-box">A</span></label><label><input id="st_bw_e" type="checkbox"'+chk('st_bw_e')+dis+'><span class="hd-stock-check-box">E</span></label></div></div></section>'
-    +'<div class="hd-stock-actions">'+actionBtns+'</div>'
-    +'<button class="btn secondary hd-stock-clear" onclick="clearStockForm('+offset+')">🧹 Clear All</button></div>';
+    let finished=false;
+    let timer=null;
 
-  if(!skipSync){
-    // Every time a Stock date is opened, immediately pull the shared Sheet value.
-    setTimeout(()=>{
-      if(window.hdStockSelectedOffset===offset && document.getElementById('hdStockRefreshBtn')){
-        hdStockReadFromSheet(offset,{render:true}).catch(()=>{});
+    const cleanup=()=>{
+      if(timer)clearTimeout(timer);
+      window.removeEventListener('message',onMessage,false);
+      if(frame.parentNode)frame.parentNode.removeChild(frame);
+    };
+
+    const finish=(payload)=>{
+      if(finished)return;
+      finished=true;
+      cleanup();
+      resolve(payload);
+    };
+
+    const onMessage=(event)=>{
+      const data=event.data;
+      if(!data || data.type!=='HD_STOCK_GET_RESULT')return;
+      if(data.date && data.date!==key)return;
+      if(data.result && data.result.success===true){
+        const result=data.result;
+        if(result.found!==true || !result.data){
+          finish({ok:true,found:false});
+          return;
+        }
+
+        try{
+          const row=result.data;
+          const synced={
+            st_250:row.bottles250==null?'':row.bottles250,
+            st_300:row.bottles300==null?'':row.bottles300,
+            st_500:row.bottles500==null?'':row.bottles500,
+            st_1000:row.bottles1000==null?'':row.bottles1000,
+            st_c250:row.covers250==null?'':row.covers250,
+            st_c300:row.covers300==null?'':row.covers300,
+            st_c500:row.covers500==null?'':row.covers500,
+            st_c1000:row.covers1000==null?'':row.covers1000,
+            st_newbt:row.newBT==null?'':row.newBT,
+            st_treadbt:row.newTreadBT==null?'':row.newTreadBT,
+            st_tapbt:row.newTapBT==null?'':row.newTapBT,
+            st_matka:row.matka==null?'':row.matka,
+            st_newcc:row.newCoolingCans==null?'':row.newCoolingCans,
+            st_btcard:row.btCards==null?'':row.btCards,
+            st_cccard:row.ccCards==null?'':row.ccCards,
+            st_wbags:row.waterBags==null?'':row.waterBags,
+            st_narmada:row.narmadaBags==null?'':row.narmadaBags,
+            st_film:row.filmRolls==null?'':row.filmRolls,
+            st_pbt:row.plantBT==null?'':row.plantBT,
+            st_pcc:row.plantCC==null?'':row.plantCC,
+            st_bore_tds:row.boreTDS==null?'':row.boreTDS,
+            st_tds:row.plantTDS==null?'':row.plantTDS,
+            st_bw_m:row.m===true || String(row.m).toLowerCase()==='true',
+            st_bw_a:row.a===true || String(row.a).toLowerCase()==='true',
+            st_bw_e:row.e===true || String(row.e).toLowerCase()==='true'
+          };
+
+          const all=hdStockLoad();
+          const old=all[key]||{};
+          synced.savedAt=old.savedAt||new Date().toISOString();
+          synced.syncedFromGoogleSheet=true;
+          all[key]=synced;
+          hdStockSaveAll(all);
+          finish({ok:true,found:true});
+        }catch(err){
+          finish({ok:false,found:false,error:String(err)});
+        }
+      }else{
+        finish({ok:false,found:false,error:(data.result&&data.result.error)||'Google Sheets bridge returned an error.'});
       }
-    },80);
-  }
+    };
+
+    window.addEventListener('message',onMessage,false);
+    document.body.appendChild(frame);
+
+    timer=setTimeout(()=>finish({ok:false,found:false,error:'Timed out waiting for Google Sheets.'}),30000);
+
+    frame.src=HD_STOCK_SHEETS_URL+'?action=get&mode=iframe&date='+encodeURIComponent(key)+'&_='+Date.now();
+  });
 }
 
-async function saveStockForm(offset){
-  const key=hdStockDateKey(offset), data=hdStockLoad(), g=id=>document.getElementById(id), n=id=>g(id)?.value||"";
-  const stockLocal={st_250:n("st_250"),st_300:n("st_300"),st_500:n("st_500"),st_1000:n("st_1000"),st_c250:n("st_c250"),st_c300:n("st_c300"),st_c500:n("st_c500"),st_c1000:n("st_c1000"),st_newbt:n("st_newbt"),st_treadbt:n("st_treadbt"),st_tapbt:n("st_tapbt"),st_matka:n("st_matka"),st_newcc:n("st_newcc"),st_btcard:n("st_btcard"),st_cccard:n("st_cccard"),st_wbags:n("st_wbags"),st_narmada:n("st_narmada"),st_film:n("st_film"),st_pbt:n("st_pbt"),st_pcc:n("st_pcc"),st_bore_tds:n("st_bore_tds"),st_tds:n("st_tds"),st_bw_m:!!g("st_bw_m")?.checked,st_bw_a:!!g("st_bw_a")?.checked,st_bw_e:!!g("st_bw_e")?.checked,savedAt:new Date().toISOString()};
-  const sheetData={
-    date:key,
-    bottles250:n("st_250"),bottles300:n("st_300"),bottles500:n("st_500"),bottles1000:n("st_1000"),
-    covers250:n("st_c250"),covers300:n("st_c300"),covers500:n("st_c500"),covers1000:n("st_c1000"),
-    newBT:n("st_newbt"),newTreadBT:n("st_treadbt"),newTapBT:n("st_tapbt"),matka:n("st_matka"),newCoolingCans:n("st_newcc"),
-    btCards:n("st_btcard"),ccCards:n("st_cccard"),waterBags:n("st_wbags"),narmadaBags:n("st_narmada"),filmRolls:n("st_film"),
-    plantBT:n("st_pbt"),plantCC:n("st_pcc"),boreTDS:n("st_bore_tds"),plantTDS:n("st_tds"),
-    m:!!g("st_bw_m")?.checked,a:!!g("st_bw_a")?.checked,e:!!g("st_bw_e")?.checked
-  };
-
-  const saveBtn=document.querySelector('#hdStockRefreshBtn')?.parentElement?.previousElementSibling;
-  try{
-    // Write to Google Sheets first. Only after the server confirms do we update
-    // the phone's local copy. This prevents a phone from showing a value that
-    // never reached the shared Sheet.
-    const result=await hdStockAppsScriptJsonp('save',{date:key,data:JSON.stringify(sheetData)});
-    if(!result || result.success!==true)throw new Error((result&&result.error)||'Google Sheets save failed.');
-    data[key]=stockLocal;
-    hdStockSaveAll(data);
-    hdStockLastServerSignature=hdStockSignature(stockLocal);
-    hdStockLastSyncedKey=key;
-    alert('Stock saved for '+hdStockDateLabel(offset)+'.');
-    renderStockForm(offset,false,true);
-  }catch(e){
-    alert('❌ Stock was not saved to Google Sheets. Please check the internet connection and try again.');
-  }
-}
-
-async function deleteStockForm(offset){
+function deleteStockForm(offset){
   const key=hdStockDateKey(offset);
-  const label=hdStockDateLabel(offset);
-  if(!confirm("Delete all Stock data for "+label+"? This will delete the same date from Google Sheets and all phones will sync the deletion.")) return;
+  const label=hdStockDateLabel(key);
+  if(!confirm("Delete all Stock data for "+label+"? This will also delete the same date row from Google Sheets.")) return;
 
+  // Delete this date from the app's local Stock storage.
+  const data=hdStockLoad();
+  delete data[key];
+  hdStockSaveAll(data);
+
+  // Delete the matching date row from Google Sheets.
   try{
-    const result=await hdStockAppsScriptJsonp('delete',{date:key});
-    if(!result || result.success!==true)throw new Error((result&&result.error)||'Google Sheets delete failed.');
-    const data=hdStockLoad();
-    delete data[key];
-    hdStockSaveAll(data);
-    hdStockLastServerSignature='';
-    hdStockLastSyncedKey=key;
-    alert('Stock deleted for '+label+'.');
-    renderStockForm(offset,true,true);
-  }catch(e){
-    alert('❌ Stock was not deleted from Google Sheets. Please try again.');
-  }
+    fetch(HD_STOCK_SHEETS_URL,{
+      method:"POST",
+      mode:"no-cors",
+      headers:{"Content-Type":"text/plain;charset=utf-8"},
+      body:JSON.stringify({action:"delete",date:key}),
+      keepalive:true
+    }).catch(()=>{});
+  }catch(e){}
+
+  // Show a completely fresh form for the same date.
+  alert("Stock deleted for "+label+".");
+  renderStockForm(key,true);
 }
 
 function clearStockForm(offset){
   if(!confirm("Clear all entries in this Stock Form? The saved data will not change until you press Save.")) return;
-  renderStockForm(offset,true,true);
+  const key=hdStockDateKey(offset);
+  renderStockForm(key,true);
   const ids=["st_250","st_300","st_500","st_1000","st_c250","st_c300","st_c500","st_c1000","st_newbt","st_treadbt","st_tapbt","st_matka","st_newcc","st_btcard","st_cccard","st_wbags","st_narmada","st_film","st_pbt","st_pcc","st_bore_tds","st_tds"];
   ids.forEach(id=>{const e=document.getElementById(id);if(e)e.value="";});
   ["st_bw_m","st_bw_a","st_bw_e"].forEach(id=>{const e=document.getElementById(id);if(e)e.checked=false;});
+}
+const HD_STOCK_SHEETS_URL="https://script.google.com/macros/s/AKfycbxJua-Od2IwzMLUsupQyFypqHTc2vTXof6ryOzXaOVb3U3vQGReAYb9MDvlvy2g6FXC/exec";
+function saveStockForm(offset){
+  const key=hdStockDateKey(offset), data=hdStockLoad(), g=id=>document.getElementById(id), n=id=>g(id)?.value||"";
+  data[key]={st_250:n("st_250"),st_300:n("st_300"),st_500:n("st_500"),st_1000:n("st_1000"),st_c250:n("st_c250"),st_c300:n("st_c300"),st_c500:n("st_c500"),st_c1000:n("st_c1000"),st_newbt:n("st_newbt"),st_treadbt:n("st_treadbt"),st_tapbt:n("st_tapbt"),st_matka:n("st_matka"),st_newcc:n("st_newcc"),st_btcard:n("st_btcard"),st_cccard:n("st_cccard"),st_wbags:n("st_wbags"),st_narmada:n("st_narmada"),st_film:n("st_film"),st_pbt:n("st_pbt"),st_pcc:n("st_pcc"),st_bore_tds:n("st_bore_tds"),st_tds:n("st_tds"),st_bw_m:!!g("st_bw_m")?.checked,st_bw_a:!!g("st_bw_a")?.checked,st_bw_e:!!g("st_bw_e")?.checked,savedAt:new Date().toISOString()};
+  hdStockSaveAll(data);
+
+  const sheetData={
+    date:key,
+    bottles250:n("st_250"), bottles300:n("st_300"), bottles500:n("st_500"), bottles1000:n("st_1000"),
+    covers250:n("st_c250"), covers300:n("st_c300"), covers500:n("st_c500"), covers1000:n("st_c1000"),
+    newBT:n("st_newbt"), newTreadBT:n("st_treadbt"), newTapBT:n("st_tapbt"), matka:n("st_matka"), newCoolingCans:n("st_newcc"),
+    btCards:n("st_btcard"), ccCards:n("st_cccard"),
+    waterBags:n("st_wbags"), narmadaBags:n("st_narmada"), filmRolls:n("st_film"),
+    plantBT:n("st_pbt"), plantCC:n("st_pcc"),
+    boreTDS:n("st_bore_tds"), plantTDS:n("st_tds"),
+    m:!!g("st_bw_m")?.checked, a:!!g("st_bw_a")?.checked, e:!!g("st_bw_e")?.checked
+  };
+
+  // Send to Google Sheets without blocking the local save.
+  try{
+    fetch(HD_STOCK_SHEETS_URL,{
+      method:"POST",
+      mode:"no-cors",
+      headers:{"Content-Type":"text/plain;charset=utf-8"},
+      body:JSON.stringify(sheetData),
+      keepalive:true
+    }).catch(()=>{});
+  }catch(e){}
+
+  alert("Stock saved for "+hdStockDateLabel(key)+"."); renderStockForm(key,false);
 }
 
 function money(){
