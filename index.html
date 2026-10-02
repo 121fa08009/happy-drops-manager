@@ -479,6 +479,7 @@ async function hdApplyCloudSnapshot(cloud){
 }
 async function hdLoadRentalsAndMerge(){
   const cloud=await hdLoadRentals();
+  hdQueueLocalRentalsAgainstCloud(cloud);
   await hdApplyCloudSnapshot(cloud);
   return cloud;
 }
@@ -497,48 +498,66 @@ async function hdCloudBootstrap(){
     hdSetCloudStatus(navigator.onLine?'error':'offline',navigator.onLine?'Cloud sync error':'Offline');
   }
 }
+function hdFindLocalRentalByCloudId(id){
+  const key=String(id||'');
+  if(!key||!R)return null;
+  if(R[key])return {key,customer:R[key]};
+  for(const [k,c] of Object.entries(R)){
+    if(String(c?.cloudId||'')===key)return {key:k,customer:c};
+  }
+  return null;
+}
+function hdQueueLocalRentalsAgainstCloud(cloud){
+  const cloudMap=cloud||{};
+  for(const [key,c] of Object.entries(R||{})){
+    if(!c)continue;
+    const id=String(c.cloudId||key);
+    if(hdDeletedRentalIds.has(id))continue;
+    const remote=cloudMap[id];
+    const localFp=hdRentalSyncFingerprint(c);
+    if(!remote){
+      hdMarkRentalDirty(id);
+      continue;
+    }
+    if(hdPendingRentalSyncIds.has(id))continue;
+    const baseline=hdRentalSyncFingerprints[id];
+    if(!baseline || baseline!==localFp)hdMarkRentalDirty(id);
+  }
+}
 async function hdCloudSyncRentals(){
   if(!hdSupabase||!hdSession)return false;
-  if(hdCloudBusy){hdCloudSyncAgain=true;return false;}
+  if(hdCloudBusy){hdCloudSyncAgain=true;return true;}
   hdCloudBusy=true;
   hdSetCloudStatus('syncing','Syncing to cloud…');
   try{
     do{
       hdCloudSyncAgain=false;
-      // Only push records that actually changed on this device. The previous
-      // version pushed every local customer on every save, allowing an older
-      // phone copy to overwrite newer changes made on another phone.
       const ids=[...hdPendingRentalSyncIds];
       for(const id of ids){
-        const c=R?.[id];
-        if(c){
-          const snapshot=JSON.parse(JSON.stringify(c));
-          await hdPushRental(id,snapshot);
-          if(R[id])R[id].cloudId=snapshot.cloudId||R[id].cloudId;
-          hdSetRentalSyncBaseline(id,R[id]||snapshot);
-          hdClearRentalDirty(id);
-        }
+        const found=hdFindLocalRentalByCloudId(id);
+        if(!found){hdClearRentalDirty(id);continue;}
+        const snapshot=JSON.parse(JSON.stringify(found.customer));
+        await hdPushRental(found.key,snapshot);
+        found.customer.cloudId=snapshot.cloudId||found.customer.cloudId||id;
+        hdSetRentalSyncBaseline(String(found.customer.cloudId||id),found.customer);
+        hdClearRentalDirty(id);
       }
-      // Process queued deletions even when the customer has already been
-      // removed from local memory. This makes deletes retry safely after an
-      // offline period and prevents another device from resurrecting them.
       for(const id of [...hdDeletedRentalIds]){
-        try{
-          await hdDeleteChildren(id);
-          const {error}=await hdSupabase.from('rental_customers').delete().eq('id',id);
-          if(error)throw error;
-          hdDeletedRentalIds.delete(String(id));
-          hdClearRentalSyncBaseline(id);
-        }catch(e){
-          // Keep the tombstone queued; the next sync will retry it.
-          throw e;
-        }
+        await hdDeleteChildren(id);
+        const {error}=await hdSupabase.from('rental_customers').delete().eq('id',id);
+        if(error)throw error;
+        hdDeletedRentalIds.delete(String(id));
+        hdClearRentalSyncBaseline(id);
       }
+      hdSavePendingRentalSyncIds();
       hdSaveRentalSyncFingerprints();
-      localStorage.setItem('happyDropsCloudLastSync',new Date().toISOString());
-      hdSetCloudStatus('synced','Cloud synced successfully');
+      if(hdPendingRentalSyncIds.size)hdSetCloudStatus('syncing','Waiting for cloud sync…');
+      else{
+        localStorage.setItem('happyDropsCloudLastSync',new Date().toISOString());
+        hdSetCloudStatus('synced','Cloud synced successfully');
+      }
     }while(hdCloudSyncAgain);
-    return true;
+    return hdPendingRentalSyncIds.size===0;
   }catch(e){
     console.error('Cloud sync error',e);
     hdSetCloudStatus(navigator.onLine?'error':'offline',(e&&e.message)?('Cloud sync failed: '+e.message):(navigator.onLine?'Cloud sync failed':'Offline'));
@@ -550,18 +569,22 @@ async function hdCloudSyncRentals(){
 }
 async function hdRefreshRentalsFromCloud(){
   if(!hdSupabase||!hdSession)return false;
-  // If an initial push/bootstrap is still running, wait briefly instead of
-  // skipping the refresh. This is important when Rentals is opened immediately
-  // after app startup on a second phone.
   if(hdCloudBusy){
-    for(let i=0;i<20&&hdCloudBusy;i++)await new Promise(r=>setTimeout(r,100));
+    for(let i=0;i<50&&hdCloudBusy;i++)await new Promise(r=>setTimeout(r,100));
     if(hdCloudBusy)return false;
   }
   try{
     await hdLoadRentalsAndMerge();
+    if(hdPendingRentalSyncIds.size){
+      const pushed=await hdCloudSyncRentals();
+      if(!pushed){
+        hdSetCloudStatus(navigator.onLine?'error':'offline',navigator.onLine?'Cloud changes are still waiting to sync':'Offline');
+        return false;
+      }
+    }
     localStorage.setItem('happyDropsCloudLastSync',new Date().toISOString());
-    hdSetCloudStatus('synced','Cloud synced successfully');
-    return true;
+    hdSetCloudStatus(hdPendingRentalSyncIds.size?'syncing':'synced',hdPendingRentalSyncIds.size?'Waiting for cloud sync…':'Cloud synced successfully');
+    return hdPendingRentalSyncIds.size===0;
   }catch(e){
     console.error('Cloud refresh error',e);
     hdSetCloudStatus(navigator.onLine?'error':'offline',(e&&e.message)?('Cloud refresh failed: '+e.message):(navigator.onLine?'Cloud refresh failed':'Offline'));
