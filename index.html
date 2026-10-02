@@ -551,7 +551,14 @@ async function hdCloudSyncRentals(){
   }
 }
 async function hdRefreshRentalsFromCloud(){
-  if(!hdSupabase||!hdSession||hdCloudBusy)return false;
+  if(!hdSupabase||!hdSession)return false;
+  // If an initial push/bootstrap is still running, wait briefly instead of
+  // skipping the refresh. This is important when Rentals is opened immediately
+  // after app startup on a second phone.
+  if(hdCloudBusy){
+    for(let i=0;i<20&&hdCloudBusy;i++)await new Promise(r=>setTimeout(r,100));
+    if(hdCloudBusy)return false;
+  }
   try{
     await hdLoadRentalsAndMerge();
     localStorage.setItem('happyDropsCloudLastSync',new Date().toISOString());
@@ -990,14 +997,16 @@ async function rentals(){
  // Render the existing local data first so the customer list is never blank while cloud data is loading.
  document.getElementById("app").innerHTML=`<div class="hero btcc-hero"><div class="btcc-kicker">HAPPY DROPS</div><h2><img class="btcc-title-icon" src="data:image/png;base64,${BTCC_ICON_DATA}" alt="BT/CC Rentals"> BT/CC Rentals</h2><p>Manage rental customers, returns and deposits</p><div class="btcc-hero-actions"><button class="btn secondary btcc-back-btn" onclick="home()"><span class="btcc-back-arrow">←</span><span>Back</span></button><button class="btn btcc-add-btn" onclick="newRental()">＋ Add</button></div></div><div class="card btcc-controls"><div id="btccTabs" class="btcc-tabs"></div><div class="btcc-list-tools"><div class="btcc-search-wrap"><input id="btccSearch" type="search" placeholder="Search name or mobile" oninput="setBTCCRentalSearch(this.value)" autocomplete="off"></div><div class="btcc-sortbar"><button id="btccSortToggle" type="button" class="btcc-sort-toggle" onclick="toggleBTCCRentalSort()">Newest First</button></div></div></div><div id="rentList"></div>`;
  renderBTCCRentsStatus();
- // Rentals are local-first after startup. Do NOT refresh the list from an older
- // cloud snapshot every time this page is opened; that was causing returned cans
- // and completed refunds to reappear. Cloud bootstrap performs the initial merge,
- // and every later change is pushed from this local record to Supabase.
+ // Local data is rendered immediately for responsiveness, then a fresh
+ // Supabase read is performed whenever Rentals is opened. This guarantees that
+ // a customer added on another phone appears after opening/refreshing this page.
  try{
    if(hdSupabase&&!hdSession){
      const sessionResult=await hdSupabase.auth.getSession();
      hdSession=sessionResult?.data?.session||null;
+   }
+   if(hdSupabase&&hdSession){
+     await hdRefreshRentalsFromCloud();
    }
  }catch(e){
    console.error("Rental cloud session check error",e);
@@ -1742,14 +1751,32 @@ function addBTCCCans(n){
   document.getElementById('addBTQty').addEventListener('input',updateAddPreview);
   document.getElementById('addCCQty').addEventListener('input',updateAddPreview);
   document.getElementById('addCansCancel').onclick=()=>modal.remove();
-  document.getElementById('addCansConfirm').onclick=()=>{
+  document.getElementById('addCansConfirm').onclick=async()=>{
     const b=Math.max(0,parseInt(document.getElementById('addBTQty').value)||0);
     const q=Math.max(0,parseInt(document.getElementById('addCCQty').value)||0);
     const err=document.getElementById('addCansErr');
     if(!b&&!q){err.textContent='Enter at least one BT or CC quantity.';return}
     c.additions=c.additions||[];
-    const btPrice=(c.pbtPrice===null||c.pbtPrice===undefined||c.pbtPrice==='')?0:Number(c.pbtPrice);const ccPrice=(c.ccPrice===null||c.ccPrice===undefined||c.ccPrice==='')?0:Number(c.ccPrice);const amount=b*btPrice+q*ccPrice;c.additions.push({date:localDateKey(new Date()),pbt:b,cc:q,pbtPrice:c.pbtPrice,ccPrice:c.ccPrice,deposit:0,ts:Date.now()});addRentalActivity(c,{type:'addCans',pbt:b,cc:q,amount});
+    const btPrice=(c.pbtPrice===null||c.pbtPrice===undefined||c.pbtPrice==='')?0:Number(c.pbtPrice);const ccPrice=(c.ccPrice===null||c.ccPrice===undefined||c.ccPrice==='')?0:Number(c.ccPrice);const amount=b*btPrice+q*ccPrice;
+    c.additions.push({date:localDateKey(new Date()),pbt:b,cc:q,pbtPrice:c.pbtPrice,ccPrice:c.ccPrice,deposit:0,ts:Date.now()});
+    addRentalActivity(c,{type:'addCans',pbt:b,cc:q,amount});
+    // Persist locally first, then wait for the existing rental cloud sync to
+    // finish before re-rendering the profile. This prevents a cloud refresh
+    // race from replacing the newly-added CC/BT quantities with an older copy.
     save();
+    if(hdSession){
+      const waitForRentalSync=()=>new Promise(resolve=>{
+        const started=Date.now();
+        const check=()=>{
+          if(!hdCloudBusy){resolve();return}
+          if(Date.now()-started>10000){resolve();return}
+          setTimeout(check,50);
+        };
+        check();
+      });
+      await waitForRentalSync();
+      if(hdPendingRentalSyncIds.has(String(c.cloudId||n))) await hdCloudSyncRentals();
+    }
     modal.remove();
     openRental(n);
   };
