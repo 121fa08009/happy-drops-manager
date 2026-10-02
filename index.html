@@ -41,19 +41,11 @@
 .hd-stock-day-tabs-inner{margin-top:7px}.hd-stock-form-top{display:flex;align-items:center;justify-content:space-between;gap:5px;margin-bottom:3px}
 .hd-stock-form-back{flex:0 0 auto;min-height:34px;padding:5px 9px!important;font-size:12px!important;border-radius:7px!important}
 .hd-stock-section{border:1px solid #dce7ef;border-radius:8px;margin:3px 0;padding:6px 7px;background:#fff;box-sizing:border-box}
-/* Stock section colors: visual differentiation only */
-.hd-stock-section:nth-of-type(1){background:#f0f8ff;border-color:#8fc7ed}.hd-stock-section:nth-of-type(1) h3{color:#087fc1}
-.hd-stock-section:nth-of-type(2){background:#fff5f5;border-color:#efaaaa}.hd-stock-section:nth-of-type(2) h3{color:#c62828}
-.hd-stock-section:nth-of-type(3){background:#f3fbf3;border-color:#9bd3a5}.hd-stock-section:nth-of-type(3) h3{color:#237a32}
-.hd-stock-section:nth-of-type(4){background:#fff9ed;border-color:#e7c27a}.hd-stock-section:nth-of-type(4) h3{color:#a95a00}
-.hd-stock-section:nth-of-type(5){background:#f7f2ff;border-color:#c4a6ed}.hd-stock-section:nth-of-type(5) h3{color:#7041b5}
-.hd-stock-section:nth-of-type(6){background:#eefcfb;border-color:#8fd4ce}.hd-stock-section:nth-of-type(6) h3{color:#14766e}
-.hd-stock-section:nth-of-type(7){background:#f5f7ff;border-color:#aebee8}.hd-stock-section:nth-of-type(7) h3{color:#3f5f9f}
 .hd-stock-section h3{margin:0 0 2px;font-size:14px;font-weight:800;color:#17324d;line-height:1.15}
-.hd-stock-row{display:grid;grid-template-columns:100px 68px;align-items:center;justify-content:start;gap:3px;margin:1px 0;min-width:0}
-.hd-stock-row label{font-size:12px;color:#31566f;font-weight:700;line-height:1.1;min-width:0;white-space:nowrap}
+.hd-stock-row{display:grid;grid-template-columns:170px 72px;align-items:center;justify-content:start;gap:8px;margin:1px 0;min-width:0}
+.hd-stock-row label{font-size:12px;color:#31566f;font-weight:700;line-height:1.1;min-width:0}
 .hd-stock-row input{margin:0;height:32px;padding:4px 6px;text-align:right;box-sizing:border-box;width:100%;min-width:0}
-.hd-stock-backwash{grid-template-columns:100px 1fr}.hd-stock-checks{display:flex;gap:10px;align-items:center;flex-wrap:nowrap;white-space:nowrap;min-width:0}
+.hd-stock-backwash{grid-template-columns:170px 1fr}.hd-stock-checks{display:flex;gap:10px;align-items:center;flex-wrap:nowrap;white-space:nowrap;min-width:0}
 .hd-stock-checks label{display:inline-flex;align-items:center;justify-content:center;position:relative;width:28px;height:28px;margin:0;cursor:pointer}
 .hd-stock-checks input{position:absolute;inset:0;width:28px;height:28px;margin:0;opacity:0;cursor:pointer;z-index:2}
 .hd-stock-check-box{width:28px;height:28px;border:1.5px solid #b8c7d1;border-radius:6px;background:#fff;display:flex;align-items:center;justify-content:center;box-sizing:border-box;color:#555;font-size:14px;font-weight:800;line-height:1;position:relative}
@@ -70,7 +62,7 @@
   .hd-stock-form-back{min-height:32px;padding:4px 8px!important;font-size:11px!important}
   .hd-stock-section{margin:3px 0;padding:5px 6px;border-radius:7px}
   .hd-stock-section h3{font-size:13px;margin-bottom:2px}
-  .hd-stock-row{grid-template-columns:100px 68px;gap:3px;margin:1px 0}
+  .hd-stock-row{grid-template-columns:170px 68px;gap:8px;margin:1px 0}
   .hd-stock-row label{font-size:11px}
   .hd-stock-row input{height:30px;padding:3px 5px;font-size:12px}
   .hd-stock-checks{gap:8px;flex-wrap:nowrap}.hd-stock-checks label{width:28px;height:28px}.hd-stock-checks input{width:28px;height:28px}.hd-stock-check-box{width:28px;height:28px;font-size:13px}
@@ -78,8 +70,8 @@
 }
 @media(max-width:360px){
   .hd-stock-day b{font-size:10px}.hd-stock-day span{font-size:8px}
-  .hd-stock-row{grid-template-columns:96px 64px;gap:3px}
-  .hd-stock-backwash{grid-template-columns:96px 1fr}
+  .hd-stock-row{grid-template-columns:155px 64px;gap:6px}
+  .hd-stock-backwash{grid-template-columns:155px 1fr}
   .hd-stock-checks{gap:7px}.hd-stock-checks label{width:27px;height:27px}.hd-stock-checks input{width:27px;height:27px}.hd-stock-check-box{width:27px;height:27px;font-size:12px}
   .hd-stock-row label{font-size:10.5px}.hd-stock-row input{height:29px;font-size:11px}
 }
@@ -190,6 +182,7 @@
 
 </style>
 <script>
+
 const HAPPY_DROPS_SUPABASE_URL='https://gyrdmfnyypqoxhueqsjo.supabase.co';
 const HAPPY_DROPS_SUPABASE_PUBLISHABLE_KEY='sb_publishable_M1kXdYZnF8xjILQ_nzMbFQ_MIlblTa0';
 let hdSupabase=null, hdSession=null, hdCloudBusy=false, hdCloudSyncAgain=false;
@@ -206,10 +199,7 @@ function hdClearRentalDirty(id){if(!id)return;hdPendingRentalSyncIds.delete(Stri
 function hdMarkRentalDeleted(id){if(!id)return;hdDeletedRentalIds.add(String(id));localStorage.setItem('happyDropsDeletedRentalIds',JSON.stringify([...hdDeletedRentalIds]));hdPendingRentalSyncIds.delete(String(id));hdSavePendingRentalSyncIds();}
 function hdUnmarkRentalDeleted(id){if(!id)return;hdDeletedRentalIds.delete(String(id));localStorage.setItem('happyDropsDeletedRentalIds',JSON.stringify([...hdDeletedRentalIds]));}
 function hdCloudMessage(text,color){const e=document.getElementById('cloudAuthMsg');if(e){e.textContent=text;e.style.color=color||'#1769aa';}}
-function hdSetCloudStatus(state,text){const e=document.getElementById('hdCloudStatus');const t=document.getElementById('hdCloudStatusText');
-  const displayState=state||'connecting';
-  if(e){e.dataset.state=displayState;e.title=text||'Cloud sync status';e.setAttribute('aria-label',text||'Cloud sync status');}
-  if(t)t.textContent=text||'Cloud';}
+function hdSetCloudStatus(state,text){const e=document.getElementById('hdCloudStatus');const t=document.getElementById('hdCloudStatusText');if(e){e.dataset.state=state||'connecting';e.title=text||'Cloud sync status';e.setAttribute('aria-label',text||'Cloud sync status');}if(t)t.textContent=text||'Cloud';}
 async function hdManualCloudSync(){if(!hdSupabase||!hdSession){hdSetCloudStatus('connecting','Cloud login required');return;}hdSetCloudStatus('syncing','Syncing…');try{const pushed=await hdCloudSyncRentals();if(pushed===false)throw new Error('Cloud push failed; see the sync status message.');const refreshed=await hdRefreshRentalsFromCloud();if(!refreshed)throw new Error('Cloud refresh failed.');hdSetCloudStatus('synced','Cloud synced successfully');}catch(e){console.error('Manual cloud sync error',e);hdSetCloudStatus(navigator.onLine?'error':'offline',e?.message|| (navigator.onLine?'Cloud sync failed':'Offline'));}}
 
 function hdShowAuth(){let old=document.getElementById('cloudAuthOverlay');if(old)old.remove();const e=document.createElement('div');e.id='cloudAuthOverlay';e.innerHTML=`<div id="cloudAuthBox"><h3>🔐 Happy Drops</h3><p>Enter your PIN to open Happy Drops Manager.</p><input id="hdLoginPin" type="password" inputmode="numeric" maxlength="4" placeholder="Enter PIN" autocomplete="off" onkeydown="if(event.key==='Enter')hdSignIn()"><button class="btn" style="width:100%;margin-top:8px" onclick="hdSignIn()">Login</button><div id="cloudAuthMsg"></div></div>`;document.body.appendChild(e);e.style.display='flex';setTimeout(()=>document.getElementById('hdLoginPin')?.focus(),50);}
@@ -229,12 +219,7 @@ function hdClearRentalSyncBaseline(id){if(id)delete hdRentalSyncFingerprints[Str
 function hdRentalBase(id,name,c){return {id,name:String(name||c?.name||'Customer').trim(),mobile:c?.phone||'',rental_date:c?.rentalDate||localDateKey(new Date()),rental_time:c?.rentalTime||null,return_date:c?.returnDate||null,bt_quantity:Number(c?.pbt)||0,cc_quantity:Number(c?.cc)||0,bt_price:Number.isFinite(+c?.pbtPrice)?+c.pbtPrice:20,cc_price:Number.isFinite(+c?.ccPrice)?+c.ccPrice:50,security_deposit:Number(c?.deposit)||0,status:c?.closed?'closed':(c?.pending?'pending':'active'),closed:!!c?.closed,refund_completed:!!c?.refundCompleted};}
 async function hdDeleteChildren(id){for(const table of ['rental_additions','rental_returns','rental_refills','rental_deposit_transactions','rental_activity']){const {error}=await hdSupabase.from(table).delete().eq('rental_customer_id',id);if(error)throw error;}}
 async function hdPushRental(name,c){
-  const deletedCloudId=String(c?.cloudId||'');
-  if(deletedCloudId && hdDeletedRentalIds.has(deletedCloudId)){
-    try{await hdDeleteChildren(deletedCloudId);await hdSupabase.from('rental_customers').delete().eq('id',deletedCloudId);}catch(e){console.warn('Could not finalize deleted rental in cloud',deletedCloudId,e);}
-    return;
-  }
-  const safeName=String(c?.name||name||'').trim();
+  const safeName=String(name||c?.name||'').trim();
   if(!safeName)return;
   let cloudId=c?.cloudId;
   if(!cloudId)cloudId=hdUuid();
@@ -243,520 +228,67 @@ async function hdPushRental(name,c){
   if(baseErr)throw baseErr;
   const actualId=baseRow?.id||cloudId;
   c.cloudId=actualId;
-
-  // Child records are append-only history. Never delete the existing cloud
-  // history during a normal save; deleting first was the cause of lost returns,
-  // refunds and activity when a later insert failed or was interrupted.
-  const childSpecs=[
-    ['rental_additions',(x)=>({rental_customer_id:actualId,bt_quantity:Number(x.pbt)||0,cc_quantity:Number(x.cc)||0,deposit_amount:Number(x.deposit)||0,note:x.note||null,created_at:new Date(Number(x.ts)||Date.now()).toISOString()}),(r)=>[r.bt_quantity,r.cc_quantity,Number(r.deposit_amount)||0,r.note||null,r.created_at].join('|'),(x)=>!!((Number(x.pbt)||0)||(Number(x.cc)||0))],
-    ['rental_returns',(x)=>({rental_customer_id:actualId,bt_quantity:Number(x.pbt)||0,cc_quantity:Number(x.cc)||0,note:x.note||null,created_at:new Date(Number(x.ts)||Date.now()).toISOString()}),(r)=>[r.bt_quantity,r.cc_quantity,r.note||null,r.created_at].join('|'),(x)=>!!((Number(x.pbt)||0)||(Number(x.cc)||0))],
-    ['rental_refills',(x)=>({rental_customer_id:actualId,bt_quantity:Number(x.pbt)||0,cc_quantity:Number(x.cc)||0,bt_rate:15,cc_rate:30,created_at:new Date(Number(x.ts)||Date.now()).toISOString()}),(r)=>[r.bt_quantity,r.cc_quantity,r.created_at].join('|'),(x)=>!!((Number(x.pbt)||0)||(Number(x.cc)||0))],
-    ['rental_deposit_transactions',(x)=>({rental_customer_id:actualId,transaction_type:x.type,amount:Number(x.amount)||0,created_at:new Date(Number(x.ts)||Date.now()).toISOString()}),(r)=>[r.transaction_type,r.amount,r.created_at].join('|'),(x)=>!!((Number(x.amount)||0)>0)]
-  ];
-  const localChildren={
-    rental_additions:(c.additions||[]),
-    rental_returns:(c.returns||[]),
-    rental_refills:(c.refills||[]),
-    rental_deposit_transactions:(c.depositRefunds||[]).flatMap(x=>{const out=[];if(Number(x.deposit)>0)out.push({type:'deposit',amount:Number(x.deposit),ts:x.ts});if(Number(x.refund)>0)out.push({type:'refund',amount:Number(x.refund),ts:x.ts});return out;})
-  };
-  for(const [table,toRow,sig,valid] of childSpecs){
-    const {data:existing,error:readErr}=await hdSupabase.from(table).select('*').eq('rental_customer_id',actualId);
-    if(readErr)throw readErr;
-    const existingSigs=new Set((existing||[]).map(sig));
-    const pending=[];
-    for(const x of (localChildren[table]||[])){
-      if(!valid(x))continue;
-      const row=toRow(x), key=sig(row);
-      if(!existingSigs.has(key)){pending.push(row);existingSigs.add(key);}
-    }
-    if(pending.length){const {error}=await hdSupabase.from(table).insert(pending);if(error)throw error;}
-  }
-
-  const {data:existingActs,error:actsReadErr}=await hdSupabase.from('rental_activity').select('*').eq('rental_customer_id',actualId);
-  if(actsReadErr)throw actsReadErr;
-  const actSig=r=>[r.activity_type||'activity',r.bt_quantity??'',r.cc_quantity??'',r.amount??'',r.created_at||'',typeof r.details==='string'?r.details:JSON.stringify(r.details||{})].join('|');
-  const actSigs=new Set((existingActs||[]).map(actSig));
-  const acts=[];
-  for(const x of (c.activity||[])){
-    const row={rental_customer_id:actualId,activity_type:String(x.type||'activity'),description:JSON.stringify(x),bt_quantity:Number(x.pbt)||null,cc_quantity:Number(x.cc)||null,amount:Number(x.amount)||null,details:x,created_at:new Date(Number(x.ts)||Date.now()).toISOString()};
-    const key=actSig(row);
-    if(!actSigs.has(key)){acts.push(row);actSigs.add(key);}
-  }
+  await hdDeleteChildren(actualId);
+  const adds=(c.additions||[]).map(x=>({rental_customer_id:actualId,bt_quantity:Number(x.pbt)||0,cc_quantity:Number(x.cc)||0,deposit_amount:Number(x.deposit)||0,note:x.note||null,created_at:new Date(Number(x.ts)||Date.now()).toISOString()})).filter(x=>x.bt_quantity||x.cc_quantity);
+  if(adds.length){const {error}=await hdSupabase.from('rental_additions').insert(adds);if(error)throw error;}
+  const rets=(c.returns||[]).map(x=>({rental_customer_id:actualId,bt_quantity:Number(x.pbt)||0,cc_quantity:Number(x.cc)||0,note:x.note||null,created_at:new Date(Number(x.ts)||Date.now()).toISOString()})).filter(x=>x.bt_quantity||x.cc_quantity);
+  if(rets.length){const {error}=await hdSupabase.from('rental_returns').insert(rets);if(error)throw error;}
+  const refs=(c.refills||[]).map(x=>({rental_customer_id:actualId,bt_quantity:Number(x.pbt)||0,cc_quantity:Number(x.cc)||0,bt_rate:15,cc_rate:30,created_at:new Date(Number(x.ts)||Date.now()).toISOString()})).filter(x=>x.bt_quantity||x.cc_quantity);
+  if(refs.length){const {error}=await hdSupabase.from('rental_refills').insert(refs);if(error)throw error;}
+  const dr=(c.depositRefunds||[]).flatMap(x=>{const out=[];if(Number(x.deposit)>0)out.push({rental_customer_id:actualId,transaction_type:'deposit',amount:Number(x.deposit),created_at:new Date(Number(x.ts)||Date.now()).toISOString()});if(Number(x.refund)>0)out.push({rental_customer_id:actualId,transaction_type:'refund',amount:Number(x.refund),created_at:new Date(Number(x.ts)||Date.now()).toISOString()});return out;});
+  if(dr.length){const {error}=await hdSupabase.from('rental_deposit_transactions').insert(dr);if(error)throw error;}
+  const acts=(c.activity||[]).map(x=>({rental_customer_id:actualId,activity_type:String(x.type||'activity'),description:JSON.stringify(x),bt_quantity:Number(x.pbt)||null,cc_quantity:Number(x.cc)||null,amount:Number(x.amount)||null,details:x,created_at:new Date(Number(x.ts)||Date.now()).toISOString()}));
   if(acts.length){const {error}=await hdSupabase.from('rental_activity').insert(acts);if(error){console.error('Rental activity cloud sync error',error);throw error;}}
 }
-function hdRentalFingerprint(c){
-  const phone=String(c?.phone||'').replace(/\D/g,'');
-  const name=String(c?.name||'').trim().toLowerCase();
-  return [name,phone,String(c?.rentalDate||''),String(c?.rentalTime||''),Number(c?.pbt)||0,Number(c?.cc)||0,Number(c?.deposit)||0,Number.isFinite(+c?.pbtPrice)?+c.pbtPrice:'',Number.isFinite(+c?.ccPrice)?+c.ccPrice:''].join('|');
-}
-// Legacy duplicate identity: older sync versions could create the same customer
-// more than once with slightly different saved time/price fields. For CLOSED
-// records, the customer's name + mobile + rental date + original quantities +
-// deposit identify the same completed rental, so clock/price differences are ignored.
-function hdClosedDuplicateFingerprint(c){
-  if(!c || !(c.closed===true || c.closedFinal===true))return '';
-  const phone=String(c?.phone||'').replace(/\D/g,'');
-  const name=String(c?.name||'').trim().toLowerCase();
-  const date=String(c?.rentalDate||'');
-  if(!name && !phone && !date)return '';
-  return [name,phone,date,Number(c?.pbt)||0,Number(c?.cc)||0,Number(c?.deposit)||0].join('|');
-}
-function hdMergeDuplicateRental(a,b){
-  const preferB=!!b?.closed && !a?.closed;
-  const base=preferB?{...a,...b}:{...b,...a};
-  const fields=['returns','additions','refills','depositRefunds','activity'];
-  for(const f of fields){
-    const out=[],seen=new Set();
-    for(const x of [...(a?.[f]||[]),...(b?.[f]||[])]){
-      const k=JSON.stringify(x);
-      if(!seen.has(k)){seen.add(k);out.push(x);}
-    }
-    base[f]=out;
-  }
-  if(a?.closed||b?.closed||a?.closedFinal||b?.closedFinal){
-    base.closed=true;base.closedFinal=true;base.pending=false;base.refundCompleted=!!(a?.refundCompleted||b?.refundCompleted);
-    // A completed/closed duplicate must remain fully settled.
-    base.pbt=0;base.cc=0;base.refundCompleted=true;
-  }
-  base.cloudId=preferB?(b.cloudId||a.cloudId):(a.cloudId||b.cloudId);
-  return base;
-}
-function hdDedupeLocalRentals(source){
-  const out={},seen=new Map(),closedSeen=new Map();
-  for(const [id,c] of Object.entries(source||{})){
-    if(!c)continue;
-    const exact=hdRentalFingerprint(c);
-    const legacy=hdClosedDuplicateFingerprint(c);
-    const key=legacy||exact;
-    const map=legacy?closedSeen:seen;
-    if(map.has(key)){
-      const keepId=map.get(key);
-      out[keepId]=hdMergeDuplicateRental(out[keepId],c);
-    }else{map.set(key,id);out[id]=c;}
-  }
-  return out;
-}
-
-async function hdLoadRentals(){
-  hdCloudDeletedRentalIds=new Set();
-  const {data:rows,error}=await hdSupabase.from('rental_customers').select('*').order('rental_date',{ascending:false}).order('rental_time',{ascending:false});
-  if(error)throw error;
-  const result={};
-  const uuidName=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-  for(const row of (rows||[])){
-    if(String(row.status||'').toLowerCase()==='deleted'){
-      // Cloud tombstones are authoritative. Record the id even if this phone
-      // still has a pending local change, so the deleted customer can never be
-      // resurrected by a stale upload.
-      hdCloudDeletedRentalIds.add(String(row.id));
-      continue;
-    }
-    if(hdDeletedRentalIds.has(String(row.id))){
-      continue;
-    }
-    if(uuidName.test(String(row.name||''))){
-      try{await hdDeleteChildren(row.id);await hdSupabase.from('rental_customers').delete().eq('id',row.id);}catch(e){console.warn('Could not remove legacy UUID rental',e)}
-      continue;
-    }
-    const rowName=String(row.name||'').trim();
-    if(!rowName)continue;
-    const c={name:rowName,phone:row.mobile||'',deposit:Number(row.security_deposit)||0,pbt:Number(row.bt_quantity)||0,cc:Number(row.cc_quantity)||0,pbtPrice:(row.bt_price===null||row.bt_price===undefined||row.bt_price==='')?0:Number(row.bt_price),ccPrice:(row.cc_price===null||row.cc_price===undefined||row.cc_price==='')?0:Number(row.cc_price),rentalDate:row.rental_date,rentalTime:row.rental_time||'',returnDate:row.return_date||'',rentalSequence:0,returns:[],additions:[],refills:[],depositRefunds:[],activity:[],pending:row.status==='pending',closed:row.status==='closed',closedFinal:row.status==='closed',refundCompleted:!!row.refund_completed,cloudId:row.id};
-    result[String(row.id)]=c;
-  }
-  const ids=Object.values(result).map(c=>c.cloudId);
-  if(!ids.length)return result;
-  const tables=['rental_additions','rental_returns','rental_refills','rental_deposit_transactions','rental_activity'];
-  for(const table of tables){
-    const {data,error}=await hdSupabase.from(table).select('*').in('rental_customer_id',ids).order('created_at',{ascending:true});
-    if(error)throw error;
-    for(const row of (data||[])){
-      const c=Object.values(result).find(x=>x.cloudId===row.rental_customer_id);
-      if(!c)continue;
-      const ts=new Date(row.created_at).getTime()||Date.now();
-      if(table==='rental_additions')c.additions.push({date:row.created_at?.slice(0,10)||'',pbt:row.bt_quantity,cc:row.cc_quantity,deposit:Number(row.deposit_amount)||0,ts});
-      else if(table==='rental_returns')c.returns.push({date:row.created_at?.slice(0,10)||'',pbt:row.bt_quantity,cc:row.cc_quantity,ts});
-      else if(table==='rental_refills')c.refills.push({date:row.created_at?.slice(0,10)||'',pbt:row.bt_quantity,cc:row.cc_quantity,amount:(Number(row.bt_quantity)||0)*15+(Number(row.cc_quantity)||0)*30,ts});
-      else if(table==='rental_deposit_transactions'){c.depositRefunds=c.depositRefunds||[];let last=c.depositRefunds.find(x=>x.ts===ts);if(!last){last={deposit:0,refund:0,ts};c.depositRefunds.push(last);}if(row.transaction_type==='deposit')last.deposit+=Number(row.amount)||0;else last.refund+=Number(row.amount)||0;}
-      else if(table==='rental_activity'){let x=row.details||{};if(typeof x==='string'){try{x=JSON.parse(x)}catch(_){x={type:row.activity_type,amount:row.amount}}}c.activity.push({...x,ts});}
-    }
-  }
-  for(const c of Object.values(result))normalizeRentalActivity(c);
-  // Remove exact duplicate customer records created by earlier sync versions.
-  // The fingerprint includes name, mobile, rental date/time, quantities, deposit and prices,
-  // so genuinely different rental transactions remain separate.
-  const deduped={},seen=new Map(),closedSeen=new Map(),duplicateIds=[];
-  for(const [id,c] of Object.entries(result)){
-    const legacy=hdClosedDuplicateFingerprint(c);
-    const key=legacy||hdRentalFingerprint(c);
-    const map=legacy?closedSeen:seen;
-    if(map.has(key)){
-      const keepId=map.get(key);
-      deduped[keepId]=hdMergeDuplicateRental(deduped[keepId],c);
-      if(String(id)!==String(keepId))duplicateIds.push(id);
-    }else{map.set(key,id);deduped[id]=c;}
-  }
-  for(const id of duplicateIds){
-    try{await hdDeleteChildren(id);await hdSupabase.from('rental_customers').delete().eq('id',id);}
-    catch(e){console.warn('Could not remove duplicate rental customer',id,e);}
-  }
-  for(const c of Object.values(deduped))normalizeRentalActivity(c);
-  return deduped;
-}
-function hdNormalizeRentalKeys(source){
-  const out={};
-  for(const [key,raw] of Object.entries(source||{})){
-    const c=raw||{};
-    if(!c.name)c.name=String(key||'Customer');
-    const id=String(c.cloudId||key||hdUuid());
-    c.cloudId=c.cloudId||id;
-    out[id]=c;
-  }
-  return out;
-}
-function hdMergeRentalRecords(local,cloud){
-  const out={};
-  const cloudIds=new Set(Object.keys(cloud||{}));
-  // A server-side tombstone always wins over local dirty state. This is the
-  // critical rule for cross-device deletes: once one phone deletes a customer,
-  // another phone cannot upload its stale copy and bring that customer back.
-  for(const id of hdCloudDeletedRentalIds){
-    if(local?.[id]) delete local[id];
-    hdPendingRentalSyncIds.delete(String(id));
-    hdClearRentalSyncBaseline(id);
-  }
-  hdSavePendingRentalSyncIds();
-  for(const [id,c] of Object.entries(cloud||{})){
-    const l=local?.[id];
-    if(l && hdPendingRentalSyncIds.has(String(id))) out[id]=hdMergeRentalRecordsOne(l,c);
-    else out[id]=c;
-  }
-  // Cloud is authoritative for records that are not locally dirty. If a record
-  // disappeared from Supabase (for example a delete from another phone), remove
-  // it locally instead of resurrecting it from localStorage.
-  for(const [id,l] of Object.entries(local||{})){
-    if(cloudIds.has(String(id)))continue;
-    if(hdPendingRentalSyncIds.has(String(id)))out[id]=l;
-    else if(hdDeletedRentalIds.has(String(id)))continue;
-    else {hdClearRentalSyncBaseline(id);}
-  }
-  return out;
-}
-function hdMergeRentalRecordsOne(local,cloud){
-  const l=local||{}, c=cloud||{};
-  const out={...c,...l};
-  const arrFields=['returns','additions','refills','depositRefunds','activity'];
-  const sig=x=>JSON.stringify(x);
-  for(const field of arrFields){
-    const merged=[],seen=new Set();
-    for(const item of [...(c[field]||[]),...(l[field]||[])]){const k=sig(item);if(!seen.has(k)){seen.add(k);merged.push(item);}}
-    out[field]=merged;
-  }
-  out.cloudId=l.cloudId||c.cloudId;
-  return out;
-}
-function hdPersistRentalLocalOnly(){
-  try{
-    saved=saved||{};
-    saved.rentals=typeof R!=='undefined'?R:{};
-    localStorage.setItem('happyDropsManagerV12',JSON.stringify(saved));
-    localStorage.setItem('happyDropsManagerV9',JSON.stringify(saved));
-  }catch(e){console.warn('Local rental persistence error',e);}
-}
-async function hdApplyCloudSnapshot(cloud){
-  const local=hdNormalizeRentalKeys(typeof R!=='undefined'?JSON.parse(JSON.stringify(R)):{});
-  const cloudCopy=hdNormalizeRentalKeys(cloud||{});
-  R=hdMergeRentalRecords(local,cloudCopy);
-  R=hdDedupeLocalRentals(R);
-  ensureRentalSequences();
-  for(const [id,c] of Object.entries(cloudCopy)){
-    if(R[id] && !hdPendingRentalSyncIds.has(String(id)))hdSetRentalSyncBaseline(id,R[id]);
-  }
-  hdSaveRentalSyncFingerprints();
-  hdPersistRentalLocalOnly();
-  if(document.getElementById('rentList')){
-    try{renderBTCCRentsStatus();}catch(e){console.warn('Rental list refresh error',e);}
-  }
-}
-async function hdLoadRentalsAndMerge(){
-  const cloud=await hdLoadRentals();
-  hdQueueLocalRentalsAgainstCloud(cloud);
-  await hdApplyCloudSnapshot(cloud);
-  return cloud;
-}
-async function hdCloudBootstrap(){
-  if(!hdSupabase||!hdSession)return;
-  try{
-    await hdLoadRentalsAndMerge();
-    const pushed=await hdCloudSyncRentals();
-    await hdStartRentalRealtime();
-    hdCloudBadge();
-    if(pushed!==false)hdSetCloudStatus('synced','Cloud synced successfully');
-  }catch(e){
-    console.error('Cloud load error',e);
-    if(typeof R==='undefined'||!R)R={};
-    hdCloudBadge();
-    hdSetCloudStatus(navigator.onLine?'error':'offline',navigator.onLine?'Cloud sync error':'Offline');
-  }
-}
-function hdFindLocalRentalByCloudId(id){
-  const key=String(id||'');
-  if(!key||!R)return null;
-  if(R[key])return {key,customer:R[key]};
-  for(const [k,c] of Object.entries(R)){
-    if(String(c?.cloudId||'')===key)return {key:k,customer:c};
-  }
-  return null;
-}
-function hdQueueLocalRentalsAgainstCloud(cloud){
-  const cloudMap=cloud||{};
-  for(const [key,c] of Object.entries(R||{})){
-    if(!c)continue;
-    const id=String(c.cloudId||key);
-    if(hdDeletedRentalIds.has(id))continue;
-    const remote=cloudMap[id];
-    const localFp=hdRentalSyncFingerprint(c);
-    if(!remote){
-      hdMarkRentalDirty(id);
-      continue;
-    }
-    if(hdPendingRentalSyncIds.has(id))continue;
-    const baseline=hdRentalSyncFingerprints[id];
-    if(!baseline || baseline!==localFp)hdMarkRentalDirty(id);
-  }
-}
+async function hdLoadRentals(){const {data:rows,error}=await hdSupabase.from('rental_customers').select('*').order('rental_date',{ascending:false}).order('rental_time',{ascending:false});if(error)throw error;const result={};const uuidName=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;for(const row of (rows||[])){if(uuidName.test(String(row.name||''))){try{await hdDeleteChildren(row.id);await hdSupabase.from('rental_customers').delete().eq('id',row.id);}catch(e){console.warn('Could not remove legacy UUID rental',e)}continue;}const c={phone:row.mobile||'',deposit:Number(row.security_deposit)||0,pbt:Number(row.bt_quantity)||0,cc:Number(row.cc_quantity)||0,pbtPrice:(row.bt_price===null||row.bt_price===undefined||row.bt_price==='')?0:Number(row.bt_price),ccPrice:(row.cc_price===null||row.cc_price===undefined||row.cc_price==='')?0:Number(row.cc_price),rentalDate:row.rental_date,rentalTime:row.rental_time||'',returnDate:row.return_date||'',rentalSequence:1,returns:[],additions:[],refills:[],depositRefunds:[],activity:[],pending:row.status==='pending',closed:row.status==='closed',refundCompleted:!!row.refund_completed,cloudId:row.id};result[row.name]=c;}
+ const ids=Object.values(result).map(c=>c.cloudId);if(!ids.length)return result;
+ const tables=['rental_additions','rental_returns','rental_refills','rental_deposit_transactions','rental_activity'];
+ for(const table of tables){const {data,error}=await hdSupabase.from(table).select('*').in('rental_customer_id',ids).order('created_at',{ascending:true});if(error)throw error;for(const row of (data||[])){const c=Object.values(result).find(x=>x.cloudId===row.rental_customer_id);if(!c)continue;const ts=new Date(row.created_at).getTime()||Date.now();if(table==='rental_additions')c.additions.push({date:row.created_at?.slice(0,10)||'',pbt:row.bt_quantity,cc:row.cc_quantity,deposit:Number(row.deposit_amount)||0,ts});else if(table==='rental_returns')c.returns.push({date:row.created_at?.slice(0,10)||'',pbt:row.bt_quantity,cc:row.cc_quantity,ts});else if(table==='rental_refills')c.refills.push({date:row.created_at?.slice(0,10)||'',pbt:row.bt_quantity,cc:row.cc_quantity,amount:(Number(row.bt_quantity)||0)*15+(Number(row.cc_quantity)||0)*30,ts});else if(table==='rental_deposit_transactions'){c.depositRefunds=c.depositRefunds||[];let last=c.depositRefunds.find(x=>x.ts===ts);if(!last){last={deposit:0,refund:0,ts};c.depositRefunds.push(last);}if(row.transaction_type==='deposit')last.deposit+=Number(row.amount)||0;else last.refund+=Number(row.amount)||0;}else if(table==='rental_activity'){let x=row.details||{};if(typeof x==='string'){try{x=JSON.parse(x)}catch(_){x={type:row.activity_type,amount:row.amount}}}c.activity.push({...x,ts});}}}
+ return result;}
+async function hdCloudBootstrap(){if(!hdSupabase||!hdSession)return;try{const cloud=await hdLoadRentals();const cloudCount=Object.keys(cloud).length;let local=typeof R!=='undefined'?R:{};const uuidName=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;local=Object.fromEntries(Object.entries(local).filter(([n])=>!uuidName.test(String(n))));if(cloudCount>0){R=cloud;ensureRentalSequences();save();}else if(Object.keys(local).length){R=local;for(const [n,c] of Object.entries(R)){await hdPushRental(n,c);}ensureRentalSequences();}else{R={};}hdCloudBadge();}catch(e){console.error('Cloud load error',e);alert('Cloud connection error: '+(e.message||e));}}
 async function hdCloudSyncRentals(){
   if(!hdSupabase||!hdSession)return false;
-  if(hdCloudBusy){hdCloudSyncAgain=true;return true;}
+  if(hdCloudBusy)return true;
   hdCloudBusy=true;
-  hdSetCloudStatus('syncing','Syncing to cloud…');
+  hdSetCloudStatus?.('syncing','Syncing to cloud…');
   try{
-    do{
-      hdCloudSyncAgain=false;
-      const ids=[...hdPendingRentalSyncIds];
-      for(const id of ids){
-        const found=hdFindLocalRentalByCloudId(id);
-        if(!found){hdClearRentalDirty(id);continue;}
-        const snapshot=JSON.parse(JSON.stringify(found.customer));
-        await hdPushRental(found.key,snapshot);
-        found.customer.cloudId=snapshot.cloudId||found.customer.cloudId||id;
-        hdSetRentalSyncBaseline(String(found.customer.cloudId||id),found.customer);
-        hdClearRentalDirty(id);
-      }
-      for(const id of [...hdDeletedRentalIds]){
-        await hdDeleteChildren(id);
-        const {error}=await hdSupabase.from('rental_customers').delete().eq('id',id);
-        if(error)throw error;
-        hdDeletedRentalIds.delete(String(id));
-        hdClearRentalSyncBaseline(id);
-      }
-      hdSavePendingRentalSyncIds();
-      hdSaveRentalSyncFingerprints();
-      if(hdPendingRentalSyncIds.size)hdSetCloudStatus('syncing','Waiting for cloud sync…');
-      else{
-        localStorage.setItem('happyDropsCloudLastSync',new Date().toISOString());
-        hdSetCloudStatus('synced','Cloud synced successfully');
-      }
-    }while(hdCloudSyncAgain);
-    return hdPendingRentalSyncIds.size===0;
-  }catch(e){
-    console.error('Cloud sync error',e);
-    hdSetCloudStatus(navigator.onLine?'error':'offline',(e&&e.message)?('Cloud sync failed: '+e.message):(navigator.onLine?'Cloud sync failed':'Offline'));
-    return false;
-  }finally{
-    hdCloudBusy=false;
-    if(hdCloudSyncAgain){hdCloudSyncAgain=false;setTimeout(()=>hdCloudSyncRentals(),0);}
-  }
-}
-async function hdRefreshRentalsFromCloud(){
-  if(!hdSupabase||!hdSession)return false;
-  if(hdCloudBusy){
-    for(let i=0;i<50&&hdCloudBusy;i++)await new Promise(r=>setTimeout(r,100));
-    if(hdCloudBusy)return false;
-  }
-  try{
-    await hdLoadRentalsAndMerge();
-    if(hdPendingRentalSyncIds.size){
-      const pushed=await hdCloudSyncRentals();
-      if(!pushed){
-        hdSetCloudStatus(navigator.onLine?'error':'offline',navigator.onLine?'Cloud changes are still waiting to sync':'Offline');
-        return false;
-      }
+    for(const [n,c] of Object.entries(R||{})) await hdPushRental(n,c);
+    // Preserve the current delete queue from the master app without changing
+    // Manager 3's proven rental write path.
+    for(const id of [...hdDeletedRentalIds]){
+      await hdDeleteChildren(id);
+      const {error}=await hdSupabase.from('rental_customers').delete().eq('id',id);
+      if(error)throw error;
+      hdDeletedRentalIds.delete(String(id));
+      hdPendingRentalSyncIds.delete(String(id));
     }
+    try{localStorage.setItem('happyDropsDeletedRentalIds',JSON.stringify([...hdDeletedRentalIds]));}catch(_){ }
+    try{localStorage.setItem('happyDropsPendingRentalSyncIds',JSON.stringify([...hdPendingRentalSyncIds]));}catch(_){ }
     localStorage.setItem('happyDropsCloudLastSync',new Date().toISOString());
-    hdSetCloudStatus(hdPendingRentalSyncIds.size?'syncing':'synced',hdPendingRentalSyncIds.size?'Waiting for cloud sync…':'Cloud synced successfully');
-    return hdPendingRentalSyncIds.size===0;
-  }catch(e){
-    console.error('Cloud refresh error',e);
-    hdSetCloudStatus(navigator.onLine?'error':'offline',(e&&e.message)?('Cloud refresh failed: '+e.message):(navigator.onLine?'Cloud refresh failed':'Offline'));
-    return false;
-  }
-}
-async function hdWaitForRentalSync(){
-  if(!hdSupabase||!hdSession)return false;
-  for(let i=0;i<120&&hdCloudBusy;i++)await new Promise(r=>setTimeout(r,100));
-  if(hdCloudBusy)return false;
-  if(hdPendingRentalSyncIds.size){
-    const ok=await hdCloudSyncRentals();
-    if(!ok)return false;
-  }
-  return hdPendingRentalSyncIds.size===0;
-}
-async function hdHandleRentalRealtime(payload){
-  try{
-    const table=payload?.table||'';
-    const event=payload?.eventType||'';
-    const row=payload?.new||{};
-    const old=payload?.old||{};
-    const id=String(row.id||row.rental_customer_id||old.id||old.rental_customer_id||'');
-    if(!id)return;
-    // Ignore our own event while the local change is still waiting to be pushed.
-    if(hdPendingRentalSyncIds.has(id))return;
-    if(table==='rental_customers' && event==='DELETE'){
-      // A remote delete is authoritative unless this device itself is still
-      // completing the same deletion. Never let an old local copy survive it.
-      delete R[id];
-      hdPendingRentalSyncIds.delete(id);
-      hdClearRentalSyncBaseline(id);
-      hdPersistRentalLocalOnly();
-      hdSavePendingRentalSyncIds();
-      hdSaveRentalSyncFingerprints();
-      if(document.getElementById('rentList'))renderBTCCRentsStatus();
-      hdSetCloudStatus('synced','Cloud synced successfully');
-      return;
-    }
-    if(table==='rental_customers' && event==='UPDATE' && String(row.status||'').toLowerCase()==='deleted'){
-      hdCloudDeletedRentalIds.add(id);
-      delete R[id];
-      hdPendingRentalSyncIds.delete(id);
-      hdClearRentalSyncBaseline(id);
-      hdPersistRentalLocalOnly();
-      hdSavePendingRentalSyncIds();
-      hdSaveRentalSyncFingerprints();
-      if(document.getElementById('rentList'))renderBTCCRentsStatus();
-      hdSetCloudStatus('synced','Cloud synced successfully');
-      return;
-    }
-    // Child events change activity/returns/refills/deposits. Reloading the small
-    // rental dataset here keeps every device consistent without trusting stale
-    // localStorage. Polling below remains the fallback if Realtime is unavailable.
-    await hdRefreshRentalsFromCloud();
-  }catch(e){console.warn('Rental realtime handler error',e);}
-}
-let hdRentalRealtimeStatus='disconnected';
-let hdRentalRealtimeRetryTimer=null;
-let hdCloudLifecycleBusy=false;
-let hdCloudPollTimer=null;
-
-async function hdStartRentalRealtime(){
-  if(!hdSupabase||!hdSession)return false;
-  try{
-    if(hdRentalRealtimeRetryTimer){clearTimeout(hdRentalRealtimeRetryTimer);hdRentalRealtimeRetryTimer=null;}
-    if(hdRentalRealtimeChannel){try{await hdSupabase.removeChannel(hdRentalRealtimeChannel);}catch(_){ } hdRentalRealtimeChannel=null;}
-    hdRentalRealtimeStatus='connecting';
-    hdSetCloudStatus('connecting','Connecting to cloud…');
-    const tables=['rental_customers','rental_additions','rental_returns','rental_refills','rental_deposit_transactions','rental_activity'];
-    let channel=hdSupabase.channel('happy-drops-rentals-sync');
-    for(const table of tables){
-      channel=channel.on('postgres_changes',{event:'*',schema:'public',table},payload=>hdHandleRentalRealtime(payload));
-    }
-    hdRentalRealtimeChannel=channel;
-    channel.subscribe((status,err)=>{
-      console.log('Happy Drops rental realtime:',status,err||'');
-      hdRentalRealtimeStatus=String(status||'').toLowerCase();
-      if(status==='SUBSCRIBED'){
-        hdRentalRealtimeStatus='subscribed';
-        if(hdPendingRentalSyncIds.size) hdSetCloudStatus('syncing','Cloud connected — syncing pending changes…');
-        else hdSetCloudStatus('synced','Cloud connected and synced');
-      }else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED'){
-        hdRentalRealtimeStatus='disconnected';
-        // Realtime is only the live-notification layer. Its temporary failure
-        // must NOT mark the main Supabase connection as offline/error.
-        console.warn('Happy Drops rental realtime disconnected; retrying in background:', status, err||'');
-        if(navigator.onLine && hdSession){
-          hdSetCloudStatus(hdPendingRentalSyncIds.size?'syncing':'synced',
-            hdPendingRentalSyncIds.size?'Cloud connected — syncing pending changes…':'Cloud connected — live updates reconnecting…');
-        }
-        hdRentalRealtimeRetryTimer=setTimeout(()=>hdStartRentalRealtime(),3000);
-      }else if(status==='JOINING'){
-        // Keep the last known cloud state while Realtime is joining.
-        if(!hdSession)hdSetCloudStatus('connecting','Connecting to cloud…');
-      }
-    });
+    hdSetCloudStatus?.('synced','Cloud connected and synced');
     return true;
   }catch(e){
-    hdRentalRealtimeStatus='disconnected';
-    console.warn('Rental realtime setup error; retrying in background:',e);
-    if(navigator.onLine && hdSession){
-      hdSetCloudStatus(hdPendingRentalSyncIds.size?'syncing':'synced',
-        hdPendingRentalSyncIds.size?'Cloud connected — syncing pending changes…':'Cloud connected — live updates reconnecting…');
-    }
-    hdRentalRealtimeRetryTimer=setTimeout(()=>hdStartRentalRealtime(),3000);
+    console.error('Cloud sync error',e);
+    hdSetCloudStatus?.(navigator.onLine?'error':'offline',navigator.onLine?('Cloud sync failed: '+(e?.message||e)):'Offline');
     return false;
-  }
+  }finally{hdCloudBusy=false;}
 }
-
-async function hdCloudLifecycleRefresh(reason){
-  if(hdCloudLifecycleBusy||!hdSupabase||!hdSession)return;
-  hdCloudLifecycleBusy=true;
+async function hdRefreshRentalsFromCloud(){
+  if(!hdSupabase||!hdSession||hdCloudBusy)return false;
+  hdCloudBusy=true;
   try{
-    hdSetCloudStatus('connecting',reason||'Connecting to cloud…');
-    const ok=await hdRefreshRentalsFromCloud();
-    if(!ok){
-      hdSetCloudStatus(navigator.onLine?'error':'offline',navigator.onLine?'Cloud sync is not complete':'Offline');
-      return;
-    }
-    await hdStartRentalRealtime();
-    if(hdPendingRentalSyncIds.size) await hdCloudSyncRentals();
-    // A successful Supabase REST sync means the cloud connection is healthy.
-    // Realtime subscription state is supplementary and may reconnect separately.
-    if(hdPendingRentalSyncIds.size===0) hdSetCloudStatus('synced','Cloud connected and synced');
+    const cloud=await hdLoadRentals();
+    R=cloud;
+    localStorage.setItem('happyDropsCloudLastSync',new Date().toISOString());
+    hdSetCloudStatus?.('synced','Cloud connected and synced');
+    return true;
   }catch(e){
-    console.error('Cloud lifecycle error',e);
-    hdSetCloudStatus(navigator.onLine?'error':'offline',navigator.onLine?(e?.message||'Cloud sync error'):'Offline');
-  }finally{hdCloudLifecycleBusy=false;}
+    console.error('Cloud refresh error',e);
+    hdSetCloudStatus?.(navigator.onLine?'error':'offline',navigator.onLine?('Cloud refresh failed: '+(e?.message||e)):'Offline');
+    return false;
+  }finally{hdCloudBusy=false;}
 }
-
-function hdInitCloud(){
-  try{
-    if(!window.supabase||!window.supabase.createClient)return;
-    hdSupabase=window.supabase.createClient(HAPPY_DROPS_SUPABASE_URL,HAPPY_DROPS_SUPABASE_PUBLISHABLE_KEY,{
-      auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}
-    });
-    hdSupabase.auth.getSession().then(async ({data})=>{
-      hdSession=data?.session||null;
-      if(hdSession){
-        await hdCloudBootstrap();
-        await hdStartRentalRealtime();
-        if(hdPendingRentalSyncIds.size===0)hdSetCloudStatus('synced','Cloud connected and synced');
-        setTimeout(()=>hdStartPushRegistration(),250);
-      }else hdShowAuth();
-    }).catch(e=>{console.error('Supabase session error',e);hdSetCloudStatus(navigator.onLine?'error':'offline',navigator.onLine?'Cloud session error':'Offline');});
-    hdSupabase.auth.onAuthStateChange((event,session)=>{
-      hdSession=session||null;
-      if(hdSession){
-        hdSetCloudStatus('connecting','Connecting to cloud…');
-        setTimeout(()=>hdCloudLifecycleRefresh('Refreshing cloud connection…'),0);
-        setTimeout(()=>hdStartPushRegistration(),250);
-      }else{
-        hdRentalRealtimeStatus='disconnected';
-        hdSetCloudStatus('connecting','Cloud login required');
-      }
-      console.log('Happy Drops cloud auth:',event,!!session);
-    });
-    window.addEventListener('online',()=>{
-      if(hdSupabase&&hdSession)hdCloudLifecycleRefresh('Internet restored — reconnecting cloud…');
-    });
-    window.addEventListener('offline',()=>hdSetCloudStatus('offline','Offline'));
-    if(hdCloudPollTimer)clearInterval(hdCloudPollTimer);
-    hdCloudPollTimer=setInterval(()=>{
-      if(hdSupabase&&hdSession&&!hdCloudBusy&&!hdCloudLifecycleBusy){
-        hdRefreshRentalsFromCloud().then(ok=>{
-          if(ok && hdPendingRentalSyncIds.size===0) hdSetCloudStatus('synced','Cloud connected and synced');
-        }).catch(e=>console.warn('Rental cloud poll error',e));
-      }
-    },5000);
-  }catch(e){console.error('Supabase init error',e);hdSetCloudStatus(navigator.onLine?'error':'offline',navigator.onLine?'Cloud initialization error':'Offline');}
-}
+function hdInitCloud(){try{if(!window.supabase||!window.supabase.createClient)return;hdSupabase=window.supabase.createClient(HAPPY_DROPS_SUPABASE_URL,HAPPY_DROPS_SUPABASE_PUBLISHABLE_KEY);hdSupabase.auth.getSession().then(async ({data})=>{hdSession=data.session||null;if(hdSession){hdSetCloudStatus?.('connecting','Connecting to cloud…');await hdCloudBootstrap();if(hdSession)hdSetCloudStatus?.('synced','Cloud connected and synced');}else hdShowAuth();}).catch(e=>{console.error('Supabase session error',e);hdSetCloudStatus?.('error','Cloud session error: '+(e?.message||e));});hdSupabase.auth.onAuthStateChange((_event,session)=>{hdSession=session||null;if(hdSession)hdSetCloudStatus?.('connecting','Connecting to cloud…');else hdSetCloudStatus?.('connecting','Cloud login required');});}catch(e){console.error('Supabase init error',e);hdSetCloudStatus?.('error','Cloud initialization error: '+(e?.message||e));}}
 
 // Happy Drops Manager Web Push registration
 const HD_VAPID_PUBLIC_KEY = "BAfyUjWhYjRl6aExLadqGEFlc8b_CMRol2VJFReuST8tYg64dqi-iGCxh6Kueja0jqtE8S40fZjU5BkViO1xKUM";
@@ -842,6 +374,7 @@ async function hdStartPushRegistration(){
   return hdRegisterPushNotifications();
 }
 
+</script>
 </script>
 <script>
 let saved=null;try{const raw=localStorage.getItem("happyDropsManagerV12")||localStorage.getItem("happyDropsManagerV9")||localStorage.getItem("happyDropsManagerV8")||localStorage.getItem("happyDropsManagerV7");saved=raw?JSON.parse(raw):null}catch(e){saved=null;try{localStorage.removeItem("happyDropsManagerV12");localStorage.removeItem("happyDropsManagerV9");}catch(_){} }
@@ -1126,24 +659,14 @@ async function rentals(){
  // Render the existing local data first so the customer list is never blank while cloud data is loading.
  document.getElementById("app").innerHTML=`<div class="hero btcc-hero"><div class="btcc-kicker">HAPPY DROPS</div><h2><img class="btcc-title-icon" src="data:image/png;base64,${BTCC_ICON_DATA}" alt="BT/CC Rentals"> BT/CC Rentals</h2><p>Manage rental customers, returns and deposits</p><div class="btcc-hero-actions"><button class="btn secondary btcc-back-btn" onclick="home()"><span class="btcc-back-arrow">←</span><span>Back</span></button><button class="btn btcc-add-btn" onclick="newRental()">＋ Add</button></div></div><div class="card btcc-controls"><div id="btccTabs" class="btcc-tabs"></div><div class="btcc-list-tools"><div class="btcc-search-wrap"><input id="btccSearch" type="search" placeholder="Search name or mobile" oninput="setBTCCRentalSearch(this.value)" autocomplete="off"></div><div class="btcc-sortbar"><button id="btccSortToggle" type="button" class="btcc-sort-toggle" onclick="toggleBTCCRentalSort()">Newest First</button></div></div></div><div id="rentList"></div>`;
  renderBTCCRentsStatus();
- // Local data is rendered immediately for responsiveness, then a fresh
- // Supabase read is performed whenever Rentals is opened. This guarantees that
- // a customer added on another phone appears after opening/refreshing this page.
+ // Rentals are local-first after startup. Do NOT refresh the list from an older
+ // cloud snapshot every time this page is opened; that was causing returned cans
+ // and completed refunds to reappear. Cloud bootstrap performs the initial merge,
+ // and every later change is pushed from this local record to Supabase.
  try{
    if(hdSupabase&&!hdSession){
      const sessionResult=await hdSupabase.auth.getSession();
      hdSession=sessionResult?.data?.session||null;
-   }
-   if(hdSupabase&&hdSession){
-     if(hdPendingRentalSyncIds.size){
-       const pushed=await hdCloudSyncRentals();
-       if(!pushed) console.warn('Rental cloud push did not complete; keeping changes queued.');
-     }
-     let refreshed=await hdRefreshRentalsFromCloud();
-     if(!refreshed){
-       await new Promise(r=>setTimeout(r,500));
-       refreshed=await hdRefreshRentalsFromCloud();
-     }
    }
  }catch(e){
    console.error("Rental cloud session check error",e);
@@ -1281,7 +804,7 @@ function startRentalNameVoice(e){
   }
 }
 
-async function saveRental(){let n=rn.value.trim(),phone=normalizeIndianMobile(rphone.value),p=+rpbt.value||0,c=+rcc.value||0,ppRaw=document.getElementById('rpbtPrice').value,cpRaw=document.getElementById('rccPrice').value,pbtPrice=ppRaw===''?null:Number(ppRaw),ccPrice=cpRaw===''?null:Number(cpRaw),returnDate=(document.getElementById('rreturnDate')||{}).value||'',today=localDateKey(new Date());if(!n){alert('Enter customer name');return}if(phone.length!==10){validateRentalPhone();alert('Please enter a valid 10 digits mobile number.');return}if(p<=0&&c<=0){validateRentalCans();alert('Please enter at least one BT quantity or CC quantity.');return}if((pbtPrice!==null&&(!Number.isFinite(pbtPrice)||pbtPrice<0))||(ccPrice!==null&&(!Number.isFinite(ccPrice)||ccPrice<0))){alert('Price cannot be negative.');return}if(returnDate&&returnDate<today){alert('Return Date cannot be less than today.');return}const formDate=String(document.getElementById('rdate').value||'');const formTime=String(document.getElementById('rtime').value||'');if(!formDate||!formTime){alert('Please enter Rental Date and Rental Time.');return}let sameDateSeq=Object.keys(R).filter(k=>String(R[k].rentalDate||'')===formDate).map(k=>Number(R[k].rentalSequence)).filter(Number.isFinite);let rentalSequence=sameDateSeq.length?Math.max(...sameDateSeq)+1:1;const formStamp=new Date(formDate+'T'+formTime+':00');if(Number.isNaN(formStamp.getTime())){alert('Please enter a valid Rental Date and Rental Time.');return}const formTs=formStamp.getTime();const customerId=hdUuid();R[customerId]={name:n,phone,deposit:(+rdep.value||0),pbt:p,cc:c,pbtPrice,ccPrice,rentalDate:formDate,rentalTime:formTime,createdFormDate:formDate,createdFormTime:formTime,createdFormTs:formTs,returnDate,rentalSequence,returns:[],additions:[],refills:[],activity:[],pending:false,closed:false,refundCompleted:false,cloudId:customerId};addRentalActivity(R[customerId],{type:'added',name:n,phone,deposit:(+rdep.value||0),pbt:p,cc:c,bill:(pbtPrice===null||ccPrice===null)?null:p*pbtPrice+c*ccPrice,formDate,formTime},{ts:formTs});save();const cloudSaved=await hdWaitForRentalSync();if(!cloudSaved&&hdSupabase&&hdSession){alert('Customer saved on this mobile, but cloud sync failed. Please tap the cloud icon to retry.');return;}window.btccRentalStatus='active';await rentals();showRentalWhatsAppPopup(customerId)}
+function saveRental(){let n=rn.value.trim(),phone=normalizeIndianMobile(rphone.value),p=+rpbt.value||0,c=+rcc.value||0,ppRaw=document.getElementById('rpbtPrice').value,cpRaw=document.getElementById('rccPrice').value,pbtPrice=ppRaw===''?null:Number(ppRaw),ccPrice=cpRaw===''?null:Number(cpRaw),returnDate=(document.getElementById('rreturnDate')||{}).value||'',today=localDateKey(new Date());if(!n){alert('Enter customer name');return}if(phone.length!==10){validateRentalPhone();alert('Please enter a valid 10 digits mobile number.');return}if(p<=0&&c<=0){validateRentalCans();alert('Please enter at least one BT quantity or CC quantity.');return}if((pbtPrice!==null&&(!Number.isFinite(pbtPrice)||pbtPrice<0))||(ccPrice!==null&&(!Number.isFinite(ccPrice)||ccPrice<0))){alert('Price cannot be negative.');return}if(returnDate&&returnDate<today){alert('Return Date cannot be less than today.');return}const formDate=String(document.getElementById('rdate').value||'');const formTime=String(document.getElementById('rtime').value||'');if(!formDate||!formTime){alert('Please enter Rental Date and Rental Time.');return}let sameDateSeq=Object.keys(R).filter(k=>String(R[k].rentalDate||'')===formDate).map(k=>Number(R[k].rentalSequence)).filter(Number.isFinite);let rentalSequence=sameDateSeq.length?Math.max(...sameDateSeq)+1:1;const formStamp=new Date(formDate+'T'+formTime+':00');if(Number.isNaN(formStamp.getTime())){alert('Please enter a valid Rental Date and Rental Time.');return}const formTs=formStamp.getTime();const customerId=hdUuid();R[customerId]={name:n,phone,deposit:(+rdep.value||0),pbt:p,cc:c,pbtPrice,ccPrice,rentalDate:formDate,rentalTime:formTime,createdFormDate:formDate,createdFormTime:formTime,createdFormTs:formTs,returnDate,rentalSequence,returns:[],additions:[],refills:[],activity:[],pending:false,closed:false,refundCompleted:false,cloudId:customerId};addRentalActivity(R[customerId],{type:'added',name:n,phone,deposit:(+rdep.value||0),pbt:p,cc:c,bill:(pbtPrice===null||ccPrice===null)?null:p*pbtPrice+c*ccPrice,formDate,formTime},{ts:formTs});save();window.btccRentalStatus='active';rentals();showRentalWhatsAppPopup(customerId)}
 function formatRentalDateForWhatsApp(ds){if(!ds)return '';let a=ds.split('-');return a.length===3?a[2]+'-'+a[1]+'-'+a[0]:ds}
 function buildRentalWhatsAppMessage(n){let c=R[n];if(!c)return '';let btQty=+c.pbt||0,ccQty=+c.cc||0,btPrice=Number.isFinite(+c.pbtPrice)?+c.pbtPrice:20,ccPrice=Number.isFinite(+c.ccPrice)?+c.ccPrice:50;let btAmount=btQty*btPrice,ccAmount=ccQty*ccPrice,bill=btAmount+ccAmount,refundable=Math.max(0,(+c.deposit||0)-bill);let lines=['*Happy Drops*','_(Packaged Drinking Water)_','_8367234777_','', '*Name:* '+(c.name||n),'*Mobile:* '+c.phone,'*Date:* '+formatRentalDateForWhatsApp(c.rentalDate),''];if(btQty>0)lines.push('*BT:* '+btQty+' X '+btPrice+' = '+btAmount);if(ccQty>0)lines.push('*CC:* '+ccQty+' X '+ccPrice+' = '+ccAmount);lines.push('*Bill:* '+bill,'','*Deposited:* '+(+c.deposit||0),'*Refundable:* '+refundable,'','> Note: please return the cans within 2 days, Rental will be charged');return lines.join('\n')}
 function showRentalWhatsAppPopup(n){let old=document.getElementById('rentalWhatsappPopup');if(old)old.remove();window._pendingRentalWhatsapp=n;let el=document.createElement('div');el.id='rentalWhatsappPopup';el.innerHTML=`<div style="position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:18px;z-index:9999"><div style="background:#fff;border-radius:16px;max-width:380px;width:100%;padding:20px;box-shadow:0 12px 35px rgba(0,0,0,.25);text-align:center"><div style="font-size:34px">💬</div><h3 style="margin:8px 0 6px">Send to Customer WhatsApp?</h3><div id="rentalWhatsappCustomer" style="color:#666;font-size:13px;margin-bottom:18px"></div><button id="rentalWhatsappSend" class="btn" style="width:100%;background:#25D366">Send to Customer WhatsApp</button><button id="rentalWhatsappCancel" class="btn secondary" style="width:100%;margin-top:8px">Cancel</button></div></div>`;document.body.appendChild(el);document.getElementById('rentalWhatsappCustomer').textContent='Send the rental details to '+(R[n]?.name||n);document.getElementById('rentalWhatsappSend').onclick=function(){sendRentalWhatsApp(window._pendingRentalWhatsapp)};document.getElementById('rentalWhatsappCancel').onclick=function(){el.remove();window._pendingRentalWhatsapp=null}}
@@ -1888,24 +1411,14 @@ function addBTCCCans(n){
   document.getElementById('addBTQty').addEventListener('input',updateAddPreview);
   document.getElementById('addCCQty').addEventListener('input',updateAddPreview);
   document.getElementById('addCansCancel').onclick=()=>modal.remove();
-  document.getElementById('addCansConfirm').onclick=async()=>{
+  document.getElementById('addCansConfirm').onclick=()=>{
     const b=Math.max(0,parseInt(document.getElementById('addBTQty').value)||0);
     const q=Math.max(0,parseInt(document.getElementById('addCCQty').value)||0);
     const err=document.getElementById('addCansErr');
     if(!b&&!q){err.textContent='Enter at least one BT or CC quantity.';return}
     c.additions=c.additions||[];
-    const btPrice=(c.pbtPrice===null||c.pbtPrice===undefined||c.pbtPrice==='')?0:Number(c.pbtPrice);const ccPrice=(c.ccPrice===null||c.ccPrice===undefined||c.ccPrice==='')?0:Number(c.ccPrice);const amount=b*btPrice+q*ccPrice;
-    c.additions.push({date:localDateKey(new Date()),pbt:b,cc:q,pbtPrice:c.pbtPrice,ccPrice:c.ccPrice,deposit:0,ts:Date.now()});
-    addRentalActivity(c,{type:'addCans',pbt:b,cc:q,amount});
-    // Persist locally first, then wait for the existing rental cloud sync to
-    // finish before re-rendering the profile. This prevents a cloud refresh
-    // race from replacing the newly-added CC/BT quantities with an older copy.
+    const btPrice=(c.pbtPrice===null||c.pbtPrice===undefined||c.pbtPrice==='')?0:Number(c.pbtPrice);const ccPrice=(c.ccPrice===null||c.ccPrice===undefined||c.ccPrice==='')?0:Number(c.ccPrice);const amount=b*btPrice+q*ccPrice;c.additions.push({date:localDateKey(new Date()),pbt:b,cc:q,pbtPrice:c.pbtPrice,ccPrice:c.ccPrice,deposit:0,ts:Date.now()});addRentalActivity(c,{type:'addCans',pbt:b,cc:q,amount});
     save();
-    const cloudSaved=await hdWaitForRentalSync();
-    if(!cloudSaved&&hdSupabase&&hdSession){
-      err.textContent='Saved on this mobile, but cloud sync failed. Tap the cloud icon to retry.';
-      return;
-    }
     modal.remove();
     openRental(n);
   };
@@ -2354,25 +1867,8 @@ function hdStockTabClass(offset){
   return 'hd-stock-yesterday';
 }
 function hdStockTabAction(offset){
-  if(offset===2)return 'hdStockThirdTap(event)';
+  if(offset===2)return 'openStockDatePicker()';
   return 'renderStockForm('+offset+')';
-}
-function hdStockThirdTap(event){
-  if(event){event.preventDefault();event.stopPropagation();}
-  const now=Date.now();
-  const last=Number(window.hdStockThirdTapAt||0);
-  window.hdStockThirdTapAt=now;
-
-  // Single tap: behave exactly like Today/Yesterday and show the
-  // stock data for the third column's current date.
-  renderStockForm(2);
-
-  // Double tap: open the existing past-date picker so the user can
-  // choose a different date.
-  if(now-last<=450){
-    window.hdStockThirdTapAt=0;
-    openStockDatePicker();
-  }
 }
 function openStockDatePicker(){
   const current=hdStockThirdDateKey();
@@ -2960,6 +2456,7 @@ function shareMoneyWhatsApp(){
 
 ensureSyncBadge();
 setTimeout(hdInitCloud,150);
+setInterval(()=>{if(hdSupabase&&hdSession&&!hdCloudBusy)hdRefreshRentalsFromCloud().catch(e=>console.warn('Rental cloud poll error',e));},5000);
 if("serviceWorker" in navigator){window.addEventListener("load",()=>{navigator.serviceWorker.register("./service-worker.js",{scope:"./"}).catch(e=>console.error("Service worker registration failed",e));});}
 </script>
 <script>
