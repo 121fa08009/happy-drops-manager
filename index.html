@@ -642,10 +642,18 @@ async function hdHandleRentalRealtime(payload){
     await hdRefreshRentalsFromCloud();
   }catch(e){console.warn('Rental realtime handler error',e);}
 }
+let hdRentalRealtimeStatus='disconnected';
+let hdRentalRealtimeRetryTimer=null;
+let hdCloudLifecycleBusy=false;
+let hdCloudPollTimer=null;
+
 async function hdStartRentalRealtime(){
-  if(!hdSupabase||!hdSession)return;
+  if(!hdSupabase||!hdSession)return false;
   try{
-    if(hdRentalRealtimeChannel){await hdSupabase.removeChannel(hdRentalRealtimeChannel);hdRentalRealtimeChannel=null;}
+    if(hdRentalRealtimeRetryTimer){clearTimeout(hdRentalRealtimeRetryTimer);hdRentalRealtimeRetryTimer=null;}
+    if(hdRentalRealtimeChannel){try{await hdSupabase.removeChannel(hdRentalRealtimeChannel);}catch(_){ } hdRentalRealtimeChannel=null;}
+    hdRentalRealtimeStatus='connecting';
+    hdSetCloudStatus('connecting','Connecting to cloud…');
     const tables=['rental_customers','rental_additions','rental_returns','rental_refills','rental_deposit_transactions','rental_activity'];
     let channel=hdSupabase.channel('happy-drops-rentals-sync');
     for(const table of tables){
@@ -654,11 +662,88 @@ async function hdStartRentalRealtime(){
     hdRentalRealtimeChannel=channel;
     channel.subscribe((status,err)=>{
       console.log('Happy Drops rental realtime:',status,err||'');
-      if(status==='CHANNEL_ERROR'||status==='TIMED_OUT')setTimeout(()=>hdStartRentalRealtime(),5000);
+      hdRentalRealtimeStatus=String(status||'').toLowerCase();
+      if(status==='SUBSCRIBED'){
+        hdRentalRealtimeStatus='subscribed';
+        if(hdPendingRentalSyncIds.size) hdSetCloudStatus('syncing','Cloud connected — syncing pending changes…');
+        else hdSetCloudStatus('synced','Cloud connected and synced');
+      }else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED'){
+        hdRentalRealtimeStatus='disconnected';
+        hdSetCloudStatus(navigator.onLine?'error':'offline',navigator.onLine?'Cloud realtime disconnected — retrying…':'Offline');
+        hdRentalRealtimeRetryTimer=setTimeout(()=>hdStartRentalRealtime(),3000);
+      }else if(status==='JOINING'){
+        hdSetCloudStatus('connecting','Connecting to cloud…');
+      }
     });
-  }catch(e){console.warn('Rental realtime setup error',e);}
+    return true;
+  }catch(e){
+    hdRentalRealtimeStatus='disconnected';
+    console.warn('Rental realtime setup error',e);
+    hdSetCloudStatus(navigator.onLine?'error':'offline',navigator.onLine?'Cloud realtime error — retrying…':'Offline');
+    hdRentalRealtimeRetryTimer=setTimeout(()=>hdStartRentalRealtime(),3000);
+    return false;
+  }
 }
-function hdInitCloud(){try{if(!window.supabase||!window.supabase.createClient)return;hdSupabase=window.supabase.createClient(HAPPY_DROPS_SUPABASE_URL,HAPPY_DROPS_SUPABASE_PUBLISHABLE_KEY);hdSupabase.auth.getSession().then(async ({data})=>{hdSession=data.session||null;if(hdSession){await hdCloudBootstrap();setTimeout(()=>hdStartPushRegistration(),250);}else hdShowAuth();});hdSupabase.auth.onAuthStateChange((_event,session)=>{hdSession=session||null;if(hdSession){hdSetCloudStatus('connecting','Connected — syncing…');setTimeout(()=>hdStartPushRegistration(),250);}else hdSetCloudStatus('connecting','Cloud login required');});}catch(e){console.error('Supabase init error',e);}}
+
+async function hdCloudLifecycleRefresh(reason){
+  if(hdCloudLifecycleBusy||!hdSupabase||!hdSession)return;
+  hdCloudLifecycleBusy=true;
+  try{
+    hdSetCloudStatus('connecting',reason||'Connecting to cloud…');
+    const ok=await hdRefreshRentalsFromCloud();
+    if(!ok){
+      hdSetCloudStatus(navigator.onLine?'error':'offline',navigator.onLine?'Cloud sync is not complete':'Offline');
+      return;
+    }
+    await hdStartRentalRealtime();
+    if(hdPendingRentalSyncIds.size) await hdCloudSyncRentals();
+    if(hdPendingRentalSyncIds.size===0 && hdRentalRealtimeStatus==='subscribed') hdSetCloudStatus('synced','Cloud connected and synced');
+  }catch(e){
+    console.error('Cloud lifecycle error',e);
+    hdSetCloudStatus(navigator.onLine?'error':'offline',navigator.onLine?(e?.message||'Cloud sync error'):'Offline');
+  }finally{hdCloudLifecycleBusy=false;}
+}
+
+function hdInitCloud(){
+  try{
+    if(!window.supabase||!window.supabase.createClient)return;
+    hdSupabase=window.supabase.createClient(HAPPY_DROPS_SUPABASE_URL,HAPPY_DROPS_SUPABASE_PUBLISHABLE_KEY,{
+      auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}
+    });
+    hdSupabase.auth.getSession().then(async ({data})=>{
+      hdSession=data?.session||null;
+      if(hdSession){
+        await hdCloudBootstrap();
+        await hdStartRentalRealtime();
+        setTimeout(()=>hdStartPushRegistration(),250);
+      }else hdShowAuth();
+    }).catch(e=>{console.error('Supabase session error',e);hdSetCloudStatus(navigator.onLine?'error':'offline',navigator.onLine?'Cloud session error':'Offline');});
+    hdSupabase.auth.onAuthStateChange((event,session)=>{
+      hdSession=session||null;
+      if(hdSession){
+        hdSetCloudStatus('connecting','Cloud session active — syncing…');
+        setTimeout(()=>hdCloudLifecycleRefresh('Refreshing cloud connection…'),0);
+        setTimeout(()=>hdStartPushRegistration(),250);
+      }else{
+        hdRentalRealtimeStatus='disconnected';
+        hdSetCloudStatus('connecting','Cloud login required');
+      }
+      console.log('Happy Drops cloud auth:',event,!!session);
+    });
+    window.addEventListener('online',()=>{
+      if(hdSupabase&&hdSession)hdCloudLifecycleRefresh('Internet restored — reconnecting cloud…');
+    });
+    window.addEventListener('offline',()=>hdSetCloudStatus('offline','Offline'));
+    if(hdCloudPollTimer)clearInterval(hdCloudPollTimer);
+    hdCloudPollTimer=setInterval(()=>{
+      if(hdSupabase&&hdSession&&!hdCloudBusy&&!hdCloudLifecycleBusy){
+        hdRefreshRentalsFromCloud().then(ok=>{
+          if(ok && hdPendingRentalSyncIds.size===0 && hdRentalRealtimeStatus==='subscribed') hdSetCloudStatus('synced','Cloud connected and synced');
+        }).catch(e=>console.warn('Rental cloud poll error',e));
+      }
+    },5000);
+  }catch(e){console.error('Supabase init error',e);hdSetCloudStatus(navigator.onLine?'error':'offline',navigator.onLine?'Cloud initialization error':'Offline');}
+}
 
 // Happy Drops Manager Web Push registration
 const HD_VAPID_PUBLIC_KEY = "BAfyUjWhYjRl6aExLadqGEFlc8b_CMRol2VJFReuST8tYg64dqi-iGCxh6Kueja0jqtE8S40fZjU5BkViO1xKUM";
@@ -2862,7 +2947,6 @@ function shareMoneyWhatsApp(){
 
 ensureSyncBadge();
 setTimeout(hdInitCloud,150);
-setInterval(()=>{if(hdSupabase&&hdSession&&!hdCloudBusy)hdRefreshRentalsFromCloud().catch(e=>console.warn('Rental cloud poll error',e));},5000);
 if("serviceWorker" in navigator){window.addEventListener("load",()=>{navigator.serviceWorker.register("./service-worker.js",{scope:"./"}).catch(e=>console.error("Service worker registration failed",e));});}
 </script>
 <script>
