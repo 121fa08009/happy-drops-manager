@@ -322,25 +322,44 @@ async function hdApplyCloudSnapshot(cloud){
   if(document.getElementById('rentList')){try{renderBTCCRentsStatus();}catch(e){console.warn('Rental list refresh error',e);}}
 }
 async function hdLoadRentals(){
-  const {data:rows,error}=await hdSupabase.from('rental_customers').select('*').order('rental_date',{ascending:false}).order('rental_time',{ascending:false});
+  const {data:rows,error}=await hdSupabase.from('rental_customers').select('*')
+    .order('rental_date',{ascending:false}).order('rental_time',{ascending:false});
   if(error)throw error;
-  const result={}; const uuidName=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  const result={};
+  const uuidName=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   for(const row of (rows||[])){
-    if(String(row.status||'').toLowerCase()==='deleted')continue;
-    if(uuidName.test(String(row.name||''))){try{await hdDeleteChildren(row.id);await hdSupabase.from('rental_customers').delete().eq('id',row.id);}catch(e){console.warn('Could not remove legacy UUID rental',e)}continue;}
-    const rowName=String(row.name||'').trim(); if(!rowName)continue;
-    result[rowName]={name:rowName,phone:row.mobile||'',deposit:Number(row.security_deposit)||0,pbt:Number(row.bt_quantity)||0,cc:Number(row.cc_quantity)||0,pbtPrice:(row.bt_price===null||row.bt_price===undefined||row.bt_price==='')?0:Number(row.bt_price),ccPrice:(row.cc_price===null||row.cc_price===undefined||row.cc_price==='')?0:Number(row.cc_price),rentalDate:row.rental_date,rentalTime:row.rental_time||'',returnDate:row.return_date||'',rentalSequence:0,returns:[],additions:[],refills:[],depositRefunds:[],activity:[],pending:row.status==='pending',closed:row.status==='closed',closedFinal:row.status==='closed',refundCompleted:!!row.refund_completed,cloudId:row.id};
+    if(uuidName.test(String(row.name||''))){
+      try{await hdDeleteChildren(row.id);await hdSupabase.from('rental_customers').delete().eq('id',row.id);}catch(e){console.warn('Could not remove legacy UUID rental',e)}
+      continue;
+    }
+    const c={
+      phone:row.mobile||'',deposit:Number(row.security_deposit)||0,pbt:Number(row.bt_quantity)||0,cc:Number(row.cc_quantity)||0,
+      pbtPrice:(row.bt_price===null||row.bt_price===undefined||row.bt_price==='')?0:Number(row.bt_price),
+      ccPrice:(row.cc_price===null||row.cc_price===undefined||row.cc_price==='')?0:Number(row.cc_price),
+      rentalDate:row.rental_date,rentalTime:row.rental_time||'',returnDate:row.return_date||'',rentalSequence:1,
+      returns:[],additions:[],refills:[],depositRefunds:[],activity:[],pending:row.status==='pending',closed:row.status==='closed',
+      refundCompleted:!!row.refund_completed,cloudId:row.id
+    };
+    result[row.name]=c;
   }
-  const ids=Object.values(result).map(c=>c.cloudId).filter(Boolean); if(!ids.length)return result;
-  const byId=new Map(Object.values(result).map(c=>[String(c.cloudId),c]));
-  for(const table of ['rental_additions','rental_returns','rental_refills','rental_deposit_transactions','rental_activity']){
-    const {data,error}=await hdSupabase.from(table).select('*').in('rental_customer_id',ids).order('created_at',{ascending:true}); if(error)throw error;
-    for(const row of (data||[])){const c=byId.get(String(row.rental_customer_id));if(!c)continue;const ts=new Date(row.created_at).getTime()||Date.now();
+  const ids=Object.values(result).map(c=>c.cloudId);
+  if(!ids.length)return result;
+  const tables=['rental_additions','rental_returns','rental_refills','rental_deposit_transactions','rental_activity'];
+  for(const table of tables){
+    const {data,error}=await hdSupabase.from(table).select('*').in('rental_customer_id',ids).order('created_at',{ascending:true});
+    if(error)throw error;
+    for(const row of (data||[])){
+      const c=Object.values(result).find(x=>x.cloudId===row.rental_customer_id);if(!c)continue;
+      const ts=new Date(row.created_at).getTime()||Date.now();
       if(table==='rental_additions')c.additions.push({date:row.created_at?.slice(0,10)||'',pbt:Number(row.bt_quantity)||0,cc:Number(row.cc_quantity)||0,deposit:Number(row.deposit_amount)||0,ts});
       else if(table==='rental_returns')c.returns.push({date:row.created_at?.slice(0,10)||'',pbt:Number(row.bt_quantity)||0,cc:Number(row.cc_quantity)||0,ts});
       else if(table==='rental_refills')c.refills.push({date:row.created_at?.slice(0,10)||'',pbt:Number(row.bt_quantity)||0,cc:Number(row.cc_quantity)||0,amount:(Number(row.bt_quantity)||0)*15+(Number(row.cc_quantity)||0)*30,ts});
-      else if(table==='rental_deposit_transactions'){let last=c.depositRefunds.find(x=>x.ts===ts);if(!last){last={deposit:0,refund:0,ts};c.depositRefunds.push(last);}if(row.transaction_type==='deposit')last.deposit+=Number(row.amount)||0;else if(row.transaction_type==='refund')last.refund+=Number(row.amount)||0;}
-      else {let x=row.details||{};if(typeof x==='string'){try{x=JSON.parse(x)}catch(_){x={type:row.activity_type,amount:row.amount}}}c.activity.push({...x,ts});}
+      else if(table==='rental_deposit_transactions'){
+        let last=c.depositRefunds.find(x=>x.ts===ts);if(!last){last={deposit:0,refund:0,ts};c.depositRefunds.push(last);}
+        if(row.transaction_type==='deposit')last.deposit+=Number(row.amount)||0;else if(row.transaction_type==='refund')last.refund+=Number(row.amount)||0;
+      }else{
+        let x=row.details||{};if(typeof x==='string'){try{x=JSON.parse(x)}catch(_){x={type:row.activity_type,amount:row.amount}}}c.activity.push({...x,ts});
+      }
     }
   }
   return result;
@@ -348,104 +367,74 @@ async function hdLoadRentals(){
 
 async function hdLoadRentalsAndMerge(){const cloud=await hdLoadRentals();await hdApplyCloudSnapshot(cloud);return cloud;}
 async function hdCloudBootstrap(){
-  if(!hdSupabase||!hdSession)return;
+  if(!hdSupabase||!hdSession)return false;
   try{
+    hdSetCloudStatus('connecting','Connecting to cloud…');
     const cloud=await hdLoadRentals();
     const cloudCount=Object.keys(cloud).length;
-    let local=hdNormalizeRentalKeys(typeof R!=='undefined'?R:{});
-    if(cloudCount>0){
-      R=cloud;
-      ensureRentalSequences();
-      hdSaveRentalSyncFingerprints();
-      hdPersistRentalLocalOnly();
-    }else if(Object.keys(local).length){
-      R=local;
-      for(const [name,c] of Object.entries(R))await hdPushRental(name,c);
-      hdSaveRentalSyncFingerprints();
-      hdPersistRentalLocalOnly();
-    }else R={};
+    let local=typeof R!=='undefined'?R:{};
+    const uuidName=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    local=Object.fromEntries(Object.entries(local).filter(([n])=>!uuidName.test(String(n))));
+    if(cloudCount>0){R=cloud;ensureRentalSequences();hdPersistRentalLocalOnly();}
+    else if(Object.keys(local).length){R=local;for(const [n,c] of Object.entries(R))await hdPushRental(n,c);ensureRentalSequences();hdPersistRentalLocalOnly();}
+    else R={};
     hdSavePendingRentalSyncIds();
     hdCloudBadge();
-    hdSetCloudStatus('synced','Cloud synced successfully');
+    hdSetCloudStatus('synced','Cloud connected and synced');
+    return true;
   }catch(e){
     console.error('Cloud bootstrap error',e);
     hdCloudBadge();
-    hdSetCloudStatus(navigator.onLine?'error':'offline',navigator.onLine?('Cloud sync failed: '+(e?.message||e)):'Offline');
+    hdSetCloudStatus(navigator.onLine?'error':'offline',navigator.onLine?'Cloud sync failed: '+(e?.message||e):'Offline');
+    return false;
   }
 }
 async function hdCloudSyncRentals(){
   if(!hdSupabase||!hdSession)return false;
   if(hdCloudBusy){hdCloudSyncAgain=true;return true;}
-  hdCloudBusy=true;
-  hdSetCloudStatus('syncing','Syncing to cloud…');
+  hdCloudBusy=true;hdSetCloudStatus('syncing','Syncing to cloud…');
   try{
     do{
       hdCloudSyncAgain=false;
-      const names=[...hdPendingRentalSyncIds];
-      for(const name of names){
-        const c=R?.[name];
-        if(c){
-          const snapshot=JSON.parse(JSON.stringify(c));
-          await hdPushRental(name,snapshot);
-          if(R[name])R[name].cloudId=snapshot.cloudId||R[name].cloudId;
-          hdSetRentalSyncBaseline(name,R[name]||snapshot);
-        }
-        hdClearRentalDirty(name);
-      }
+      for(const [name,c] of Object.entries(R||{}))await hdPushRental(name,c);
       for(const id of [...hdDeletedRentalIds]){
         await hdDeleteChildren(id);
-        const {error}=await hdSupabase.from('rental_customers').delete().eq('id',id);
-        if(error)throw error;
-        hdDeletedRentalIds.delete(String(id));
-        hdClearRentalDirty(id);
-        hdClearRentalSyncBaseline(id);
+        const {error}=await hdSupabase.from('rental_customers').delete().eq('id',id);if(error)throw error;
+        hdDeletedRentalIds.delete(String(id));hdPendingRentalSyncIds.delete(String(id));
       }
       try{localStorage.setItem('happyDropsDeletedRentalIds',JSON.stringify([...hdDeletedRentalIds]));}catch(_){ }
       hdSavePendingRentalSyncIds();
-      hdSaveRentalSyncFingerprints();
       localStorage.setItem('happyDropsCloudLastSync',new Date().toISOString());
-      hdSetCloudStatus('synced','Cloud synced successfully');
+      hdSetCloudStatus('synced','Cloud connected and synced');
     }while(hdCloudSyncAgain);
     return true;
   }catch(e){
     console.error('Cloud sync error',e);
-    hdSetCloudStatus(navigator.onLine?'error':'offline',navigator.onLine?('Cloud sync failed: '+(e?.message||e)):'Offline');
+    hdSetCloudStatus(navigator.onLine?'error':'offline',navigator.onLine?'Cloud sync failed: '+(e?.message||e):'Offline');
     return false;
-  }finally{
-    hdCloudBusy=false;
-    if(hdCloudSyncAgain){hdCloudSyncAgain=false;setTimeout(()=>hdCloudSyncRentals(),0);}
-  }
+  }finally{hdCloudBusy=false;if(hdCloudSyncAgain){hdCloudSyncAgain=false;setTimeout(()=>hdCloudSyncRentals(),0);}}
 }
 async function hdRefreshRentalsFromCloud(){
   if(!hdSupabase||!hdSession||hdCloudBusy)return false;
-  try{
-    await hdLoadRentalsAndMerge();
-    localStorage.setItem('happyDropsCloudLastSync',new Date().toISOString());
-    hdSetCloudStatus('synced','Cloud synced successfully');
-    return true;
-  }catch(e){
-    console.error('Cloud refresh error',e);
-    hdSetCloudStatus(navigator.onLine?'error':'offline',navigator.onLine?('Cloud refresh failed: '+(e?.message||e)):'Offline');
-    return false;
-  }
+  hdCloudBusy=true;
+  try{const cloud=await hdLoadRentals();R=cloud;ensureRentalSequences();hdPersistRentalLocalOnly();localStorage.setItem('happyDropsCloudLastSync',new Date().toISOString());hdSetCloudStatus('synced','Cloud connected and synced');return true;}
+  catch(e){console.error('Cloud refresh error',e);hdSetCloudStatus(navigator.onLine?'error':'offline',navigator.onLine?'Cloud refresh failed: '+(e?.message||e):'Offline');return false;}
+  finally{hdCloudBusy=false;}
 }
 async function hdHandleRentalRealtime(payload){return;}
-async function hdStartRentalRealtime(){return;}
+async function hdStartRentalRealtime(){return true;}
 function hdInitCloud(){
   try{
-    if(!window.supabase||!window.supabase.createClient)return;
-    hdSupabase=window.supabase.createClient(HAPPY_DROPS_SUPABASE_URL,HAPPY_DROPS_SUPABASE_PUBLISHABLE_KEY);
-    hdSupabase.auth.getSession().then(async ({data})=>{
-      hdSession=data.session||null;
-      if(hdSession){await hdCloudBootstrap();setTimeout(()=>hdStartPushRegistration(),250);}
-      else hdShowAuth();
-    }).catch(e=>{console.error('Supabase session error',e);hdSetCloudStatus('error','Cloud session error: '+(e?.message||e));});
-    hdSupabase.auth.onAuthStateChange((_event,session)=>{
-      hdSession=session||null;
-      if(hdSession)hdSetCloudStatus('connecting','Connected — syncing…');
-      else hdSetCloudStatus('connecting','Cloud login required');
-    });
-  }catch(e){console.error('Supabase init error',e);hdSetCloudStatus('error','Cloud initialization error: '+(e?.message||e));}
+    if(!window.supabase||!window.supabase.createClient){hdSetCloudStatus('error','Supabase library not loaded');return;}
+    hdSupabase=window.supabase.createClient(HAPPY_DROPS_SUPABASE_URL,HAPPY_DROPS_SUPABASE_PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}});
+    hdSupabase.auth.getSession().then(async ({data,error})=>{
+      if(error)throw error;hdSession=data?.session||null;
+      if(hdSession){await hdCloudBootstrap();setTimeout(()=>hdStartPushRegistration(),250);}else hdShowAuth();
+    }).catch(e=>{console.error('Supabase session error',e);hdSetCloudStatus(navigator.onLine?'error':'offline',navigator.onLine?'Cloud session error: '+(e?.message||e):'Offline');hdShowAuth();});
+    hdSupabase.auth.onAuthStateChange((_event,session)=>{hdSession=session||null;if(hdSession){hdSetCloudStatus('connecting','Cloud session active — syncing…');setTimeout(()=>hdCloudBootstrap(),0);}else hdSetCloudStatus('connecting','Cloud login required');});
+    window.addEventListener('online',()=>{if(hdSupabase&&hdSession)hdCloudBootstrap();});
+    window.addEventListener('offline',()=>hdSetCloudStatus('offline','Offline'));
+  }catch(e){console.error('Supabase init error',e);hdSetCloudStatus(navigator.onLine?'error':'offline',navigator.onLine?'Cloud initialization error: '+(e?.message||e):'Offline');}
 }
 
 // Happy Drops Manager Web Push registration
