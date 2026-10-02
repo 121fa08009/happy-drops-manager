@@ -207,9 +207,7 @@ function hdMarkRentalDeleted(id){if(!id)return;hdDeletedRentalIds.add(String(id)
 function hdUnmarkRentalDeleted(id){if(!id)return;hdDeletedRentalIds.delete(String(id));localStorage.setItem('happyDropsDeletedRentalIds',JSON.stringify([...hdDeletedRentalIds]));}
 function hdCloudMessage(text,color){const e=document.getElementById('cloudAuthMsg');if(e){e.textContent=text;e.style.color=color||'#1769aa';}}
 function hdSetCloudStatus(state,text){const e=document.getElementById('hdCloudStatus');const t=document.getElementById('hdCloudStatusText');
-  // Cloud colour is a connectivity indicator, not a sync-progress indicator.
-  // Once the user is online and signed in, keep it GREEN; only offline is GREY.
-  const displayState=(!navigator.onLine)?'offline':(hdSession?'synced':(state||'connecting'));
+  const displayState=state||'connecting';
   if(e){e.dataset.state=displayState;e.title=text||'Cloud sync status';e.setAttribute('aria-label',text||'Cloud sync status');}
   if(t)t.textContent=text||'Cloud';}
 async function hdManualCloudSync(){if(!hdSupabase||!hdSession){hdSetCloudStatus('connecting','Cloud login required');return;}hdSetCloudStatus('syncing','Syncing…');try{const pushed=await hdCloudSyncRentals();if(pushed===false)throw new Error('Cloud push failed; see the sync status message.');const refreshed=await hdRefreshRentalsFromCloud();if(!refreshed)throw new Error('Cloud refresh failed.');hdSetCloudStatus('synced','Cloud synced successfully');}catch(e){console.error('Manual cloud sync error',e);hdSetCloudStatus(navigator.onLine?'error':'offline',e?.message|| (navigator.onLine?'Cloud sync failed':'Offline'));}}
@@ -575,7 +573,8 @@ async function hdWaitForRentalSync(){
   for(let i=0;i<120&&hdCloudBusy;i++)await new Promise(r=>setTimeout(r,100));
   if(hdCloudBusy)return false;
   if(hdPendingRentalSyncIds.size){
-    try{await hdCloudSyncRentals();}catch(e){console.error('Rental sync retry error',e);return false;}
+    const ok=await hdCloudSyncRentals();
+    if(!ok)return false;
   }
   return hdPendingRentalSyncIds.size===0;
 }
@@ -1015,7 +1014,15 @@ async function rentals(){
      hdSession=sessionResult?.data?.session||null;
    }
    if(hdSupabase&&hdSession){
-     await hdRefreshRentalsFromCloud();
+     if(hdPendingRentalSyncIds.size){
+       const pushed=await hdCloudSyncRentals();
+       if(!pushed) console.warn('Rental cloud push did not complete; keeping changes queued.');
+     }
+     let refreshed=await hdRefreshRentalsFromCloud();
+     if(!refreshed){
+       await new Promise(r=>setTimeout(r,500));
+       refreshed=await hdRefreshRentalsFromCloud();
+     }
    }
  }catch(e){
    console.error("Rental cloud session check error",e);
@@ -1153,7 +1160,7 @@ function startRentalNameVoice(e){
   }
 }
 
-async function saveRental(){let n=rn.value.trim(),phone=normalizeIndianMobile(rphone.value),p=+rpbt.value||0,c=+rcc.value||0,ppRaw=document.getElementById('rpbtPrice').value,cpRaw=document.getElementById('rccPrice').value,pbtPrice=ppRaw===''?null:Number(ppRaw),ccPrice=cpRaw===''?null:Number(cpRaw),returnDate=(document.getElementById('rreturnDate')||{}).value||'',today=localDateKey(new Date());if(!n){alert('Enter customer name');return}if(phone.length!==10){validateRentalPhone();alert('Please enter a valid 10 digits mobile number.');return}if(p<=0&&c<=0){validateRentalCans();alert('Please enter at least one BT quantity or CC quantity.');return}if((pbtPrice!==null&&(!Number.isFinite(pbtPrice)||pbtPrice<0))||(ccPrice!==null&&(!Number.isFinite(ccPrice)||ccPrice<0))){alert('Price cannot be negative.');return}if(returnDate&&returnDate<today){alert('Return Date cannot be less than today.');return}const formDate=String(document.getElementById('rdate').value||'');const formTime=String(document.getElementById('rtime').value||'');if(!formDate||!formTime){alert('Please enter Rental Date and Rental Time.');return}let sameDateSeq=Object.keys(R).filter(k=>String(R[k].rentalDate||'')===formDate).map(k=>Number(R[k].rentalSequence)).filter(Number.isFinite);let rentalSequence=sameDateSeq.length?Math.max(...sameDateSeq)+1:1;const formStamp=new Date(formDate+'T'+formTime+':00');if(Number.isNaN(formStamp.getTime())){alert('Please enter a valid Rental Date and Rental Time.');return}const formTs=formStamp.getTime();const customerId=hdUuid();R[customerId]={name:n,phone,deposit:(+rdep.value||0),pbt:p,cc:c,pbtPrice,ccPrice,rentalDate:formDate,rentalTime:formTime,createdFormDate:formDate,createdFormTime:formTime,createdFormTs:formTs,returnDate,rentalSequence,returns:[],additions:[],refills:[],activity:[],pending:false,closed:false,refundCompleted:false,cloudId:customerId};addRentalActivity(R[customerId],{type:'added',name:n,phone,deposit:(+rdep.value||0),pbt:p,cc:c,bill:(pbtPrice===null||ccPrice===null)?null:p*pbtPrice+c*ccPrice,formDate,formTime},{ts:formTs});save();await hdWaitForRentalSync();window.btccRentalStatus='active';await rentals();showRentalWhatsAppPopup(customerId)}
+async function saveRental(){let n=rn.value.trim(),phone=normalizeIndianMobile(rphone.value),p=+rpbt.value||0,c=+rcc.value||0,ppRaw=document.getElementById('rpbtPrice').value,cpRaw=document.getElementById('rccPrice').value,pbtPrice=ppRaw===''?null:Number(ppRaw),ccPrice=cpRaw===''?null:Number(cpRaw),returnDate=(document.getElementById('rreturnDate')||{}).value||'',today=localDateKey(new Date());if(!n){alert('Enter customer name');return}if(phone.length!==10){validateRentalPhone();alert('Please enter a valid 10 digits mobile number.');return}if(p<=0&&c<=0){validateRentalCans();alert('Please enter at least one BT quantity or CC quantity.');return}if((pbtPrice!==null&&(!Number.isFinite(pbtPrice)||pbtPrice<0))||(ccPrice!==null&&(!Number.isFinite(ccPrice)||ccPrice<0))){alert('Price cannot be negative.');return}if(returnDate&&returnDate<today){alert('Return Date cannot be less than today.');return}const formDate=String(document.getElementById('rdate').value||'');const formTime=String(document.getElementById('rtime').value||'');if(!formDate||!formTime){alert('Please enter Rental Date and Rental Time.');return}let sameDateSeq=Object.keys(R).filter(k=>String(R[k].rentalDate||'')===formDate).map(k=>Number(R[k].rentalSequence)).filter(Number.isFinite);let rentalSequence=sameDateSeq.length?Math.max(...sameDateSeq)+1:1;const formStamp=new Date(formDate+'T'+formTime+':00');if(Number.isNaN(formStamp.getTime())){alert('Please enter a valid Rental Date and Rental Time.');return}const formTs=formStamp.getTime();const customerId=hdUuid();R[customerId]={name:n,phone,deposit:(+rdep.value||0),pbt:p,cc:c,pbtPrice,ccPrice,rentalDate:formDate,rentalTime:formTime,createdFormDate:formDate,createdFormTime:formTime,createdFormTs:formTs,returnDate,rentalSequence,returns:[],additions:[],refills:[],activity:[],pending:false,closed:false,refundCompleted:false,cloudId:customerId};addRentalActivity(R[customerId],{type:'added',name:n,phone,deposit:(+rdep.value||0),pbt:p,cc:c,bill:(pbtPrice===null||ccPrice===null)?null:p*pbtPrice+c*ccPrice,formDate,formTime},{ts:formTs});save();const cloudSaved=await hdWaitForRentalSync();if(!cloudSaved&&hdSupabase&&hdSession){alert('Customer saved on this mobile, but cloud sync failed. Please tap the cloud icon to retry.');return;}window.btccRentalStatus='active';await rentals();showRentalWhatsAppPopup(customerId)}
 function formatRentalDateForWhatsApp(ds){if(!ds)return '';let a=ds.split('-');return a.length===3?a[2]+'-'+a[1]+'-'+a[0]:ds}
 function buildRentalWhatsAppMessage(n){let c=R[n];if(!c)return '';let btQty=+c.pbt||0,ccQty=+c.cc||0,btPrice=Number.isFinite(+c.pbtPrice)?+c.pbtPrice:20,ccPrice=Number.isFinite(+c.ccPrice)?+c.ccPrice:50;let btAmount=btQty*btPrice,ccAmount=ccQty*ccPrice,bill=btAmount+ccAmount,refundable=Math.max(0,(+c.deposit||0)-bill);let lines=['*Happy Drops*','_(Packaged Drinking Water)_','_8367234777_','', '*Name:* '+(c.name||n),'*Mobile:* '+c.phone,'*Date:* '+formatRentalDateForWhatsApp(c.rentalDate),''];if(btQty>0)lines.push('*BT:* '+btQty+' X '+btPrice+' = '+btAmount);if(ccQty>0)lines.push('*CC:* '+ccQty+' X '+ccPrice+' = '+ccAmount);lines.push('*Bill:* '+bill,'','*Deposited:* '+(+c.deposit||0),'*Refundable:* '+refundable,'','> Note: please return the cans within 2 days, Rental will be charged');return lines.join('\n')}
 function showRentalWhatsAppPopup(n){let old=document.getElementById('rentalWhatsappPopup');if(old)old.remove();window._pendingRentalWhatsapp=n;let el=document.createElement('div');el.id='rentalWhatsappPopup';el.innerHTML=`<div style="position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:18px;z-index:9999"><div style="background:#fff;border-radius:16px;max-width:380px;width:100%;padding:20px;box-shadow:0 12px 35px rgba(0,0,0,.25);text-align:center"><div style="font-size:34px">💬</div><h3 style="margin:8px 0 6px">Send to Customer WhatsApp?</h3><div id="rentalWhatsappCustomer" style="color:#666;font-size:13px;margin-bottom:18px"></div><button id="rentalWhatsappSend" class="btn" style="width:100%;background:#25D366">Send to Customer WhatsApp</button><button id="rentalWhatsappCancel" class="btn secondary" style="width:100%;margin-top:8px">Cancel</button></div></div>`;document.body.appendChild(el);document.getElementById('rentalWhatsappCustomer').textContent='Send the rental details to '+(R[n]?.name||n);document.getElementById('rentalWhatsappSend').onclick=function(){sendRentalWhatsApp(window._pendingRentalWhatsapp)};document.getElementById('rentalWhatsappCancel').onclick=function(){el.remove();window._pendingRentalWhatsapp=null}}
@@ -1773,7 +1780,11 @@ function addBTCCCans(n){
     // finish before re-rendering the profile. This prevents a cloud refresh
     // race from replacing the newly-added CC/BT quantities with an older copy.
     save();
-    await hdWaitForRentalSync();
+    const cloudSaved=await hdWaitForRentalSync();
+    if(!cloudSaved&&hdSupabase&&hdSession){
+      err.textContent='Saved on this mobile, but cloud sync failed. Tap the cloud icon to retry.';
+      return;
+    }
     modal.remove();
     openRental(n);
   };
@@ -2973,3 +2984,4 @@ function hdBack(fallback){
   else hideHappyDropsLaunch();
 })();
 </script>
+</body></html>
