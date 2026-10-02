@@ -486,30 +486,44 @@ async function hdLoadRentalsAndMerge(){
 async function hdCloudBootstrap(){
   if(!hdSupabase||!hdSession)return;
   try{
-    const cloud=await hdLoadRentals();
-    const cloudCount=Object.keys(cloud||{}).length;
-    const local=typeof R!=='undefined'?R:{};
-    if(cloudCount>0){
-      // Supabase is the shared source of truth once cloud data exists.
-      R=cloud;
-      ensureRentalSequences();
-      hdPersistRentalLocalOnly();
-    }else if(Object.keys(local||{}).length){
-      // First device migration: upload existing local rentals to Supabase.
-      R=local;
-      await hdCloudSyncRentals();
-      ensureRentalSequences();
-    }else{
-      R={};
-    }
+    await hdLoadRentalsAndMerge();
+    const pushed=await hdCloudSyncRentals();
+    await hdStartRentalRealtime();
     hdCloudBadge();
-    hdSetCloudStatus('synced','Cloud connected and synced');
+    if(pushed!==false)hdSetCloudStatus('synced','Cloud synced successfully');
   }catch(e){
     console.error('Cloud load error',e);
-    hdSetCloudStatus(navigator.onLine?'error':'offline',navigator.onLine?'Cloud connection error: '+(e?.message||'unknown error'):'Offline');
+    if(typeof R==='undefined'||!R)R={};
+    hdCloudBadge();
+    hdSetCloudStatus(navigator.onLine?'error':'offline',navigator.onLine?'Cloud sync error':'Offline');
   }
 }
-
+function hdFindLocalRentalByCloudId(id){
+  const key=String(id||'');
+  if(!key||!R)return null;
+  if(R[key])return {key,customer:R[key]};
+  for(const [k,c] of Object.entries(R)){
+    if(String(c?.cloudId||'')===key)return {key:k,customer:c};
+  }
+  return null;
+}
+function hdQueueLocalRentalsAgainstCloud(cloud){
+  const cloudMap=cloud||{};
+  for(const [key,c] of Object.entries(R||{})){
+    if(!c)continue;
+    const id=String(c.cloudId||key);
+    if(hdDeletedRentalIds.has(id))continue;
+    const remote=cloudMap[id];
+    const localFp=hdRentalSyncFingerprint(c);
+    if(!remote){
+      hdMarkRentalDirty(id);
+      continue;
+    }
+    if(hdPendingRentalSyncIds.has(id))continue;
+    const baseline=hdRentalSyncFingerprints[id];
+    if(!baseline || baseline!==localFp)hdMarkRentalDirty(id);
+  }
+}
 async function hdCloudSyncRentals(){
   if(!hdSupabase||!hdSession)return false;
   if(hdCloudBusy){hdCloudSyncAgain=true;return true;}
@@ -518,15 +532,16 @@ async function hdCloudSyncRentals(){
   try{
     do{
       hdCloudSyncAgain=false;
-      // Push every current rental. This deliberately avoids the dirty/fingerprint
-      // gate that was preventing some local changes from ever reaching Supabase.
-      const snapshot=Object.entries(R||{}).map(([key,c])=>[key,JSON.parse(JSON.stringify(c))]);
-      for(const [key,c] of snapshot){
-        await hdPushRental(key,c);
-        const live=R[key];
-        if(live)live.cloudId=c.cloudId||live.cloudId;
+      const ids=[...hdPendingRentalSyncIds];
+      for(const id of ids){
+        const found=hdFindLocalRentalByCloudId(id);
+        if(!found){hdClearRentalDirty(id);continue;}
+        const snapshot=JSON.parse(JSON.stringify(found.customer));
+        await hdPushRental(found.key,snapshot);
+        found.customer.cloudId=snapshot.cloudId||found.customer.cloudId||id;
+        hdSetRentalSyncBaseline(String(found.customer.cloudId||id),found.customer);
+        hdClearRentalDirty(id);
       }
-      // Complete queued deletes after normal records are uploaded.
       for(const id of [...hdDeletedRentalIds]){
         await hdDeleteChildren(id);
         const {error}=await hdSupabase.from('rental_customers').delete().eq('id',id);
@@ -536,84 +551,211 @@ async function hdCloudSyncRentals(){
       }
       hdSavePendingRentalSyncIds();
       hdSaveRentalSyncFingerprints();
-      localStorage.setItem('happyDropsCloudLastSync',new Date().toISOString());
+      if(hdPendingRentalSyncIds.size)hdSetCloudStatus('syncing','Waiting for cloud sync…');
+      else{
+        localStorage.setItem('happyDropsCloudLastSync',new Date().toISOString());
+        hdSetCloudStatus('synced','Cloud synced successfully');
+      }
     }while(hdCloudSyncAgain);
-    hdSetCloudStatus('synced','Cloud connected and synced');
-    return true;
+    return hdPendingRentalSyncIds.size===0;
   }catch(e){
     console.error('Cloud sync error',e);
-    hdSetCloudStatus(navigator.onLine?'error':'offline',navigator.onLine?'Cloud sync failed: '+(e?.message||'unknown error'):'Offline');
+    hdSetCloudStatus(navigator.onLine?'error':'offline',(e&&e.message)?('Cloud sync failed: '+e.message):(navigator.onLine?'Cloud sync failed':'Offline'));
     return false;
   }finally{
     hdCloudBusy=false;
     if(hdCloudSyncAgain){hdCloudSyncAgain=false;setTimeout(()=>hdCloudSyncRentals(),0);}
   }
 }
-
 async function hdRefreshRentalsFromCloud(){
-  if(!hdSupabase||!hdSession||hdCloudBusy)return false;
-  hdCloudBusy=true;
+  if(!hdSupabase||!hdSession)return false;
+  if(hdCloudBusy){
+    for(let i=0;i<50&&hdCloudBusy;i++)await new Promise(r=>setTimeout(r,100));
+    if(hdCloudBusy)return false;
+  }
   try{
-    const cloud=await hdLoadRentals();
-    R=cloud||{};
-    ensureRentalSequences();
-    hdPersistRentalLocalOnly();
-    localStorage.setItem('happyDropsCloudLastSync',new Date().toISOString());
-    hdSetCloudStatus('synced','Cloud connected and synced');
-    if(document.getElementById('rentList')){
-      try{renderBTCCRentsStatus();}catch(e){console.warn('Rental list refresh error',e);}
+    await hdLoadRentalsAndMerge();
+    if(hdPendingRentalSyncIds.size){
+      const pushed=await hdCloudSyncRentals();
+      if(!pushed){
+        hdSetCloudStatus(navigator.onLine?'error':'offline',navigator.onLine?'Cloud changes are still waiting to sync':'Offline');
+        return false;
+      }
     }
-    return true;
+    localStorage.setItem('happyDropsCloudLastSync',new Date().toISOString());
+    hdSetCloudStatus(hdPendingRentalSyncIds.size?'syncing':'synced',hdPendingRentalSyncIds.size?'Waiting for cloud sync…':'Cloud synced successfully');
+    return hdPendingRentalSyncIds.size===0;
   }catch(e){
     console.error('Cloud refresh error',e);
-    hdSetCloudStatus(navigator.onLine?'error':'offline',navigator.onLine?'Cloud refresh failed: '+(e?.message||'unknown error'):'Offline');
+    hdSetCloudStatus(navigator.onLine?'error':'offline',(e&&e.message)?('Cloud refresh failed: '+e.message):(navigator.onLine?'Cloud refresh failed':'Offline'));
     return false;
-  }finally{hdCloudBusy=false;}
+  }
+}
+async function hdWaitForRentalSync(){
+  if(!hdSupabase||!hdSession)return false;
+  for(let i=0;i<120&&hdCloudBusy;i++)await new Promise(r=>setTimeout(r,100));
+  if(hdCloudBusy)return false;
+  if(hdPendingRentalSyncIds.size){
+    const ok=await hdCloudSyncRentals();
+    if(!ok)return false;
+  }
+  return hdPendingRentalSyncIds.size===0;
+}
+async function hdHandleRentalRealtime(payload){
+  try{
+    const table=payload?.table||'';
+    const event=payload?.eventType||'';
+    const row=payload?.new||{};
+    const old=payload?.old||{};
+    const id=String(row.id||row.rental_customer_id||old.id||old.rental_customer_id||'');
+    if(!id)return;
+    // Ignore our own event while the local change is still waiting to be pushed.
+    if(hdPendingRentalSyncIds.has(id))return;
+    if(table==='rental_customers' && event==='DELETE'){
+      // A remote delete is authoritative unless this device itself is still
+      // completing the same deletion. Never let an old local copy survive it.
+      delete R[id];
+      hdPendingRentalSyncIds.delete(id);
+      hdClearRentalSyncBaseline(id);
+      hdPersistRentalLocalOnly();
+      hdSavePendingRentalSyncIds();
+      hdSaveRentalSyncFingerprints();
+      if(document.getElementById('rentList'))renderBTCCRentsStatus();
+      hdSetCloudStatus('synced','Cloud synced successfully');
+      return;
+    }
+    if(table==='rental_customers' && event==='UPDATE' && String(row.status||'').toLowerCase()==='deleted'){
+      hdCloudDeletedRentalIds.add(id);
+      delete R[id];
+      hdPendingRentalSyncIds.delete(id);
+      hdClearRentalSyncBaseline(id);
+      hdPersistRentalLocalOnly();
+      hdSavePendingRentalSyncIds();
+      hdSaveRentalSyncFingerprints();
+      if(document.getElementById('rentList'))renderBTCCRentsStatus();
+      hdSetCloudStatus('synced','Cloud synced successfully');
+      return;
+    }
+    // Child events change activity/returns/refills/deposits. Reloading the small
+    // rental dataset here keeps every device consistent without trusting stale
+    // localStorage. Polling below remains the fallback if Realtime is unavailable.
+    await hdRefreshRentalsFromCloud();
+  }catch(e){console.warn('Rental realtime handler error',e);}
+}
+let hdRentalRealtimeStatus='disconnected';
+let hdRentalRealtimeRetryTimer=null;
+let hdCloudLifecycleBusy=false;
+let hdCloudPollTimer=null;
+
+async function hdStartRentalRealtime(){
+  if(!hdSupabase||!hdSession)return false;
+  try{
+    if(hdRentalRealtimeRetryTimer){clearTimeout(hdRentalRealtimeRetryTimer);hdRentalRealtimeRetryTimer=null;}
+    if(hdRentalRealtimeChannel){try{await hdSupabase.removeChannel(hdRentalRealtimeChannel);}catch(_){ } hdRentalRealtimeChannel=null;}
+    hdRentalRealtimeStatus='connecting';
+    hdSetCloudStatus('connecting','Connecting to cloud…');
+    const tables=['rental_customers','rental_additions','rental_returns','rental_refills','rental_deposit_transactions','rental_activity'];
+    let channel=hdSupabase.channel('happy-drops-rentals-sync');
+    for(const table of tables){
+      channel=channel.on('postgres_changes',{event:'*',schema:'public',table},payload=>hdHandleRentalRealtime(payload));
+    }
+    hdRentalRealtimeChannel=channel;
+    channel.subscribe((status,err)=>{
+      console.log('Happy Drops rental realtime:',status,err||'');
+      hdRentalRealtimeStatus=String(status||'').toLowerCase();
+      if(status==='SUBSCRIBED'){
+        hdRentalRealtimeStatus='subscribed';
+        if(hdPendingRentalSyncIds.size) hdSetCloudStatus('syncing','Cloud connected — syncing pending changes…');
+        else hdSetCloudStatus('synced','Cloud connected and synced');
+      }else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED'){
+        hdRentalRealtimeStatus='disconnected';
+        // Realtime is only the live-notification layer. Its temporary failure
+        // must NOT mark the main Supabase connection as offline/error.
+        console.warn('Happy Drops rental realtime disconnected; retrying in background:', status, err||'');
+        if(navigator.onLine && hdSession){
+          hdSetCloudStatus(hdPendingRentalSyncIds.size?'syncing':'synced',
+            hdPendingRentalSyncIds.size?'Cloud connected — syncing pending changes…':'Cloud connected — live updates reconnecting…');
+        }
+        hdRentalRealtimeRetryTimer=setTimeout(()=>hdStartRentalRealtime(),3000);
+      }else if(status==='JOINING'){
+        // Keep the last known cloud state while Realtime is joining.
+        if(!hdSession)hdSetCloudStatus('connecting','Connecting to cloud…');
+      }
+    });
+    return true;
+  }catch(e){
+    hdRentalRealtimeStatus='disconnected';
+    console.warn('Rental realtime setup error; retrying in background:',e);
+    if(navigator.onLine && hdSession){
+      hdSetCloudStatus(hdPendingRentalSyncIds.size?'syncing':'synced',
+        hdPendingRentalSyncIds.size?'Cloud connected — syncing pending changes…':'Cloud connected — live updates reconnecting…');
+    }
+    hdRentalRealtimeRetryTimer=setTimeout(()=>hdStartRentalRealtime(),3000);
+    return false;
+  }
+}
+
+async function hdCloudLifecycleRefresh(reason){
+  if(hdCloudLifecycleBusy||!hdSupabase||!hdSession)return;
+  hdCloudLifecycleBusy=true;
+  try{
+    hdSetCloudStatus('connecting',reason||'Connecting to cloud…');
+    const ok=await hdRefreshRentalsFromCloud();
+    if(!ok){
+      hdSetCloudStatus(navigator.onLine?'error':'offline',navigator.onLine?'Cloud sync is not complete':'Offline');
+      return;
+    }
+    await hdStartRentalRealtime();
+    if(hdPendingRentalSyncIds.size) await hdCloudSyncRentals();
+    // A successful Supabase REST sync means the cloud connection is healthy.
+    // Realtime subscription state is supplementary and may reconnect separately.
+    if(hdPendingRentalSyncIds.size===0) hdSetCloudStatus('synced','Cloud connected and synced');
+  }catch(e){
+    console.error('Cloud lifecycle error',e);
+    hdSetCloudStatus(navigator.onLine?'error':'offline',navigator.onLine?(e?.message||'Cloud sync error'):'Offline');
+  }finally{hdCloudLifecycleBusy=false;}
 }
 
 function hdInitCloud(){
   try{
-    if(!window.supabase||!window.supabase.createClient){
-      hdSetCloudStatus('error','Supabase library not loaded');
-      return;
-    }
+    if(!window.supabase||!window.supabase.createClient)return;
     hdSupabase=window.supabase.createClient(HAPPY_DROPS_SUPABASE_URL,HAPPY_DROPS_SUPABASE_PUBLISHABLE_KEY,{
       auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}
     });
-    hdSupabase.auth.getSession().then(async ({data,error})=>{
-      if(error)throw error;
+    hdSupabase.auth.getSession().then(async ({data})=>{
       hdSession=data?.session||null;
       if(hdSession){
         await hdCloudBootstrap();
         await hdStartRentalRealtime();
+        if(hdPendingRentalSyncIds.size===0)hdSetCloudStatus('synced','Cloud connected and synced');
         setTimeout(()=>hdStartPushRegistration(),250);
-      }else{
-        hdSetCloudStatus('connecting','Cloud login required');
-        hdShowAuth();
-      }
-    }).catch(e=>{
-      console.error('Supabase session error',e);
-      hdSetCloudStatus(navigator.onLine?'error':'offline',navigator.onLine?'Cloud session error: '+(e?.message||'unknown error'):'Offline');
-      hdShowAuth();
-    });
+      }else hdShowAuth();
+    }).catch(e=>{console.error('Supabase session error',e);hdSetCloudStatus(navigator.onLine?'error':'offline',navigator.onLine?'Cloud session error':'Offline');});
     hdSupabase.auth.onAuthStateChange((event,session)=>{
       hdSession=session||null;
-      console.log('Happy Drops cloud auth:',event,!!session);
       if(hdSession){
-        hdSetCloudStatus('connecting','Cloud session active — syncing…');
-        setTimeout(()=>hdCloudBootstrap(),0);
-        setTimeout(()=>hdStartRentalRealtime(),250);
-        setTimeout(()=>hdStartPushRegistration(),500);
+        hdSetCloudStatus('connecting','Connecting to cloud…');
+        setTimeout(()=>hdCloudLifecycleRefresh('Refreshing cloud connection…'),0);
+        setTimeout(()=>hdStartPushRegistration(),250);
       }else{
+        hdRentalRealtimeStatus='disconnected';
         hdSetCloudStatus('connecting','Cloud login required');
       }
+      console.log('Happy Drops cloud auth:',event,!!session);
     });
-    window.addEventListener('online',()=>{if(hdSupabase&&hdSession)hdCloudBootstrap();});
+    window.addEventListener('online',()=>{
+      if(hdSupabase&&hdSession)hdCloudLifecycleRefresh('Internet restored — reconnecting cloud…');
+    });
     window.addEventListener('offline',()=>hdSetCloudStatus('offline','Offline'));
-  }catch(e){
-    console.error('Supabase init error',e);
-    hdSetCloudStatus(navigator.onLine?'error':'offline',navigator.onLine?'Cloud initialization error: '+(e?.message||'unknown error'):'Offline');
-  }
+    if(hdCloudPollTimer)clearInterval(hdCloudPollTimer);
+    hdCloudPollTimer=setInterval(()=>{
+      if(hdSupabase&&hdSession&&!hdCloudBusy&&!hdCloudLifecycleBusy){
+        hdRefreshRentalsFromCloud().then(ok=>{
+          if(ok && hdPendingRentalSyncIds.size===0) hdSetCloudStatus('synced','Cloud connected and synced');
+        }).catch(e=>console.warn('Rental cloud poll error',e));
+      }
+    },5000);
+  }catch(e){console.error('Supabase init error',e);hdSetCloudStatus(navigator.onLine?'error':'offline',navigator.onLine?'Cloud initialization error':'Offline');}
 }
 
 // Happy Drops Manager Web Push registration
