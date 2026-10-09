@@ -193,6 +193,7 @@
 const HAPPY_DROPS_SUPABASE_URL='https://gyrdmfnyypqoxhueqsjo.supabase.co';
 const HAPPY_DROPS_SUPABASE_PUBLISHABLE_KEY='sb_publishable_M1kXdYZnF8xjILQ_nzMbFQ_MIlblTa0';
 let hdSupabase=null, hdSession=null, hdCloudBusy=false, hdCloudSyncAgain=false;
+let hdCloudHasSynced=false, hdCloudBootstrappedUserId='', hdCloudBootstrapPromise=null;
 let hdDeletedRentalIds=new Set();
 let hdPendingRentalSyncIds=new Set();
 let hdRentalRealtimeChannel=null;
@@ -206,12 +207,15 @@ function hdClearRentalDirty(id){if(!id)return;hdPendingRentalSyncIds.delete(Stri
 function hdMarkRentalDeleted(id){if(!id)return;hdDeletedRentalIds.add(String(id));localStorage.setItem('happyDropsDeletedRentalIds',JSON.stringify([...hdDeletedRentalIds]));hdPendingRentalSyncIds.delete(String(id));hdSavePendingRentalSyncIds();}
 function hdUnmarkRentalDeleted(id){if(!id)return;hdDeletedRentalIds.delete(String(id));localStorage.setItem('happyDropsDeletedRentalIds',JSON.stringify([...hdDeletedRentalIds]));}
 function hdCloudMessage(text,color){const e=document.getElementById('cloudAuthMsg');if(e){e.textContent=text;e.style.color=color||'#1769aa';}}
-function hdSetCloudStatus(state,text){const e=document.getElementById('hdCloudStatus');const t=document.getElementById('hdCloudStatusText');
-  // Cloud colour is a connectivity indicator, not a sync-progress indicator.
-  // Once the user is online and signed in, keep it GREEN; only offline is GREY.
-  const displayState=(!navigator.onLine)?'offline':(hdSession?'synced':(state||'connecting'));
+function hdSetCloudStatus(state,text){
+  const e=document.getElementById('hdCloudStatus');
+  const t=document.getElementById('hdCloudStatusText');
+  let displayState=state||'connecting';
+  if(!navigator.onLine)displayState='offline';
+  else if(hdSession&&hdCloudHasSynced&&['connecting','syncing','error'].includes(displayState))displayState='synced';
   if(e){e.dataset.state=displayState;e.title=text||'Cloud sync status';e.setAttribute('aria-label',text||'Cloud sync status');}
-  if(t)t.textContent=text||'Cloud';}
+  if(t)t.textContent=text||'Cloud';
+}
 async function hdManualCloudSync(){if(!hdSupabase||!hdSession){hdSetCloudStatus('connecting','Cloud login required');return;}hdSetCloudStatus('syncing','Syncing…');try{const pushed=await hdCloudSyncRentals();if(pushed===false)throw new Error('Cloud push failed; see the sync status message.');const refreshed=await hdRefreshRentalsFromCloud();if(!refreshed)throw new Error('Cloud refresh failed.');hdSetCloudStatus('synced','Cloud synced successfully');}catch(e){console.error('Manual cloud sync error',e);hdSetCloudStatus(navigator.onLine?'error':'offline',e?.message|| (navigator.onLine?'Cloud sync failed':'Offline'));}}
 
 function hdShowAuth(){let old=document.getElementById('cloudAuthOverlay');if(old)old.remove();const e=document.createElement('div');e.id='cloudAuthOverlay';e.innerHTML=`<div id="cloudAuthBox"><h3>🔐 Happy Drops</h3><p>Enter your PIN to open Happy Drops Manager.</p><input id="hdLoginPin" type="password" inputmode="numeric" maxlength="4" placeholder="Enter PIN" autocomplete="off" onkeydown="if(event.key==='Enter')hdSignIn()"><button class="btn" style="width:100%;margin-top:8px" onclick="hdSignIn()">Login</button><div id="cloudAuthMsg"></div></div>`;document.body.appendChild(e);e.style.display='flex';setTimeout(()=>document.getElementById('hdLoginPin')?.focus(),50);}
@@ -486,18 +490,32 @@ async function hdLoadRentalsAndMerge(){
 }
 async function hdCloudBootstrap(){
   if(!hdSupabase||!hdSession)return;
-  try{
-    await hdLoadRentalsAndMerge();
-    const pushed=await hdCloudSyncRentals();
-    await hdStartRentalRealtime();
-    hdCloudBadge();
-    if(pushed!==false)hdSetCloudStatus('synced','Cloud synced successfully');
-  }catch(e){
-    console.error('Cloud load error',e);
-    if(typeof R==='undefined'||!R)R={};
-    hdCloudBadge();
-    hdSetCloudStatus(navigator.onLine?'error':'offline',navigator.onLine?'Cloud sync error':'Offline');
-  }
+  const userId=String(hdSession.user?.id||'');
+  if(hdCloudHasSynced&&hdCloudBootstrappedUserId===userId)return true;
+  if(hdCloudBootstrapPromise)return hdCloudBootstrapPromise;
+  hdCloudBootstrapPromise=(async()=>{
+    try{
+      hdSetCloudStatus('syncing','Loading cloud data…');
+      await hdLoadRentalsAndMerge();
+      const pushed=await hdCloudSyncRentals();
+      if(pushed===false)return false;
+      await hdStartRentalRealtime();
+      hdCloudBadge();
+      hdCloudHasSynced=true;
+      hdCloudBootstrappedUserId=userId;
+      hdSetCloudStatus('synced','Cloud synced successfully');
+      return true;
+    }catch(e){
+      console.error('Cloud load error',e);
+      if(typeof R==='undefined'||!R)R={};
+      hdCloudBadge();
+      hdSetCloudStatus(navigator.onLine?'error':'offline',navigator.onLine?(e?.message||'Cloud sync error'):'Offline');
+      return false;
+    }finally{
+      hdCloudBootstrapPromise=null;
+    }
+  })();
+  return hdCloudBootstrapPromise;
 }
 async function hdCloudSyncRentals(){
   if(!hdSupabase||!hdSession)return false;
@@ -538,6 +556,7 @@ async function hdCloudSyncRentals(){
       }
       hdSaveRentalSyncFingerprints();
       localStorage.setItem('happyDropsCloudLastSync',new Date().toISOString());
+      hdCloudHasSynced=true;
       hdSetCloudStatus('synced','Cloud synced successfully');
     }while(hdCloudSyncAgain);
     return true;
@@ -555,6 +574,8 @@ async function hdRefreshRentalsFromCloud(){
   try{
     await hdLoadRentalsAndMerge();
     localStorage.setItem('happyDropsCloudLastSync',new Date().toISOString());
+    hdCloudHasSynced=true;
+    hdCloudBootstrappedUserId=String(hdSession.user?.id||'');
     hdSetCloudStatus('synced','Cloud synced successfully');
     return true;
   }catch(e){
@@ -620,7 +641,60 @@ async function hdStartRentalRealtime(){
     });
   }catch(e){console.warn('Rental realtime setup error',e);}
 }
-function hdInitCloud(){try{if(!window.supabase||!window.supabase.createClient)return;hdSupabase=window.supabase.createClient(HAPPY_DROPS_SUPABASE_URL,HAPPY_DROPS_SUPABASE_PUBLISHABLE_KEY);hdSupabase.auth.getSession().then(async ({data})=>{hdSession=data.session||null;if(hdSession){await hdCloudBootstrap();setTimeout(()=>hdStartPushRegistration(),250);}else hdShowAuth();});hdSupabase.auth.onAuthStateChange((_event,session)=>{hdSession=session||null;if(hdSession){hdSetCloudStatus('connecting','Connected — syncing…');setTimeout(()=>hdStartPushRegistration(),250);}else hdSetCloudStatus('connecting','Cloud login required');});}catch(e){console.error('Supabase init error',e);}}
+function hdInitCloud(){
+  try{
+    if(!window.supabase||!window.supabase.createClient)return;
+    hdSupabase=window.supabase.createClient(HAPPY_DROPS_SUPABASE_URL,HAPPY_DROPS_SUPABASE_PUBLISHABLE_KEY);
+    hdSupabase.auth.onAuthStateChange((event,session)=>{
+      const previousUserId=String(hdSession?.user?.id||'');
+      hdSession=session||null;
+      const nextUserId=String(hdSession?.user?.id||'');
+      if(!hdSession){
+        hdCloudHasSynced=false;
+        hdCloudBootstrappedUserId='';
+        if(hdRentalRealtimeChannel){
+          const channel=hdRentalRealtimeChannel;
+          hdRentalRealtimeChannel=null;
+          hdSupabase.removeChannel(channel).catch(e=>console.warn('Cloud channel close error',e));
+        }
+        hdSetCloudStatus('connecting','Cloud login required');
+        if(event==='SIGNED_OUT')hdShowAuth();
+        return;
+      }
+      if(event==='SIGNED_IN'){
+        if(nextUserId!==previousUserId){hdCloudHasSynced=false;hdCloudBootstrappedUserId='';}
+        hdSetCloudStatus('connecting','Connected — syncing…');
+        setTimeout(()=>{
+          hdCloudBootstrap().then(ok=>{if(ok)setTimeout(()=>hdStartPushRegistration(),250);});
+        },0);
+        return;
+      }
+      if(event==='TOKEN_REFRESHED'){
+        if(hdCloudHasSynced)hdSetCloudStatus('synced','Cloud synced successfully');
+        return;
+      }
+      if(event!=='INITIAL_SESSION'&&!hdCloudHasSynced)hdSetCloudStatus('connecting','Connected — syncing…');
+    });
+    hdSupabase.auth.getSession().then(async ({data,error})=>{
+      if(error)throw error;
+      hdSession=data?.session||null;
+      if(hdSession){
+        const ok=await hdCloudBootstrap();
+        if(ok)setTimeout(()=>hdStartPushRegistration(),250);
+      }else{
+        hdSetCloudStatus('connecting','Cloud login required');
+        hdShowAuth();
+      }
+    }).catch(e=>{
+      console.error('Supabase session error',e);
+      hdSetCloudStatus(navigator.onLine?'error':'offline',navigator.onLine?(e?.message||'Cloud connection failed'):'Offline');
+      hdShowAuth();
+    });
+  }catch(e){
+    console.error('Supabase init error',e);
+    hdSetCloudStatus(navigator.onLine?'error':'offline',navigator.onLine?'Cloud connection failed':'Offline');
+  }
+}
 
 // Happy Drops Manager Web Push registration
 const HD_VAPID_PUBLIC_KEY = "BAfyUjWhYjRl6aExLadqGEFlc8b_CMRol2VJFReuST8tYg64dqi-iGCxh6Kueja0jqtE8S40fZjU5BkViO1xKUM";
