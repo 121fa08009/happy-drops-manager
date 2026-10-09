@@ -254,10 +254,10 @@ async function hdPushRental(name,c){
   // history during a normal save; deleting first was the cause of lost returns,
   // refunds and activity when a later insert failed or was interrupted.
   const childSpecs=[
-    ['rental_additions',(x)=>({rental_customer_id:actualId,bt_quantity:Number(x.pbt)||0,cc_quantity:Number(x.cc)||0,deposit_amount:Number(x.deposit)||0,note:x.note||null,created_at:new Date(Number(x.ts)||Date.now()).toISOString()}),(r)=>[r.bt_quantity,r.cc_quantity,Number(r.deposit_amount)||0,r.note||null,r.created_at].join('|'),(x)=>!!((Number(x.pbt)||0)||(Number(x.cc)||0))],
-    ['rental_returns',(x)=>({rental_customer_id:actualId,bt_quantity:Number(x.pbt)||0,cc_quantity:Number(x.cc)||0,note:x.note||null,created_at:new Date(Number(x.ts)||Date.now()).toISOString()}),(r)=>[r.bt_quantity,r.cc_quantity,r.note||null,r.created_at].join('|'),(x)=>!!((Number(x.pbt)||0)||(Number(x.cc)||0))],
-    ['rental_refills',(x)=>({rental_customer_id:actualId,bt_quantity:Number(x.pbt)||0,cc_quantity:Number(x.cc)||0,bt_rate:15,cc_rate:30,created_at:new Date(Number(x.ts)||Date.now()).toISOString()}),(r)=>[r.bt_quantity,r.cc_quantity,r.created_at].join('|'),(x)=>!!((Number(x.pbt)||0)||(Number(x.cc)||0))],
-    ['rental_deposit_transactions',(x)=>({rental_customer_id:actualId,transaction_type:x.type,amount:Number(x.amount)||0,created_at:new Date(Number(x.ts)||Date.now()).toISOString()}),(r)=>[r.transaction_type,r.amount,r.created_at].join('|'),(x)=>!!((Number(x.amount)||0)>0)]
+    ['rental_additions',(x)=>({rental_customer_id:actualId,bt_quantity:Number(x.pbt)||0,cc_quantity:Number(x.cc)||0,deposit_amount:Number(x.deposit)||0,note:x.note||null,created_at:new Date(Number(x.ts)||Date.now()).toISOString()}),(r)=>hdRentalCloudChildSignature('rental_additions',r),(x)=>!!((Number(x.pbt)||0)||(Number(x.cc)||0))],
+    ['rental_returns',(x)=>({rental_customer_id:actualId,bt_quantity:Number(x.pbt)||0,cc_quantity:Number(x.cc)||0,note:x.note||null,created_at:new Date(Number(x.ts)||Date.now()).toISOString()}),(r)=>hdRentalCloudChildSignature('rental_returns',r),(x)=>!!((Number(x.pbt)||0)||(Number(x.cc)||0))],
+    ['rental_refills',(x)=>({rental_customer_id:actualId,bt_quantity:Number(x.pbt)||0,cc_quantity:Number(x.cc)||0,bt_rate:15,cc_rate:30,created_at:new Date(Number(x.ts)||Date.now()).toISOString()}),(r)=>hdRentalCloudChildSignature('rental_refills',r),(x)=>!!((Number(x.pbt)||0)||(Number(x.cc)||0))],
+    ['rental_deposit_transactions',(x)=>({rental_customer_id:actualId,transaction_type:x.type,amount:Number(x.amount)||0,created_at:new Date(Number(x.ts)||Date.now()).toISOString()}),(r)=>hdRentalCloudChildSignature('rental_deposit_transactions',r),(x)=>!!((Number(x.amount)||0)>0)]
   ];
   const localChildren={
     rental_additions:(c.additions||[]),
@@ -280,7 +280,7 @@ async function hdPushRental(name,c){
 
   const {data:existingActs,error:actsReadErr}=await hdSupabase.from('rental_activity').select('*').eq('rental_customer_id',actualId);
   if(actsReadErr)throw actsReadErr;
-  const actSig=r=>[r.activity_type||'activity',r.bt_quantity??'',r.cc_quantity??'',r.amount??'',r.created_at||'',typeof r.details==='string'?r.details:JSON.stringify(r.details||{})].join('|');
+  const actSig=r=>hdRentalCloudChildSignature('rental_activity',r);
   const actSigs=new Set((existingActs||[]).map(actSig));
   const acts=[];
   for(const x of (c.activity||[])){
@@ -311,14 +311,7 @@ function hdMergeDuplicateRental(a,b){
   const preferB=!!b?.closed && !a?.closed;
   const base=preferB?{...a,...b}:{...b,...a};
   const fields=['returns','additions','refills','depositRefunds','activity'];
-  for(const f of fields){
-    const out=[],seen=new Set();
-    for(const x of [...(a?.[f]||[]),...(b?.[f]||[])]){
-      const k=JSON.stringify(x);
-      if(!seen.has(k)){seen.add(k);out.push(x);}
-    }
-    base[f]=out;
-  }
+  for(const f of fields)base[f]=hdMergeRentalEventArrays(f,a?.[f]||[],b?.[f]||[]);
   if(a?.closed||b?.closed||a?.closedFinal||b?.closedFinal){
     base.closed=true;base.closedFinal=true;base.pending=false;base.refundCompleted=!!(a?.refundCompleted||b?.refundCompleted);
     // A completed/closed duplicate must remain fully settled.
@@ -372,15 +365,19 @@ async function hdLoadRentals(){
   const ids=Object.values(result).map(c=>c.cloudId);
   if(!ids.length)return result;
   const tables=['rental_additions','rental_returns','rental_refills','rental_deposit_transactions','rental_activity'];
+  const childSeen=new Set();
   for(const table of tables){
     const {data,error}=await hdSupabase.from(table).select('*').in('rental_customer_id',ids).order('created_at',{ascending:true});
     if(error)throw error;
     for(const row of (data||[])){
       const c=Object.values(result).find(x=>x.cloudId===row.rental_customer_id);
       if(!c)continue;
-      const ts=new Date(row.created_at).getTime()||Date.now();
-      if(table==='rental_additions')c.additions.push({date:row.created_at?.slice(0,10)||'',pbt:row.bt_quantity,cc:row.cc_quantity,deposit:Number(row.deposit_amount)||0,ts});
-      else if(table==='rental_returns')c.returns.push({date:row.created_at?.slice(0,10)||'',pbt:row.bt_quantity,cc:row.cc_quantity,ts});
+      const childKey=hdRentalCloudChildSignature(table,row);
+      if(childSeen.has(childKey))continue;
+      childSeen.add(childKey);
+      const ts=hdRentalEventTimestamp(row.created_at);
+      if(table==='rental_additions')c.additions.push({date:row.created_at?.slice(0,10)||'',pbt:row.bt_quantity,cc:row.cc_quantity,deposit:Number(row.deposit_amount)||0,note:row.note||null,ts});
+      else if(table==='rental_returns')c.returns.push({date:row.created_at?.slice(0,10)||'',pbt:row.bt_quantity,cc:row.cc_quantity,note:row.note||null,ts});
       else if(table==='rental_refills')c.refills.push({date:row.created_at?.slice(0,10)||'',pbt:row.bt_quantity,cc:row.cc_quantity,amount:(Number(row.bt_quantity)||0)*15+(Number(row.cc_quantity)||0)*30,ts});
       else if(table==='rental_deposit_transactions'){c.depositRefunds=c.depositRefunds||[];let last=c.depositRefunds.find(x=>x.ts===ts);if(!last){last={deposit:0,refund:0,ts};c.depositRefunds.push(last);}if(row.transaction_type==='deposit')last.deposit+=Number(row.amount)||0;else last.refund+=Number(row.amount)||0;}
       else if(table==='rental_activity'){let x=row.details||{};if(typeof x==='string'){try{x=JSON.parse(x)}catch(_){x={type:row.activity_type,amount:row.amount}}}c.activity.push({...x,ts});}
@@ -447,16 +444,51 @@ function hdMergeRentalRecords(local,cloud){
   }
   return out;
 }
+function hdRentalEventTimestamp(value){
+  const n=typeof value==='number'?value:Date.parse(String(value||''));
+  return Number.isFinite(n)?Math.trunc(n):0;
+}
+function hdRentalStableJson(value){
+  if(Array.isArray(value))return '['+value.map(hdRentalStableJson).join(',')+']';
+  if(value&&typeof value==='object')return '{'+Object.keys(value).sort().map(k=>JSON.stringify(k)+':'+hdRentalStableJson(value[k])).join(',')+'}';
+  return JSON.stringify(value);
+}
+function hdRentalEventKey(field,x){
+  const ts=hdRentalEventTimestamp(x?.ts),pbt=Number(x?.pbt)||0,cc=Number(x?.cc)||0;
+  if(field==='additions')return JSON.stringify([field,ts,pbt,cc,Number(x?.deposit)||0,String(x?.note||'')]);
+  if(field==='returns')return JSON.stringify([field,ts,pbt,cc,String(x?.note||'')]);
+  if(field==='refills')return JSON.stringify([field,ts,pbt,cc]);
+  if(field==='depositRefunds')return JSON.stringify([field,ts,Number(x?.deposit)||0,Number(x?.refund)||0]);
+  if(field==='activity')return hdRentalStableJson({...x,ts});
+  return hdRentalStableJson(x||{});
+}
+function hdMergeRentalEventArrays(field,...sources){
+  const merged=[],positions=new Map();
+  for(const item of sources.flat()){
+    if(!item)continue;
+    const key=hdRentalEventKey(field,item);
+    if(positions.has(key)){
+      const i=positions.get(key);
+      merged[i]={...merged[i],...item};
+    }else{positions.set(key,merged.length);merged.push(item);}
+  }
+  return merged;
+}
+function hdRentalCloudChildSignature(table,r){
+  const customer=String(r?.rental_customer_id||''),ts=hdRentalEventTimestamp(r?.created_at);
+  if(table==='rental_additions')return JSON.stringify([table,customer,Number(r.bt_quantity)||0,Number(r.cc_quantity)||0,Number(r.deposit_amount)||0,String(r.note||''),ts]);
+  if(table==='rental_returns')return JSON.stringify([table,customer,Number(r.bt_quantity)||0,Number(r.cc_quantity)||0,String(r.note||''),ts]);
+  if(table==='rental_refills')return JSON.stringify([table,customer,Number(r.bt_quantity)||0,Number(r.cc_quantity)||0,ts]);
+  if(table==='rental_deposit_transactions')return JSON.stringify([table,customer,String(r.transaction_type||''),Number(r.amount)||0,ts]);
+  let details=r?.details||{};
+  if(typeof details==='string'){try{details=JSON.parse(details)}catch(_){details={}}}
+  return JSON.stringify([table,customer,String(r?.activity_type||'activity'),r?.bt_quantity??'',r?.cc_quantity??'',r?.amount??'',ts,hdRentalStableJson(details)]);
+}
 function hdMergeRentalRecordsOne(local,cloud){
   const l=local||{}, c=cloud||{};
   const out={...c,...l};
   const arrFields=['returns','additions','refills','depositRefunds','activity'];
-  const sig=x=>JSON.stringify(x);
-  for(const field of arrFields){
-    const merged=[],seen=new Set();
-    for(const item of [...(c[field]||[]),...(l[field]||[])]){const k=sig(item);if(!seen.has(k)){seen.add(k);merged.push(item);}}
-    out[field]=merged;
-  }
+  for(const field of arrFields)out[field]=hdMergeRentalEventArrays(field,c[field]||[],l[field]||[]);
   out.cloudId=l.cloudId||c.cloudId;
   return out;
 }
@@ -1036,21 +1068,22 @@ function ensureRentalSequences(){
     });
     const used=new Set();
     let next=1;
-    // Keep valid unique sequence numbers. Repair duplicate/missing numbers in creation order.
     names.forEach(n=>{
       const v=Number(R[n].rentalSequence);
       if(Number.isInteger(v)&&v>0&&!used.has(v))used.add(v);
       else {R[n].rentalSequence=0;changed=true;}
     });
     names.forEach(n=>{
-      if(Number(R[n].rentalSequence)>0) return;
+      if(Number(R[n].rentalSequence)>0)return;
       while(used.has(next))next++;
       R[n].rentalSequence=next++;
       used.add(R[n].rentalSequence);
       changed=true;
     });
   });
-  if(changed)save();
+  // Rental sequence numbers are derived for display and are not a cloud field.
+  // Persist them locally without marking every loaded customer dirty for upload.
+  if(changed)hdPersistRentalLocalOnly();
 }
 function rentalDateSeqLabel(c){let ds=c&&c.rentalDate;if(!ds)return '';let base=rentalDateLabel(ds);let seq=Number(c&&c.rentalSequence);return base?base.replace(' (','/'+(Number.isFinite(seq)?seq:'')+' ('):base}
 function dateFromKey(k){const p=k.split("-").map(Number);return new Date(p[0],p[1]-1,p[2])}
