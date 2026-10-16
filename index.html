@@ -3409,7 +3409,7 @@ function hdBack(fallback){
     }
     var expected=selectedEmployee.role==="owner"?ownerPattern():String(staff[selectedEmployee.name]&&staff[selectedEmployee.name].appLoginPattern||"");
     if(code!==expected){drawing.points=[];updatePatternDrawing();setStatus("That pattern did not match. Try again.",true);return}
-    currentUser={role:selectedEmployee.role,name:selectedEmployee.role==="owner"?"Owner":selectedEmployee.name};selectedEmployee=null;window.hdCurrentUser=currentUser;
+    currentUser={role:selectedEmployee.role,name:selectedEmployee.role==="owner"?"Owner":selectedEmployee.name};saveActiveLogin();selectedEmployee=null;window.hdCurrentUser=currentUser;
     if(typeof window.home==="function")window.home();else chooser();
   }
   function startPattern(e){if(e.cancelable)e.preventDefault();drawing={active:true,points:[]};var area=document.getElementById("hdPatternArea");if(area&&area.setPointerCapture){try{area.setPointerCapture(e.pointerId)}catch(_){}}addDot(nearestDot(e.clientX,e.clientY))}
@@ -3456,7 +3456,7 @@ function hdBack(fallback){
   }
   function applyVisibility(){
     var drawerEl=document.getElementById("drawer"),side=drawerEl&&drawerEl.querySelector(".side");if(!currentUser){if(drawerEl)drawerEl.classList.remove("open");return}
-    if(side&&!document.getElementById("hdEmployeeSwitchNav")){var link=document.createElement("div");link.id="hdEmployeeSwitchNav";link.className="nav";link.textContent="↔ Switch employee";link.onclick=window.hdEmployeeSwitchUser;side.appendChild(link)}
+    var link=document.getElementById("hdEmployeeSwitchNav");if(side&&!link){link=document.createElement("div");link.id="hdEmployeeSwitchNav";link.className="nav";side.appendChild(link)}if(link){link.textContent=(currentUser.role==="owner"?"Owner":currentUser.name)+" (Logout)";link.onclick=window.hdEmployeeSwitchUser;link.style.display=""}
     var navMap=[["dealers","dealers"],["rentals","rentals"],["orders","orders"],["stock","stock"],["money","money"],["attendance","attendance"],["owner","owner"]];
     document.querySelectorAll("#drawer .nav").forEach(function(el){if(el.id==="hdEmployeeSwitchNav"){el.style.display="";return}var click=String(el.getAttribute("onclick")||"").toLowerCase(),key=null;navMap.forEach(function(pair){if(click.indexOf(pair[0]+"()")>=0)key=pair[1]});if(key==="owner"&&currentUser.role!=="owner")el.style.display="none";else if(key)el.style.display=pageAllowed(key)?"":"none"});
     document.querySelectorAll(".home-grid button").forEach(function(el){var click=String(el.getAttribute("onclick")||"").toLowerCase(),key=null;navMap.forEach(function(pair){if(click.indexOf(pair[0]+"()")>=0)key=pair[1]});if(click.indexOf("window.open")>=0)key="orders";if(key==="owner"&&currentUser.role!=="owner")el.style.display="none";else if(key)el.style.display=pageAllowed(key)?"":"none"})
@@ -3472,9 +3472,44 @@ function hdBack(fallback){
     }catch(error){console.warn("Cloud startup could not complete; local app login is still available.",error);if(typeof hdSetCloudStatus==="function")hdSetCloudStatus(navigator.onLine?"error":"offline","Cloud is unavailable; local login is available")}
     finally{cloudAuthBusy=false;refreshChooser()}
   }
+  function nextIst3amBoundary(now){
+    var shifted=new Date(now+19800000),year=shifted.getUTCFullYear(),month=shifted.getUTCMonth(),day=shifted.getUTCDate();
+    var todayBoundary=Date.UTC(year,month,day,3,0,0)-19800000;
+    return now<todayBoundary?todayBoundary:Date.UTC(year,month,day+1,3,0,0)-19800000;
+  }
+  function saveActiveLogin(){
+    try{
+      var now=Date.now(),record={role:currentUser.role,name:currentUser.name,createdAt:now,expiresAt:nextIst3amBoundary(now),pendingLogout:false};
+      localStorage.setItem("hdEmployeeLoginSessionV1",JSON.stringify(record));
+      scheduleLogoutMarker(record);
+    }catch(e){console.warn("Could not save the app login session.",e)}
+  }
+  function scheduleLogoutMarker(record){
+    if(window.hdEmployeeLogoutTimer)clearTimeout(window.hdEmployeeLogoutTimer);
+    var delay=Math.max(0,Number(record.expiresAt)-Date.now());
+    window.hdEmployeeLogoutTimer=setTimeout(function(){
+      try{var latest=JSON.parse(localStorage.getItem("hdEmployeeLoginSessionV1")||"null");if(latest&&latest.expiresAt<=Date.now()){latest.pendingLogout=true;localStorage.setItem("hdEmployeeLoginSessionV1",JSON.stringify(latest))}}catch(_){}
+    },Math.min(delay+25,2147480000));
+  }
+  function markLogoutAfterClose(){
+    try{var saved=JSON.parse(localStorage.getItem("hdEmployeeLoginSessionV1")||"null");if(saved&&saved.expiresAt<=Date.now()){saved.pendingLogout=true;localStorage.setItem("hdEmployeeLoginSessionV1",JSON.stringify(saved))}}catch(_){}
+  }
+  function directHome(){
+    var fn=window.home,depth=0;while(fn&&fn.__hdOriginal&&depth++<10)fn=fn.__hdOriginal;
+    if(typeof fn==="function")fn.call(window);else chooser();applyVisibility();
+  }
+  function bootApp(){
+    var saved=null;try{saved=JSON.parse(localStorage.getItem("hdEmployeeLoginSessionV1")||"null")}catch(_){}
+    if(saved&&Number(saved.expiresAt)>Date.now()){
+      if(saved.role==="owner")currentUser={role:"owner",name:"Owner"};
+      else if(saved.role==="staff"&&staff[saved.name]&&staff[saved.name].appLoginEnabled&&!staff[saved.name].deleted)currentUser={role:"staff",name:saved.name};
+      if(currentUser){window.hdCurrentUser=currentUser;scheduleLogoutMarker(saved);directHome()}else{try{localStorage.removeItem("hdEmployeeLoginSessionV1")}catch(_){}chooser()}
+    }else{try{localStorage.removeItem("hdEmployeeLoginSessionV1")}catch(_){}chooser()}
+    if(!window.hdEmployeeCloseListener){window.hdEmployeeCloseListener=true;window.addEventListener("pagehide",markLogoutAfterClose);document.addEventListener("visibilitychange",function(){if(document.visibilityState==="hidden")markLogoutAfterClose()})}
+  }
   function refreshChooser(){if(!currentUser&&!selectedEmployee)chooser()}
   function ownerLogin(){if(!currentUser){chooser();return}if(currentUser.role!=="owner"){alert("Owner access is required.");return}if(typeof window.ownerDashboard==="function")window.ownerDashboard()}
-  function switchUser(){currentUser=null;window.hdCurrentUser=null;selectedEmployee=null;config=null;chooser()}
+  function switchUser(){try{localStorage.removeItem("hdEmployeeLoginSessionV1")}catch(_){}currentUser=null;window.hdCurrentUser=null;selectedEmployee=null;config=null;chooser()}
   function wrapAll(){
     var routes=[
       ["home","home",false],["dealers","dealers",false],["openDealer","dealers",false],
@@ -3506,7 +3541,7 @@ function hdBack(fallback){
     };
     var originalApply=window.hdApplyStaffAttendanceCloudState;
     if(typeof originalApply==="function")window.hdApplyStaffAttendanceCloudState=function(){var result=originalApply.apply(this,arguments);refreshChooser();return result};
-    window.hdShowAuth=refreshChooser;chooser()
+    window.hdShowAuth=refreshChooser;bootApp()
   }
   window.hdEmployeePageAllowed=pageAllowed;window.hdEmployeeRefreshLoginChooser=refreshChooser;window.hdEnsureAnonymousCloud=ensureCloud;wrapAll()
 })();
