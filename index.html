@@ -260,7 +260,7 @@ function hdSetCloudStatus(state,text){
   if(e){e.dataset.state=displayState;e.title=text||'Cloud sync status';e.setAttribute('aria-label',text||'Cloud sync status');}
   if(t)t.textContent=text||'Cloud';
 }
-async function hdManualCloudSync(){if(!hdSupabase||!hdSession){hdSetCloudStatus('connecting','Cloud login required');return;}hdSetCloudStatus('syncing','Syncing…');try{const pushed=await hdCloudSyncRentals();if(pushed===false)throw new Error('Cloud push failed; see the sync status message.');const refreshed=await hdRefreshRentalsFromCloud();if(!refreshed)throw new Error('Cloud refresh failed.');hdSetCloudStatus('synced','Cloud synced successfully');}catch(e){console.error('Manual cloud sync error',e);hdSetCloudStatus(navigator.onLine?'error':'offline',e?.message|| (navigator.onLine?'Cloud sync failed':'Offline'));}}
+async function hdManualCloudSync(){if(!hdSupabase||!hdSession){hdSetCloudStatus('connecting','Cloud login required');return;}hdSetCloudStatus('syncing','Syncing…');try{const pushed=await hdCloudSyncRentals();if(pushed===false)throw new Error('Cloud push failed; see the sync status message.');const refreshed=await hdRefreshRentalsFromCloud();if(!refreshed)throw new Error('Cloud refresh failed.');hdSetCloudStatus('synced','Cloud synced successfully');}catch(e){console.error('Manual cloud sync error',e);const message=e?.message||(navigator.onLine?'Cloud sync failed':'Offline');hdSetCloudStatus(navigator.onLine?'error':'offline',message);alert('Cloud sync failed: '+message);}}
 
 function hdShowAuth(){let old=document.getElementById('cloudAuthOverlay');if(old)old.remove();const e=document.createElement('div');e.id='cloudAuthOverlay';e.innerHTML=`<div id="cloudAuthBox"><h3>🔐 Happy Drops</h3><p>Enter your PIN to open Happy Drops Manager.</p><input id="hdLoginPin" type="password" inputmode="numeric" maxlength="4" placeholder="Enter PIN" autocomplete="off" onkeydown="if(event.key==='Enter')hdSignIn()"><button class="btn" style="width:100%;margin-top:8px" onclick="hdSignIn()">Login</button><div id="cloudAuthMsg"></div></div>`;document.body.appendChild(e);e.style.display='flex';setTimeout(()=>document.getElementById('hdLoginPin')?.focus(),50);}
 async function hdSignIn(){if(!hdSupabase)return;hdSetCloudStatus('connecting','Connecting to cloud…');const pin=(document.getElementById('hdLoginPin')?.value||'').trim();if(pin!=='8009'){hdCloudMessage('Wrong OTP/PIN\nPlease enter correct OTP/PIN.','#c62828');return;}hdCloudMessage('Connecting to cloud…');try{let data=(await hdSupabase.auth.getSession()).data;let session=data?.session||null;if(!session){const r=await hdSupabase.auth.signInAnonymously();if(r.error)throw r.error;session=r.data.session;}hdSession=session;const ov=document.getElementById('cloudAuthOverlay');if(ov)ov.remove();await hdCloudBootstrap();setTimeout(()=>hdStartPushRegistration(),0);}catch(e){console.error('Cloud PIN login error',e);hdCloudMessage('Cloud login is not enabled yet. Please enable Anonymous Sign-Ins in Supabase Authentication settings.','#c62828');}}
@@ -651,21 +651,15 @@ async function hdCloudSyncRentals(){
           hdClearRentalDirty(id);
         }
       }
-      // Process queued deletions even when the customer has already been
-      // removed from local memory. This makes deletes retry safely after an
-      // offline period and prevents another device from resurrecting them.
+      // Process queued deletions through the same verified helper used by
+      // individual deletes. Fall back to a hard delete if the policy rejects
+      // the soft-delete update, then clear the queue once the cloud confirms it.
       for(const id of [...hdDeletedRentalIds]){
-        try{
-          await hdWriteRentalCloudTombstone(id);
-          hdCloudDeletedRentalIds.add(String(id));
-          hdDeletedRentalIds.delete(String(id));
-          localStorage.setItem('happyDropsDeletedRentalIds',JSON.stringify([...hdDeletedRentalIds]));
-          hdClearRentalSyncBaseline(id);
-          try{await hdDeleteChildren(id);}catch(e){console.warn('Cloud child cleanup skipped for deleted rental',id,e);}
-        }catch(e){
-          // Keep the tombstone queued; the next sync will retry it.
-          throw e;
-        }
+        await hdDeleteRentalCloud(id,{cloudId:id});
+        hdCloudDeletedRentalIds.add(String(id));
+        hdDeletedRentalIds.delete(String(id));
+        localStorage.setItem('happyDropsDeletedRentalIds',JSON.stringify([...hdDeletedRentalIds]));
+        hdClearRentalSyncBaseline(id);
       }
       hdSaveRentalSyncFingerprints();
       localStorage.setItem('happyDropsCloudLastSync',new Date().toISOString());
@@ -2124,20 +2118,28 @@ function showBTCCDeleteConfirm(n){
 }
 async function hdWaitForRentalCloudIdle(){const started=Date.now();do{while(hdCloudBusy){if(Date.now()-started>15000)throw new Error('Cloud sync is taking too long. Please try deleting again.');await new Promise(resolve=>setTimeout(resolve,50));}await new Promise(resolve=>setTimeout(resolve,0));}while(hdCloudBusy||hdCloudSyncAgain)}
 async function hdDeleteRentalCloud(n,c){
-  if(!hdSupabase||!hdSession||!c?.cloudId)return;
+  if(!hdSupabase||!hdSession||!c?.cloudId)return false;
   const id=String(c.cloudId);
-  // Use a cloud tombstone instead of immediately hard-deleting the parent row.
-  // A hard delete can be blocked by child-table RLS/foreign-key policies, which
-  // was allowing the other phone to keep the customer forever.  The tombstone
-  // is an ordinary UPDATE on rental_customers (the same table already used by
-  // normal sync), so every device can observe the deletion reliably.
-  await hdWriteRentalCloudTombstone(id,c);
-  // Best-effort cleanup of child history. Do NOT make the deletion fail if a
-  // child table blocks DELETE; the parent tombstone is the synchronization
-  // source of truth and prevents resurrection on every other device.
+  try{
+    await hdWriteRentalCloudTombstone(id,c);
+  }catch(tombstoneError){
+    // Some deployed policies permit DELETE but reject UPDATE. Keep the normal
+    // tombstone path first, then fall back to a verified hard delete so a queued
+    // closed-window deletion cannot block all later rental syncs.
+    console.warn('Cloud tombstone update failed; trying hard-delete fallback',tombstoneError);
+    try{await hdDeleteChildren(id);}catch(childError){console.warn('Cloud child cleanup failed before hard-delete fallback',childError);}
+    const {data,error}=await hdSupabase.from('rental_customers').delete().eq('id',id).select('id');
+    if(error)throw new Error('Cloud update failed ('+(tombstoneError?.message||'unknown error')+'); hard delete failed ('+(error?.message||'unknown error')+').');
+    if(!data?.length){
+      const {data:remaining,error:readError}=await hdSupabase.from('rental_customers').select('id').eq('id',id).maybeSingle();
+      if(readError)throw new Error('Cloud update failed ('+(tombstoneError?.message||'unknown error')+'); could not verify hard delete ('+(readError?.message||'unknown error')+').');
+      if(remaining?.id)throw new Error('Cloud update failed ('+(tombstoneError?.message||'unknown error')+'); the hard delete did not remove the customer.');
+    }
+  }
+  // Child history is best-effort after the parent is marked deleted.
   try{await hdDeleteChildren(id);}catch(e){console.warn('Cloud child cleanup skipped for deleted rental',id,e);}
-}
-async function confirmDeleteRentalCustomer(n){
+  return true;
+}async function confirmDeleteRentalCustomer(n){
   n=n||window.currentBTCCCustomer;
   if(!n || !Object.prototype.hasOwnProperty.call(R,n)) return;
   const c=R[n];
