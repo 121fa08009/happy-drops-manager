@@ -3325,6 +3325,10 @@ function hdBack(fallback){
 .hd-login-sub{color:#60788a;margin:6px 0 18px}
 .hd-login-choices{display:grid;grid-template-columns:1fr;gap:10px}
 .hd-login-choice{width:100%;min-height:56px;border-radius:13px;font-size:17px;font-weight:800}
+.hd-login-select{display:block;width:100%;min-height:52px;margin:12px 0;padding:10px 12px;border:1px solid #cbd8e2;border-radius:12px;background:#fff;color:#17324d;font-family:inherit;font-size:16px;font-weight:700}
+.hd-login-continue{width:100%;min-height:50px;border-radius:12px;font-size:16px;font-weight:800}
+.hd-login-continue:disabled{opacity:.5;cursor:not-allowed}
+.hd-login-error{min-height:22px;margin-top:10px;color:#b42318;font-weight:700}
 .hd-pattern-shell{max-width:340px;margin:16px auto 10px;touch-action:none;user-select:none;-webkit-user-select:none}
 .hd-pattern-area{position:relative;width:min(82vw,300px);height:min(82vw,300px);margin:auto;touch-action:none;border-radius:20px;background:linear-gradient(145deg,#eef7ff,#f7fbff);border:1px solid #dceaf5}
 .hd-pattern-area svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
@@ -3358,16 +3362,18 @@ function hdBack(fallback){
   var currentUser=null,selectedEmployee=null,drawing={active:false,points:[]},config=null,cloudAuthBusy=false;
   function ownerPattern(){try{return localStorage.getItem("hdOwnerLoginPatternV1")||OWNER_PATTERN_DEFAULT}catch(e){return OWNER_PATTERN_DEFAULT}}
   function esc(v){return typeof hdAttendanceEscape==="function"?hdAttendanceEscape(String(v==null?"":v)):String(v).replace(/[&<>"']/g,function(c){return({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])})}
-  function hasLoginStaff(){return (Array.isArray(staffOrder)?staffOrder:Object.keys(staff||{})).filter(function(n){return staff[n]&&staff[n].appLoginEnabled&&!staff[n].deleted})}
+  function allActiveStaff(){var ordered=Array.isArray(staffOrder)?staffOrder.slice():[],seen={};Object.keys(staff||{}).forEach(function(n){if(ordered.indexOf(n)<0)ordered.push(n)});return ordered.filter(function(n){if(seen[n])return false;seen[n]=true;return staff[n]&&!staff[n].deleted})}
   function pageAllowed(key){if(!currentUser)return false;if(currentUser.role==="owner")return true;if(key==="home")return true;var record=staff[currentUser.name];return !!(record&&record.appLoginEnabled&&!record.deleted&&record.appAccess&&record.appAccess[key])}
   function hideNavigation(){var d=document.getElementById("drawer");if(d)d.classList.remove("open")}
   function brandMarkup(){var image=document.querySelector(".hd-header-logo"),src=image?(image.getAttribute("src")||image.src):"";return '<div class="hd-login-brand">'+(src?'<img src="'+esc(src)+'" alt="Happy Drops logo">':'')+'<span>Happy Drops</span></div>'}  function chooser(){
     currentUser=null;selectedEmployee=null;config=null;hideNavigation();
     var app=document.getElementById("app");if(!app)return;
-    var buttons='<button class="btn hd-login-choice" onclick="hdEmployeeChooseOwner()">👑 Owner</button>';
-    hasLoginStaff().forEach(function(n){buttons+='<button class="btn secondary hd-login-choice" data-employee="'+encodeURIComponent(n)+'" onclick="hdEmployeeChooseStaff(this.dataset.employee)">'+esc(n)+'</button>'});
-    var brand=brandMarkup();app.innerHTML='<div class="card hd-login-card">'+brand+'<h2 style="margin:8px 0">Select Employee</h2><p class="hd-login-sub">Choose your profile to continue.</p><div class="hd-login-choices">'+buttons+'</div><p class="small" style="margin-top:16px">Only employees with a login created by the Owner appear here.</p></div>';
+    var options='<option value="">Select employee</option><option value="owner">Owner</option>';
+    allActiveStaff().forEach(function(n){options+='<option value="staff:'+encodeURIComponent(n)+'">'+esc(n)+'</option>'});
+    var brand=brandMarkup();app.innerHTML='<div class="card hd-login-card">'+brand+'<div class="hd-login-choices"><select id="hdLoginEmployeeSelect" class="hd-login-select" aria-label="Select employee" onchange="hdEmployeeLoginSelectionChanged()">'+options+'</select><button id="hdLoginContinue" class="btn hd-login-continue" disabled onclick="hdEmployeeContinueLogin()">Continue</button><div id="hdLoginMessage" class="hd-login-error" role="status" aria-live="polite"></div></div></div>';
   }
+  function loginSelectionChanged(){var select=document.getElementById("hdLoginEmployeeSelect"),button=document.getElementById("hdLoginContinue"),message=document.getElementById("hdLoginMessage");if(button)button.disabled=!select||!select.value;if(message)message.textContent=""}
+  function continueLogin(){var select=document.getElementById("hdLoginEmployeeSelect"),value=select&&select.value;if(value==="owner"){chooseOwner();return}if(value&&value.indexOf("staff:")===0)chooseStaff(value.slice(6))}
   function patternGrid(){
     var dots="";for(var i=1;i<=9;i++)dots+='<div class="hd-pattern-dot" data-pattern-dot="'+i+'"></div>';
     return '<div class="hd-pattern-shell"><div class="hd-pattern-area" id="hdPatternArea" onpointerdown="hdPatternPointerDown(event)" onpointermove="hdPatternPointerMove(event)" onpointerup="hdPatternPointerUp(event)" onpointercancel="hdPatternPointerUp(event)"><svg viewBox="0 0 300 300" aria-hidden="true"><polyline id="hdPatternLine" points=""></polyline></svg><div class="hd-pattern-dots">'+dots+'</div></div></div>';
@@ -3416,7 +3422,7 @@ function hdBack(fallback){
   function movePattern(e){if(!drawing.active)return;if(e.cancelable)e.preventDefault();addDot(nearestDot(e.clientX,e.clientY))}
   function endPattern(e){if(!drawing.active)return;if(e.cancelable)e.preventDefault();completeDraw()}
   function chooseOwner(){selectedEmployee={role:"owner"};patternScreen()}
-  function chooseStaff(name){name=decodeURIComponent(name);if(!staff[name]||!staff[name].appLoginEnabled||staff[name].deleted)return chooser();selectedEmployee={role:"staff",name:name};patternScreen()}
+  function chooseStaff(name){name=decodeURIComponent(name);if(!staff[name]||staff[name].deleted)return chooser();if(!staff[name].appLoginEnabled){var message=document.getElementById("hdLoginMessage");if(message)message.textContent="Login access has not been created for this employee. Please ask the Owner.";return}selectedEmployee={role:"staff",name:name};patternScreen()}
   function showConfig(name){if(!currentUser||currentUser.role!=="owner"){alert("Only the Owner can manage employee logins.");return}if(!staff[name])return;config={name:name,stage:staff[name].appLoginPattern?"saved":"draw",pending:"",confirmed:"",requested:!staff[name].appLoginPattern,accessDraft:null};renderConfig()}
   function renderConfig(){
     var x=staff[config.name],arg=encodeURIComponent(config.name),access="",draft=config.accessDraft;
@@ -3522,7 +3528,7 @@ function hdBack(fallback){
     ];
     routes.forEach(function(r){if(r[0]==="owner"){window.owner=ownerLogin;return}if(r[0]==="ownerLogout"){window.ownerLogout=switchUser;return}installRouteGuard(r[0],r[1],r[2])});
     var originalOpen=window.openMenu;if(typeof originalOpen==="function")window.openMenu=function(){if(!currentUser){chooser();return}return originalOpen.apply(this,arguments)};
-    window.hdCurrentUser=null;window.hdEmployeeRenderChooser=chooser;window.hdEmployeeChooseOwner=chooseOwner;window.hdEmployeeChooseStaff=chooseStaff;
+    window.hdCurrentUser=null;window.hdEmployeeRenderChooser=chooser;window.hdEmployeeChooseOwner=chooseOwner;window.hdEmployeeChooseStaff=chooseStaff;window.hdEmployeeLoginSelectionChanged=loginSelectionChanged;window.hdEmployeeContinueLogin=continueLogin;
     window.hdPatternPointerDown=startPattern;window.hdPatternPointerMove=movePattern;window.hdPatternPointerUp=endPattern;window.hdEmployeeSwitchUser=switchUser;
     window.manageStaffLogin=function(encoded){showConfig(decodeURIComponent(encoded))};
     window.hdToggleStaffLoginConfig=toggleConfig;window.hdRequestStaffPatternChange=requestPatternChange;window.hdSaveStaffLoginConfig=saveConfig;window.hdRemoveStaffLogin=removeLogin;
