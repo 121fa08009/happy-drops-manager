@@ -777,8 +777,8 @@ function hdInitCloud(){
            hdStaffAttendanceRealtimeChannel=null;
            hdSupabase.removeChannel(channel).catch(e=>console.warn('Staff cloud channel close error',e));
          }
-        hdSetCloudStatus('connecting','Cloud login required');
-        if(event==='SIGNED_OUT')hdShowAuth();
+        hdSetCloudStatus('connecting','Connecting to shared cloud…');
+        if(event==='SIGNED_OUT')hdSupabase.auth.signInAnonymously().then(function(r){if(r.error)throw r.error;hdSession=r.data.session}).catch(function(e){console.warn('Anonymous cloud login failed',e)});
         return;
       }
       if(event==='SIGNED_IN'){
@@ -802,13 +802,11 @@ function hdInitCloud(){
         const ok=await hdCloudBootstrap();
         if(ok)setTimeout(()=>hdStartPushRegistration(),250);
       }else{
-        hdSetCloudStatus('connecting','Cloud login required');
-        hdShowAuth();
+        hdSetCloudStatus('connecting','Connecting to shared cloud…');var signed=await hdSupabase.auth.signInAnonymously();if(signed.error)throw signed.error;hdSession=signed.data?.session||null;if(hdSession){var ok=await hdCloudBootstrap();if(ok)setTimeout(()=>hdStartPushRegistration(),250);}
       }
     }).catch(e=>{
       console.error('Supabase session error',e);
-      hdSetCloudStatus(navigator.onLine?'error':'offline',navigator.onLine?(e?.message||'Cloud connection failed'):'Offline');
-      hdShowAuth();
+      hdSetCloudStatus(navigator.onLine?'error':'offline',navigator.onLine?(e?.message||'Cloud connection failed'):'Offline');if(window.hdEmployeeRefreshLoginChooser)window.hdEmployeeRefreshLoginChooser();
     });
   }catch(e){
     console.error('Supabase init error',e);
@@ -3320,6 +3318,197 @@ function hdBack(fallback){
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',hideHappyDropsLaunch,{once:true});
   else hideHappyDropsLaunch();
+})();
+</script>
+<style id="hdEmployeeLoginStyles">
+.hd-login-card{max-width:520px;margin:22px auto;text-align:center;padding:22px}
+.hd-login-sub{color:#60788a;margin:6px 0 18px}
+.hd-login-choices{display:grid;grid-template-columns:1fr;gap:10px}
+.hd-login-choice{width:100%;min-height:56px;border-radius:13px;font-size:17px;font-weight:800}
+.hd-pattern-shell{max-width:340px;margin:16px auto 10px;touch-action:none;user-select:none;-webkit-user-select:none}
+.hd-pattern-area{position:relative;width:min(82vw,300px);height:min(82vw,300px);margin:auto;touch-action:none;border-radius:20px;background:linear-gradient(145deg,#eef7ff,#f7fbff);border:1px solid #dceaf5}
+.hd-pattern-area svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+.hd-pattern-area polyline{fill:none;stroke:#147dcc;stroke-width:8;stroke-linecap:round;stroke-linejoin:round}
+.hd-pattern-dots{position:absolute;inset:0;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);place-items:center}
+.hd-pattern-dot{width:24px;height:24px;border-radius:50%;background:#8799a8;border:5px solid #fff;box-shadow:0 1px 5px #17324d55;box-sizing:border-box;transition:background .12s,transform .12s}
+.hd-pattern-dot.active{background:#147dcc;transform:scale(1.25);box-shadow:0 0 0 6px #147dcc25}
+.hd-pattern-status{min-height:24px;font-weight:700;color:#435b6c}
+.hd-pattern-status.error{color:#c62828}
+.hd-login-config{max-width:760px;margin:12px auto}
+.hd-access-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px}
+.hd-access-option{display:flex;align-items:center;gap:8px;padding:9px;border:1px solid #dbe5eb;border-radius:9px;background:#f8fbfd;font-weight:700}
+.hd-access-option input{width:18px;height:18px;accent-color:#147dcc}
+.hd-login-info{background:#eef7ff;border:1px solid #d6eaf9;color:#315970;border-radius:10px;padding:10px;margin:10px 0}
+.hd-staff-login-state{display:inline-block;margin-top:5px;padding:3px 7px;border-radius:999px;background:#e7f5ed;color:#216c43;font-size:11px;font-weight:800}
+#hdEmployeeSwitchNav{border-top:1px solid #d9e2e8;margin-top:8px;padding-top:8px}
+@media(max-width:480px){.hd-login-card{margin:12px auto;padding:17px}.hd-access-options{grid-template-columns:1fr}}
+</style>
+<script id="hdEmployeeLoginFeature">
+(function(){
+  "use strict";
+  var ACCESS_ITEMS=[
+    {key:"dealers",label:"Dealers"},
+    {key:"rentals",label:"BT/CC Rentals"},
+    {key:"orders",label:"Orders"},
+    {key:"stock",label:"Stock"},
+    {key:"money",label:"Money Calculator"},
+    {key:"attendance",label:"Staff Attendance"}
+  ];
+  var OWNER_PATTERN_DEFAULT="3214789";
+  var currentUser=null,selectedEmployee=null,drawing={active:false,points:[]},config=null,cloudAuthBusy=false;
+  function ownerPattern(){try{return localStorage.getItem("hdOwnerLoginPatternV1")||OWNER_PATTERN_DEFAULT}catch(e){return OWNER_PATTERN_DEFAULT}}
+  function esc(v){return typeof hdAttendanceEscape==="function"?hdAttendanceEscape(String(v==null?"":v)):String(v).replace(/[&<>"']/g,function(c){return({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])})}
+  function hasLoginStaff(){return (Array.isArray(staffOrder)?staffOrder:Object.keys(staff||{})).filter(function(n){return staff[n]&&staff[n].appLoginEnabled&&!staff[n].deleted})}
+  function pageAllowed(key){if(!currentUser)return false;if(currentUser.role==="owner")return true;if(key==="home")return true;var record=staff[currentUser.name];return !!(record&&record.appLoginEnabled&&!record.deleted&&record.appAccess&&record.appAccess[key])}
+  function hideNavigation(){var d=document.getElementById("drawer");if(d)d.classList.remove("open")}
+  function chooser(){
+    currentUser=null;selectedEmployee=null;config=null;hideNavigation();
+    var app=document.getElementById("app");if(!app)return;
+    var buttons='<button class="btn hd-login-choice" onclick="hdEmployeeChooseOwner()">👑 Owner</button>';
+    hasLoginStaff().forEach(function(n){buttons+='<button class="btn secondary hd-login-choice" data-employee="'+encodeURIComponent(n)+'" onclick="hdEmployeeChooseStaff(this.dataset.employee)">'+esc(n)+'</button>'});
+    app.innerHTML='<div class="card hd-login-card"><div style="font-size:42px">💧</div><h2 style="margin:8px 0">Select Employee</h2><p class="hd-login-sub">Choose your profile to continue.</p><div class="hd-login-choices">'+buttons+'</div><p class="small" style="margin-top:16px">Only employees with a login created by the Owner appear here.</p></div>';
+  }
+  function patternGrid(){
+    var dots="";for(var i=1;i<=9;i++)dots+='<div class="hd-pattern-dot" data-pattern-dot="'+i+'"></div>';
+    return '<div class="hd-pattern-shell"><div class="hd-pattern-area" id="hdPatternArea" onpointerdown="hdPatternPointerDown(event)" onpointermove="hdPatternPointerMove(event)" onpointerup="hdPatternPointerUp(event)" onpointercancel="hdPatternPointerUp(event)"><svg viewBox="0 0 300 300" aria-hidden="true"><polyline id="hdPatternLine" points=""></polyline></svg><div class="hd-pattern-dots">'+dots+'</div></div></div>';
+  }
+  function patternScreen(){
+    if(!selectedEmployee)return chooser();
+    var name=selectedEmployee.role==="owner"?"Owner":selectedEmployee.name;drawing={active:false,points:[]};
+    document.getElementById("app").innerHTML='<div class="card hd-login-card"><div style="font-size:38px">🔒</div><h2 style="margin:8px 0">'+esc(name)+'</h2><p class="hd-login-sub">Draw your login pattern.</p>'+patternGrid()+'<div id="hdPatternStatus" class="hd-pattern-status">Connect at least 4 dots.</div><button class="btn secondary" style="margin-top:12px" onclick="hdEmployeeRenderChooser()">← Select another profile</button></div>';
+  }
+  function updatePatternDrawing(){
+    var points=drawing.points||[];
+    document.querySelectorAll("[data-pattern-dot]").forEach(function(dot){dot.classList.toggle("active",points.indexOf(Number(dot.dataset.patternDot))>=0)});
+    var line=document.getElementById("hdPatternLine");if(line)line.setAttribute("points",points.map(function(n){var z=n-1;return(50+(z%3)*100)+","+(50+Math.floor(z/3)*100)}).join(" "));
+  }
+  function nearestDot(x,y){
+    var dots=Array.from(document.querySelectorAll("[data-pattern-dot]")),best=null,bestDistance=Infinity;
+    dots.forEach(function(dot){var r=dot.getBoundingClientRect(),dx=x-(r.left+r.width/2),dy=y-(r.top+r.height/2),d=Math.sqrt(dx*dx+dy*dy);if(d<bestDistance){bestDistance=d;best=Number(dot.dataset.patternDot)}});
+    return bestDistance<46?best:null;
+  }
+  function addDot(next){
+    if(!next)return;var pts=drawing.points;if(pts.indexOf(next)>=0)return;
+    if(!pts.length){pts.push(next);updatePatternDrawing();return}
+    var prev=pts[pts.length-1]-1,target=next-1,dr=Math.floor(target/3)-Math.floor(prev/3),dc=(target%3)-(prev%3);
+    var gcd=function(a,b){a=Math.abs(a);b=Math.abs(b);while(b){var t=a%b;a=b;b=t}return a||1},steps=gcd(dr,dc);
+    if(steps>1){for(var j=1;j<steps;j++){var mid=prev+(dr/steps*j)*3+(dc/steps*j)+1;if(pts.indexOf(mid)<0)pts.push(mid)}}
+    if(pts.indexOf(next)<0)pts.push(next);updatePatternDrawing();
+  }
+  function setStatus(text,error){var e=document.getElementById("hdPatternStatus");if(e){e.textContent=text;e.classList.toggle("error",!!error)}}
+  function completeDraw(){
+    drawing.active=false;var code=drawing.points.join("");
+    if(code.length<4){setStatus("Use at least 4 dots, then try again.",true);drawing.points=[];updatePatternDrawing();return}
+    if(config){
+      if(config.stage==="draw"){config.pending=code;config.stage="confirm";drawing.points=[];updatePatternDrawing();setStatus("Pattern captured. Draw the same pattern again to confirm.");return}
+      if(config.stage==="confirm"){
+        if(config.pending!==code){config.pending="";config.stage="draw";drawing.points=[];updatePatternDrawing();setStatus("Patterns did not match. Draw a new pattern.",true);return}
+        config.confirmed=code;config.stage="ready";drawing.points=[];updatePatternDrawing();setStatus("Pattern confirmed. Save the login settings below.");return
+      }
+      return;
+    }
+    var expected=selectedEmployee.role==="owner"?ownerPattern():String(staff[selectedEmployee.name]&&staff[selectedEmployee.name].appLoginPattern||"");
+    if(code!==expected){drawing.points=[];updatePatternDrawing();setStatus("That pattern did not match. Try again.",true);return}
+    currentUser={role:selectedEmployee.role,name:selectedEmployee.role==="owner"?"Owner":selectedEmployee.name};selectedEmployee=null;window.hdCurrentUser=currentUser;
+    if(typeof window.home==="function")window.home();else chooser();
+  }
+  function startPattern(e){if(e.cancelable)e.preventDefault();drawing={active:true,points:[]};var area=document.getElementById("hdPatternArea");if(area&&area.setPointerCapture){try{area.setPointerCapture(e.pointerId)}catch(_){}}addDot(nearestDot(e.clientX,e.clientY))}
+  function movePattern(e){if(!drawing.active)return;if(e.cancelable)e.preventDefault();addDot(nearestDot(e.clientX,e.clientY))}
+  function endPattern(e){if(!drawing.active)return;if(e.cancelable)e.preventDefault();completeDraw()}
+  function chooseOwner(){selectedEmployee={role:"owner"};patternScreen()}
+  function chooseStaff(name){name=decodeURIComponent(name);if(!staff[name]||!staff[name].appLoginEnabled||staff[name].deleted)return chooser();selectedEmployee={role:"staff",name:name};patternScreen()}
+  function showConfig(name){if(!currentUser||currentUser.role!=="owner"){alert("Only the Owner can manage employee logins.");return}if(!staff[name])return;config={name:name,stage:staff[name].appLoginPattern?"saved":"draw",pending:"",confirmed:"",requested:!staff[name].appLoginPattern,accessDraft:null};renderConfig()}
+  function renderConfig(){
+    var x=staff[config.name],arg=encodeURIComponent(config.name),access="",draft=config.accessDraft;
+    ACCESS_ITEMS.forEach(function(item){var checked=draft?!!draft[item.key]:!!(x.appAccess&&x.appAccess[item.key]);access+='<label class="hd-access-option"><input type="checkbox" data-hd-access="'+item.key+'" '+(checked?'checked':'')+'> '+item.label+'</label>'});
+    var ask=config.requested||config.stage==="draw"||config.stage==="confirm"||config.stage==="ready";
+    var patternUi=ask?'<div class="hd-login-info"><b>Draw a new pattern, then draw it again to confirm.</b></div>'+patternGrid()+'<div id="hdPatternStatus" class="hd-pattern-status">'+(config.stage==="confirm"?"Draw the same pattern again.":config.stage==="ready"?"Pattern confirmed.":"Connect at least 4 dots.")+'</div>':'<div class="hd-login-info">A login pattern is already set. Use the button below if you want to change it.</div>';
+    document.getElementById("app").innerHTML='<div class="card hd-login-config"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div><h2 style="margin:0">🔐 Login & Access</h2><span class="small">'+esc(config.name)+'</span></div><button class="btn secondary" onclick="manageStaff()">← Staff</button></div><div class="hd-login-info">Only the Owner can create or change this employee login and choose the pages they can open.</div><label class="hd-access-option" style="margin:12px 0"><input id="hdStaffLoginEnabled" type="checkbox" '+(x.appLoginEnabled?'checked':'')+' onchange="hdToggleStaffLoginConfig()"> Allow this employee to sign in</label><div id="hdStaffLoginDetails" style="'+(x.appLoginEnabled?'':'display:none')+'"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><h3 style="margin:8px 0">Allowed pages and quick access</h3><button class="btn secondary" onclick="hdRequestStaffPatternChange()">'+(x.appLoginPattern?"Change login pattern":"Set login pattern")+'</button></div><div class="hd-access-options">'+access+'</div><div id="hdStaffPatternArea" style="'+(ask?'':'display:none')+'">'+patternUi+'</div><br><button class="btn" onclick="hdSaveStaffLoginConfig(decodeURIComponent(&quot;'+arg+'&quot;))">💾 Save Login & Access</button> <button class="btn secondary" onclick="manageStaff()">Cancel</button></div><div style="'+(x.appLoginEnabled?'':'display:none')+';margin-top:10px"><button class="btn danger" onclick="hdRemoveStaffLogin(decodeURIComponent(&quot;'+arg+'&quot;))">Remove Login</button></div></div>';
+  }
+  function toggleConfig(){var enabled=document.getElementById("hdStaffLoginEnabled"),details=document.getElementById("hdStaffLoginDetails");if(details)details.style.display=enabled&&enabled.checked?"":"none"}
+  function requestPatternChange(){
+    if(!config)return;config.accessDraft={};
+    document.querySelectorAll("[data-hd-access]").forEach(function(input){config.accessDraft[input.dataset.hdAccess]=!!input.checked});
+    config.requested=true;config.stage="draw";config.pending="";config.confirmed="";renderConfig()
+  }
+  function saveConfig(encoded){
+    var name=decodeURIComponent(encoded),x=staff[name],enabled=document.getElementById("hdStaffLoginEnabled");if(!x||!enabled)return;
+    var wasEnabled=!!enabled.checked,pattern=(config&&config.name===name&&config.confirmed)||x.appLoginPattern||"";
+    if(wasEnabled&&!pattern){alert("Set and confirm a login pattern before enabling this employee login.");return}
+    var access={};document.querySelectorAll("[data-hd-access]").forEach(function(input){access[input.dataset.hdAccess]=!!input.checked});
+    x.appLoginEnabled=wasEnabled;x.appAccess=wasEnabled?access:{};x.appLoginPattern=wasEnabled?pattern:"";x._hdUpdatedAt=new Date().toISOString();
+    save();hdQueueStaffAttendanceSync();manageStaff();
+  }
+  function removeLogin(encoded){
+    var name=decodeURIComponent(encoded),x=staff[name];if(!x)return;
+    if(!confirm("Remove app login for "+name+"? This employee will no longer appear on the login screen."))return;
+    x.appLoginEnabled=false;x.appLoginPattern="";x.appAccess={};x._hdUpdatedAt=new Date().toISOString();save();hdQueueStaffAttendanceSync();manageStaff();
+  }
+  function installRouteGuard(name,key,ownerOnly){
+    var original=window[name];if(typeof original!=="function"||original.__hdEmployeeGuard)return;
+    var guarded=function(){
+      if(!currentUser){chooser();return}
+      if(ownerOnly&&currentUser.role!=="owner"){alert("This page is available to the Owner only.");return}
+      if(key&&!pageAllowed(key)){alert("The Owner has not given your account access to this page.");return}
+      var result=original.apply(this,arguments);if(name==="home")applyVisibility();return result
+    };
+    guarded.__hdEmployeeGuard=true;guarded.__hdOriginal=original;window[name]=guarded
+  }
+  function applyVisibility(){
+    var drawerEl=document.getElementById("drawer"),side=drawerEl&&drawerEl.querySelector(".side");if(!currentUser){if(drawerEl)drawerEl.classList.remove("open");return}
+    if(side&&!document.getElementById("hdEmployeeSwitchNav")){var link=document.createElement("div");link.id="hdEmployeeSwitchNav";link.className="nav";link.textContent="↔ Switch employee";link.onclick=window.hdEmployeeSwitchUser;side.appendChild(link)}
+    var navMap=[["dealers","dealers"],["rentals","rentals"],["orders","orders"],["stock","stock"],["money","money"],["attendance","attendance"],["owner","owner"]];
+    document.querySelectorAll("#drawer .nav").forEach(function(el){if(el.id==="hdEmployeeSwitchNav"){el.style.display="";return}var click=String(el.getAttribute("onclick")||"").toLowerCase(),key=null;navMap.forEach(function(pair){if(click.indexOf(pair[0]+"()")>=0)key=pair[1]});if(key==="owner"&&currentUser.role!=="owner")el.style.display="none";else if(key)el.style.display=pageAllowed(key)?"":"none"});
+    document.querySelectorAll(".home-grid button").forEach(function(el){var click=String(el.getAttribute("onclick")||"").toLowerCase(),key=null;navMap.forEach(function(pair){if(click.indexOf(pair[0]+"()")>=0)key=pair[1]});if(click.indexOf("window.open")>=0)key="orders";if(key==="owner"&&currentUser.role!=="owner")el.style.display="none";else if(key)el.style.display=pageAllowed(key)?"":"none"})
+  }
+  async function ensureCloud(){
+    if(typeof hdSupabase==="undefined"||!hdSupabase||hdSession||cloudAuthBusy)return;
+    cloudAuthBusy=true;
+    try{
+      var existing=await hdSupabase.auth.getSession(),session=existing&&existing.data&&existing.data.session;
+      if(!session){var signed=await hdSupabase.auth.signInAnonymously();if(signed.error)throw signed.error;session=signed.data&&signed.data.session}
+      hdSession=session||null;
+      if(hdSession&&typeof hdCloudBootstrap==="function"){var ok=await hdCloudBootstrap();if(ok&&typeof hdStartPushRegistration==="function")setTimeout(hdStartPushRegistration,250)}
+    }catch(error){console.warn("Cloud startup could not complete; local app login is still available.",error);if(typeof hdSetCloudStatus==="function")hdSetCloudStatus(navigator.onLine?"error":"offline","Cloud is unavailable; local login is available")}
+    finally{cloudAuthBusy=false;refreshChooser()}
+  }
+  function refreshChooser(){if(!currentUser&&!selectedEmployee)chooser()}
+  function ownerLogin(){if(!currentUser){chooser();return}if(currentUser.role!=="owner"){alert("Owner access is required.");return}if(typeof window.ownerDashboard==="function")window.ownerDashboard()}
+  function switchUser(){currentUser=null;window.hdCurrentUser=null;selectedEmployee=null;config=null;chooser()}
+  function wrapAll(){
+    var routes=[
+      ["home","home",false],["dealers","dealers",false],["openDealer","dealers",false],
+      ["rentals","rentals",false],["newRental","rentals",false],["openRental","rentals",false],["editRentalCustomer","rentals",false],
+      ["stock","stock",false],["money","money",false],["attendance","attendance",false],
+      ["owner",null,true],["ownerDashboard",null,true],["ownerLogout",null,true],
+      ["manageStaff",null,true],["addStaff",null,true],["editStaff",null,true],
+      ["manageProducts",null,true],["newProduct",null,true],["editProduct",null,true],
+      ["showDealerManager",null,true],["showAddDealerForm",null,true],["editDealer",null,true],["dealerAdmin",null,true]
+    ];
+    routes.forEach(function(r){if(r[0]==="owner"){window.owner=ownerLogin;return}if(r[0]==="ownerLogout"){window.ownerLogout=switchUser;return}installRouteGuard(r[0],r[1],r[2])});
+    var originalOpen=window.openMenu;if(typeof originalOpen==="function")window.openMenu=function(){if(!currentUser){chooser();return}return originalOpen.apply(this,arguments)};
+    window.hdCurrentUser=null;window.hdEmployeeRenderChooser=chooser;window.hdEmployeeChooseOwner=chooseOwner;window.hdEmployeeChooseStaff=chooseStaff;
+    window.hdPatternPointerDown=startPattern;window.hdPatternPointerMove=movePattern;window.hdPatternPointerUp=endPattern;window.hdEmployeeSwitchUser=switchUser;
+    window.manageStaffLogin=function(encoded){showConfig(decodeURIComponent(encoded))};
+    window.hdToggleStaffLoginConfig=toggleConfig;window.hdRequestStaffPatternChange=requestPatternChange;window.hdSaveStaffLoginConfig=saveConfig;window.hdRemoveStaffLogin=removeLogin;
+    window.hdEmployeeRefreshLoginChooser=refreshChooser;window.hdShowAuth=refreshChooser;
+    var originalRender=window.renderStaffAdmin;
+    window.renderStaffAdmin=function(){
+      if(typeof originalRender==="function")originalRender.apply(this,arguments);
+      var list=document.getElementById("staffAdminList");if(!list)return;
+      list.querySelectorAll("[data-staff-card]").forEach(function(card){
+        var name=decodeURIComponent(card.dataset.staffCard||""),record=staff[name];if(!record)return;
+        var encoded=encodeURIComponent(name),button=document.createElement("button");button.className="btn "+(record.appLoginEnabled?"secondary":"");button.textContent=record.appLoginEnabled?"🔐 Login & Access":"＋ Create Login";
+        button.setAttribute("onclick","manageStaffLogin(decodeURIComponent('"+encoded+"'))");
+        var holder=card.querySelector("div[style*='flex:1']");if(holder&&record.appLoginEnabled)holder.insertAdjacentHTML("beforeend",'<span class="hd-staff-login-state">APP LOGIN ON</span>');
+        var edit=card.querySelector("button[onclick*='editStaff']");if(edit&&edit.parentNode)edit.parentNode.insertBefore(button,edit.nextSibling);else card.appendChild(button)
+      })
+    };
+    var originalApply=window.hdApplyStaffAttendanceCloudState;
+    if(typeof originalApply==="function")window.hdApplyStaffAttendanceCloudState=function(){var result=originalApply.apply(this,arguments);refreshChooser();return result};
+    window.hdShowAuth=refreshChooser;chooser()
+  }
+  window.hdEmployeePageAllowed=pageAllowed;window.hdEmployeeRefreshLoginChooser=refreshChooser;window.hdEnsureAnonymousCloud=ensureCloud;wrapAll()
 })();
 </script>
 </body></html>
