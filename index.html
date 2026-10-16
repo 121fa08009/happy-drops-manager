@@ -278,10 +278,31 @@ function hdSetRentalSyncBaseline(id,c){if(id&&c)hdRentalSyncFingerprints[String(
 function hdClearRentalSyncBaseline(id){if(id)delete hdRentalSyncFingerprints[String(id)];}
 function hdRentalBase(id,name,c){return {id,name:String(name||c?.name||'Customer').trim(),mobile:c?.phone||'',rental_date:c?.rentalDate||localDateKey(new Date()),rental_time:c?.rentalTime||null,return_date:c?.returnDate||null,bt_quantity:Number(c?.pbt)||0,cc_quantity:Number(c?.cc)||0,bt_price:Number.isFinite(+c?.pbtPrice)?+c.pbtPrice:20,cc_price:Number.isFinite(+c?.ccPrice)?+c.ccPrice:50,security_deposit:Number(c?.deposit)||0,status:c?.closed?'closed':(c?.pending?'pending':'active'),closed:!!c?.closed,refund_completed:!!c?.refundCompleted};}
 async function hdDeleteChildren(id){for(const table of ['rental_additions','rental_returns','rental_refills','rental_deposit_transactions','rental_activity']){const {error}=await hdSupabase.from(table).delete().eq('rental_customer_id',id);if(error)throw error;}}
+async function hdWriteRentalCloudTombstone(id,c={}){
+  if(!hdSupabase||!hdSession)throw new Error('Cloud login is not ready.');
+  const patch={status:'deleted',closed:true};
+  if(c.refundCompleted!==undefined)patch.refund_completed=!!c.refundCompleted;
+  let lastError=null;
+  for(let attempt=0;attempt<3;attempt++){
+    try{
+      const {data,error}=await hdSupabase.from('rental_customers').update(patch).eq('id',String(id)).select('id,status').maybeSingle();
+      if(error)throw error;
+      if(data?.id&&String(data.status||'').toLowerCase()==='deleted')return true;
+      const {data:existing,error:readError}=await hdSupabase.from('rental_customers').select('id,status').eq('id',String(id)).maybeSingle();
+      if(readError)throw readError;
+      if(!existing||String(existing.status||'').toLowerCase()==='deleted')return true;
+      throw new Error('The cloud did not confirm the customer deletion.');
+    }catch(e){
+      lastError=e;
+      if(attempt<2)await new Promise(resolve=>setTimeout(resolve,350*(attempt+1)));
+    }
+  }
+  throw lastError||new Error('Cloud deletion could not be confirmed.');
+}
 async function hdPushRental(name,c){
   const deletedCloudId=String(c?.cloudId||'');
   if(deletedCloudId && hdDeletedRentalIds.has(deletedCloudId)){
-    try{await hdDeleteChildren(deletedCloudId);await hdSupabase.from('rental_customers').delete().eq('id',deletedCloudId);}catch(e){console.warn('Could not finalize deleted rental in cloud',deletedCloudId,e);}
+    try{await hdWriteRentalCloudTombstone(deletedCloudId,c);try{await hdDeleteChildren(deletedCloudId);}catch(e){console.warn('Cloud child cleanup skipped for deleted rental',deletedCloudId,e);}}catch(e){console.warn('Could not finalize deleted rental in cloud',deletedCloudId,e);}
     return;
   }
   const safeName=String(c?.name||name||'').trim();
@@ -622,11 +643,11 @@ async function hdCloudSyncRentals(){
       // offline period and prevents another device from resurrecting them.
       for(const id of [...hdDeletedRentalIds]){
         try{
-          await hdDeleteChildren(id);
-          const {error}=await hdSupabase.from('rental_customers').delete().eq('id',id);
-          if(error)throw error;
+          await hdWriteRentalCloudTombstone(id);
+          hdCloudDeletedRentalIds.add(String(id));
           hdDeletedRentalIds.delete(String(id));
           hdClearRentalSyncBaseline(id);
+          try{await hdDeleteChildren(id);}catch(e){console.warn('Cloud child cleanup skipped for deleted rental',id,e);}
         }catch(e){
           // Keep the tombstone queued; the next sync will retry it.
           throw e;
@@ -901,6 +922,7 @@ function syncNow(){
 window.addEventListener("online",syncNow);
 window.addEventListener("offline",updateSyncBadge);
 window.addEventListener("online",()=>hdSetCloudStatus(hdSession?"syncing":"connecting",hdSession?"Reconnecting to cloud…":"Cloud login required"));
+window.addEventListener("online",()=>{if(hdSession)setTimeout(()=>hdCloudSyncRentals(),500);});
 window.addEventListener("offline",()=>hdSetCloudStatus("offline","Offline"));
 setInterval(syncNow,5000);
 
@@ -2084,8 +2106,7 @@ async function hdDeleteRentalCloud(n,c){
   // was allowing the other phone to keep the customer forever.  The tombstone
   // is an ordinary UPDATE on rental_customers (the same table already used by
   // normal sync), so every device can observe the deletion reliably.
-  const {error}=await hdSupabase.from('rental_customers').update({status:'deleted',closed:true,refund_completed:!!c.refundCompleted}).eq('id',id);
-  if(error)throw error;
+  await hdWriteRentalCloudTombstone(id,c);
   // Best-effort cleanup of child history. Do NOT make the deletion fail if a
   // child table blocks DELETE; the parent tombstone is the synchronization
   // source of truth and prevents resurrection on every other device.
@@ -2100,33 +2121,36 @@ async function confirmDeleteRentalCustomer(n){
   const m=document.getElementById('btccDeleteConfirm');
   const button=document.getElementById('btccDeleteConfirmBtn');
   if(button){button.disabled=true;button.textContent='Deleting…';}
-  let markedDeleted=false;
-  try{
-    // Wait for any earlier save to finish before writing the cloud tombstone.
-    // The local save below skips its automatic sync to avoid a second delete
-    // request racing this one.
-    if(onlineCloudDelete)await hdWaitForRentalCloudIdle();
-    if(m)m.remove();
-    if(cloudId){hdMarkRentalDeleted(cloudId);markedDeleted=true;}
-    delete R[n];
-    save({skipRentalCloudSync:onlineCloudDelete});
-    if(onlineCloudDelete){
+  if(m)m.remove();
+  if(cloudId)hdMarkRentalDeleted(cloudId);
+  delete R[n];
+  // Commit the delete locally first. A temporary cloud delay must not restore
+  // the customer or force the owner to retry the delete manually.
+  save({skipRentalCloudSync:!!(cloudId&&hdSession)});
+  window.btccRentalStatus='active';
+  rentals();
+  if(onlineCloudDelete){
+    try{
+      // Let an in-flight customer save finish. If it takes too long, the
+      // queued tombstone below will run as soon as the current sync releases.
+      try{await hdWaitForRentalCloudIdle();}catch(waitError){console.warn('Rental sync is still active; deletion remains queued',waitError);throw waitError;}
       await hdDeleteRentalCloud(n,{...c,cloudId});
       hdCloudDeletedRentalIds.add(String(cloudId));
       hdUnmarkRentalDeleted(cloudId);
       hdClearRentalDirty(cloudId);
       hdClearRentalSyncBaseline(cloudId);
       hdSaveRentalSyncFingerprints();
+      hdSetCloudStatus('synced','Cloud synced successfully');
+    }catch(e){
+      console.warn('Cloud deletion queued for automatic retry',e);
+      hdSetCloudStatus(navigator.onLine?'syncing':'offline','Customer deleted; cloud sync pending');
+      // hdCloudSyncRentals preserves the tombstone until the cloud confirms it.
+      // If another sync is active, this call marks a follow-up sync for it.
+      setTimeout(()=>{if(hdSupabase&&hdSession)hdCloudSyncRentals();},1000);
     }
-    hdSetCloudStatus(onlineCloudDelete?'synced':'syncing',onlineCloudDelete?'Cloud synced successfully':'Deletion queued for cloud sync');
-    window.btccRentalStatus='active';
-    rentals();
-  }catch(e){
-    if(markedDeleted&&cloudId)hdUnmarkRentalDeleted(cloudId);
-    R[n]=c;
-    save();
-    console.error('Cloud delete error',e);
-    alert('Customer was not deleted because cloud deletion failed. Please try again.\n\n'+(e.message||e));
+  }else if(cloudId&&hdSession){
+    hdSetCloudStatus(navigator.onLine?'syncing':'offline','Customer deleted; cloud sync pending');
+    if(navigator.onLine)setTimeout(()=>hdCloudSyncRentals(),1000);
   }
 }
 function manageBTCCDepositsRefunds(n){
