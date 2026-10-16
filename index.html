@@ -3321,7 +3321,7 @@ function hdBack(fallback){
 })();
 </script>
 <style id="hdEmployeeLoginStyles">
-.hd-login-card{max-width:520px;margin:22px auto;text-align:center;padding:22px}
+.hd-login-card{max-width:520px;margin:22px auto;text-align:center;padding:22px}.hd-login-brand{display:flex;align-items:center;justify-content:center;gap:10px;margin:0 auto 14px}.hd-login-brand img{width:66px;height:66px;object-fit:contain;display:block}.hd-login-brand span{font-size:25px;font-weight:900;letter-spacing:-.4px;color:#17324d}
 .hd-login-sub{color:#60788a;margin:6px 0 18px}
 .hd-login-choices{display:grid;grid-template-columns:1fr;gap:10px}
 .hd-login-choice{width:100%;min-height:56px;border-radius:13px;font-size:17px;font-weight:800}
@@ -3361,12 +3361,12 @@ function hdBack(fallback){
   function hasLoginStaff(){return (Array.isArray(staffOrder)?staffOrder:Object.keys(staff||{})).filter(function(n){return staff[n]&&staff[n].appLoginEnabled&&!staff[n].deleted})}
   function pageAllowed(key){if(!currentUser)return false;if(currentUser.role==="owner")return true;if(key==="home")return true;var record=staff[currentUser.name];return !!(record&&record.appLoginEnabled&&!record.deleted&&record.appAccess&&record.appAccess[key])}
   function hideNavigation(){var d=document.getElementById("drawer");if(d)d.classList.remove("open")}
-  function chooser(){
+  function brandMarkup(){var image=document.querySelector(".hd-header-logo"),src=image?(image.getAttribute("src")||image.src):"";return '<div class="hd-login-brand">'+(src?'<img src="'+esc(src)+'" alt="Happy Drops logo">':'')+'<span>Happy Drops</span></div>'}  function chooser(){
     currentUser=null;selectedEmployee=null;config=null;hideNavigation();
     var app=document.getElementById("app");if(!app)return;
     var buttons='<button class="btn hd-login-choice" onclick="hdEmployeeChooseOwner()">👑 Owner</button>';
     hasLoginStaff().forEach(function(n){buttons+='<button class="btn secondary hd-login-choice" data-employee="'+encodeURIComponent(n)+'" onclick="hdEmployeeChooseStaff(this.dataset.employee)">'+esc(n)+'</button>'});
-    app.innerHTML='<div class="card hd-login-card"><div style="font-size:42px">💧</div><h2 style="margin:8px 0">Select Employee</h2><p class="hd-login-sub">Choose your profile to continue.</p><div class="hd-login-choices">'+buttons+'</div><p class="small" style="margin-top:16px">Only employees with a login created by the Owner appear here.</p></div>';
+    var brand=brandMarkup();app.innerHTML='<div class="card hd-login-card">'+brand+'<h2 style="margin:8px 0">Select Employee</h2><p class="hd-login-sub">Choose your profile to continue.</p><div class="hd-login-choices">'+buttons+'</div><p class="small" style="margin-top:16px">Only employees with a login created by the Owner appear here.</p></div>';
   }
   function patternGrid(){
     var dots="";for(var i=1;i<=9;i++)dots+='<div class="hd-pattern-dot" data-pattern-dot="'+i+'"></div>';
@@ -3375,7 +3375,7 @@ function hdBack(fallback){
   function patternScreen(){
     if(!selectedEmployee)return chooser();
     var name=selectedEmployee.role==="owner"?"Owner":selectedEmployee.name;drawing={active:false,points:[]};
-    document.getElementById("app").innerHTML='<div class="card hd-login-card"><div style="font-size:38px">🔒</div><h2 style="margin:8px 0">'+esc(name)+'</h2><p class="hd-login-sub">Draw your login pattern.</p>'+patternGrid()+'<div id="hdPatternStatus" class="hd-pattern-status">Connect at least 4 dots.</div><button class="btn secondary" style="margin-top:12px" onclick="hdEmployeeRenderChooser()">← Select another profile</button></div>';
+    var brand=brandMarkup();document.getElementById("app").innerHTML='<div class="card hd-login-card">'+brand+'<h2 style="margin:8px 0">'+esc(name)+'</h2><p class="hd-login-sub">Draw your login pattern.</p>'+patternGrid()+'<div id="hdPatternStatus" class="hd-pattern-status">Connect at least 4 dots.</div><button class="btn secondary" style="margin-top:12px" onclick="hdEmployeeRenderChooser()">← Select another profile</button></div>';
   }
   function updatePatternDrawing(){
     var points=drawing.points||[];
