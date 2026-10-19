@@ -822,7 +822,7 @@ function hdInitCloud(){
 }
 
 // Happy Drops Manager Web Push registration
-const HD_VAPID_PUBLIC_KEY = "BAfyUjWhYjRl6aExLadqGEFlc8b_CMRol2VJFReuST8tYg64dqi-iGCxh6Kueja0jqtE8S40fZjU5BkViO1xKUM";
+const HD_VAPID_PUBLIC_KEY = "BGH9PGlRYn0dhEb23is7HW1SMKrVcJj2ud718u5DBcSSvbI5c-AH7vZacaIyahOsvCxfuogKcPjyG6b0MYhMJJw";
 
 function hdUrlBase64ToUint8Array(base64String){
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -832,6 +832,7 @@ function hdUrlBase64ToUint8Array(base64String){
 }
 
 async function hdRegisterPushNotifications(){
+  if(!window.hdCurrentUser||window.hdCurrentUser.role!=="owner"){console.log("Push registration is reserved for the Owner phone.");return false}
   try{
     if(!window.isSecureContext || !('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)){
       console.warn('Web Push is not supported in this browser/context.');
@@ -877,7 +878,8 @@ async function hdRegisterPushNotifications(){
         .from('push_subscriptions')
         .update({
           user_id: hdSession.user.id,
-          subscription: subscriptionJson
+          subscription: subscriptionJson,
+          is_owner: true
         })
         .eq('id', existing[0].id);
       if(updateError) throw updateError;
@@ -887,7 +889,8 @@ async function hdRegisterPushNotifications(){
         .insert({
           user_id: hdSession.user.id,
           endpoint,
-          subscription: subscriptionJson
+          subscription: subscriptionJson,
+          is_owner: true
         });
       if(insertError) throw insertError;
     }
@@ -3433,7 +3436,7 @@ function hdBack(fallback){
     }
     var expected=selectedEmployee.role==="owner"?ownerPattern():String(loginAccessMembers[selectedEmployee.id]&&loginAccessMembers[selectedEmployee.id].pattern||"");
     if(code!==expected){drawing.points=[];updatePatternDrawing();setStatus("That pattern did not match. Try again.",true);return}
-    currentUser=selectedEmployee.role==="owner"?{role:"owner",name:"Chaitanya"}:{role:"login",id:selectedEmployee.id,name:selectedEmployee.name};saveActiveLogin();selectedEmployee=null;window.hdCurrentUser=currentUser;
+    currentUser=selectedEmployee.role==="owner"?{role:"owner",name:"Chaitanya"}:{role:"login",id:selectedEmployee.id,name:selectedEmployee.name};saveActiveLogin();selectedEmployee=null;window.hdCurrentUser=currentUser;if(currentUser.role==="owner"&&typeof hdStartPushRegistration==="function")setTimeout(hdStartPushRegistration,300);
     if(typeof window.home==="function")window.home();else chooser();
   }
   function startPattern(e){if(config&&config.stage==="ready"){clearPatternDrawing();return}if(e.cancelable)e.preventDefault();drawing={active:true,points:[]};var area=document.getElementById("hdPatternArea");if(area&&area.setPointerCapture){try{area.setPointerCapture(e.pointerId)}catch(_){}}addDot(nearestDot(e.clientX,e.clientY))}
@@ -3573,7 +3576,7 @@ function manageLoginAccess(){
       if(saved.role==="owner")currentUser={role:"owner",name:"Chaitanya"};
       else if(saved.role==="login"&&loginAccessMembers[saved.id]&&!loginAccessMembers[saved.id].deleted&&!loginAccessMembers[saved.id].hidden)currentUser={role:"login",id:saved.id,name:loginAccessMembers[saved.id].name};
       else if(saved.role==="staff"){var migrated=Object.keys(loginAccessMembers||{}).map(function(id){return loginAccessMembers[id]}).find(function(record){return record&&record.legacyStaffName===saved.name&&!record.deleted&&!record.hidden});if(migrated){saved.role="login";saved.id=migrated.id;saved.name=migrated.name;try{localStorage.setItem("hdEmployeeLoginSessionV1",JSON.stringify(saved))}catch(_){}currentUser={role:"login",id:migrated.id,name:migrated.name}}}
-      if(currentUser){window.hdCurrentUser=currentUser;scheduleLogoutMarker(saved);directHome()}else{try{localStorage.removeItem("hdEmployeeLoginSessionV1")}catch(_){}chooser()}
+      if(currentUser){window.hdCurrentUser=currentUser;if(currentUser.role==="owner"&&typeof hdStartPushRegistration==="function")setTimeout(hdStartPushRegistration,300);scheduleLogoutMarker(saved);directHome()}else{try{localStorage.removeItem("hdEmployeeLoginSessionV1")}catch(_){}chooser()}
     }else{try{localStorage.removeItem("hdEmployeeLoginSessionV1")}catch(_){}chooser()}
     if(!window.hdEmployeeCloseListener){window.hdEmployeeCloseListener=true;window.addEventListener("pagehide",markLogoutAfterClose);document.addEventListener("visibilitychange",function(){if(document.visibilityState==="hidden")markLogoutAfterClose()})}
   }
@@ -3708,6 +3711,18 @@ function closeTransactionsDatePicker(){document.getElementById('hdTransactionsDa
   function txQueueCloud(){
     if(typeof window.hdQueueStaffAttendanceSync==="function")window.hdQueueStaffAttendanceSync();
   }
+  async function txSendOwnerNotification(entry){
+    try{
+      if(typeof hdSupabase==="undefined"||!hdSupabase||typeof HAPPY_DROPS_SUPABASE_URL==="undefined")return;
+      var session=typeof hdSession!=="undefined"?hdSession:null;
+      if(!session||!session.access_token){var sessionResult=await hdSupabase.auth.getSession();session=sessionResult&&sessionResult.data&&sessionResult.data.session}
+      if(!session||!session.access_token)return;
+      var payload={event:{id:entry.id,actor:entry.actor,page:entry.page,direction:entry.direction,amount:entry.amount,detail:entry.detail}};
+      var response=await fetch(HAPPY_DROPS_SUPABASE_URL+"/functions/v1/notify-owner",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+session.access_token,"apikey":HAPPY_DROPS_SUPABASE_PUBLISHABLE_KEY},body:JSON.stringify(payload)});
+      if(!response.ok)console.warn("Owner push notification was not sent.",response.status);
+    }catch(error){console.warn("Owner push notification request failed.",error)}
+  }
+
   function txRecord(input){
     input=input||{};
     var timestamp=Number(input.ts)||Date.now();
@@ -3726,6 +3741,7 @@ function closeTransactionsDatePicker(){document.getElementById('hdTransactionsDa
     txEvents=txMerge(txEvents,[entry]);
     txPersist();
     txQueueCloud();
+    txSendOwnerNotification(entry);
     if(document.getElementById("hdTransactionsEntries"))txRenderEntries();
     return entry;
   }
@@ -3774,7 +3790,7 @@ function closeTransactionsDatePicker(){document.getElementById('hdTransactionsDa
       var label=direction==="credit"?"Credit":direction==="debit"?"Debit":"Activity";
       var amount=Number(event.amount)||0;
       var stamp=txFormatTimestamp(event.ts);
-      return '<article class="hd-tx-card hd-tx-'+direction+'"><div class="hd-tx-card-top"><div class="hd-tx-source"><strong>'+txEscape(event.actor)+'</strong><span>·</span><span>'+txEscape(event.page)+'</span></div><span class="hd-tx-badge hd-tx-badge-'+direction+'">'+label+'</span></div><div class="hd-tx-detail">'+txEscape(event.detail)+'</div><div class="hd-tx-card-bottom"><time>'+txEscape(stamp)+'</time>'+(amount>0?'<strong class="hd-tx-amount hd-tx-amount-'+direction+'">'+txMoney(amount)+'</strong>':'')+'</div></article>';
+      return '<article class="hd-tx-card hd-tx-'+direction+'"><div class="hd-tx-card-top"><div class="hd-tx-source"><strong>'+txEscape(event.actor)+'</strong><span>·</span><span>'+txEscape(event.page)+'</span></div><span class="hd-tx-badge hd-tx-badge-'+direction+'">'+label+'</span></div><div class="hd-tx-detail">'+txEscape(event.detail)+'</div><div class="hd-tx-card-bottom"><time>'+txEscape(stamp)+'</time>'+(amount>0?'<strong class="hd-tx-amount hd-tx-amount-'+direction+'">'+(direction==="debit"?"−":"")+txMoney(amount)+'</strong>':'')+'</div></article>';
     }).join("");
   }
   function txFilterBy(value){txFilter=["all","credit","debit"].indexOf(value)>=0?value:"all";txRenderEntries()}
@@ -3872,12 +3888,16 @@ function closeTransactionsDatePicker(){document.getElementById('hdTransactionsDa
     var customerName=name||window.currentBTCCCustomer;
     var customer=typeof R!=="undefined"&&R?R[customerName]:null;
     var customerLabel=String(customer&&customer.name||customerName||"Customer");
+    var depositReversal=0;
+    if(customer){try{depositReversal=typeof rentalMoney==="function"?Math.max(0,Number(rentalMoney(customer))||0):Math.max(0,Number(customer.deposit)||0)}catch(_){depositReversal=Math.max(0,Number(customer.deposit)||0)}}
     var result=await baseDeleteRental.apply(this,arguments);
-    if(customer&&typeof R!=="undefined"&&!R[customerName])txRecord({page:"CC Rentals",direction:"activity",detail:customerLabel+": Customer deleted"});
+    if(customer&&typeof R!=="undefined"&&!R[customerName]){
+      if(depositReversal>0)txRecord({page:"CC Rentals",direction:"debit",amount:depositReversal,detail:customerLabel+": Customer deleted — Deposit reversal"});
+      else txRecord({page:"CC Rentals",direction:"activity",detail:customerLabel+": Customer deleted"});
+    }
     return result;
   };
-
-  var baseEditRental=window.saveEditedRentalCustomer;
+var baseEditRental=window.saveEditedRentalCustomer;
   if(typeof baseEditRental==="function")window.saveEditedRentalCustomer=function(oldName){
     var customer=typeof R!=="undefined"&&R?R[oldName]:null;
     var before=customer?JSON.stringify([customer.name,customer.phone,customer.deposit,customer.pbt,customer.cc,customer.rentalDate,customer.rentalTime]):"";
@@ -3963,6 +3983,82 @@ function closeTransactionsDatePicker(){document.getElementById('hdTransactionsDa
   }catch(_){}
 
   txPersist();
+})();
+</script>
+<style>
+#hdLoginAccessRows .hd-login-access-actions{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;width:230px;flex:none}
+#hdLoginAccessRows .hd-login-access-actions .btn{width:100%;min-width:0!important;padding:7px 5px!important;font-size:12px}
+.hd-last-location-overlay{position:fixed;inset:0;z-index:99999;background:#10203099;display:flex;align-items:center;justify-content:center;padding:16px}
+.hd-last-location-card{width:min(100%,420px);background:#fff;border-radius:16px;padding:20px;box-shadow:0 18px 50px #0004;color:#203040}
+.hd-last-location-card h3{margin:0 0 12px;font-size:19px}
+.hd-last-location-card p{margin:8px 0;line-height:1.45;overflow-wrap:anywhere}
+.hd-last-location-actions{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
+.hd-last-location-actions>*{flex:1;text-align:center}
+.hd-location-sharing-status{margin:0 0 10px;padding:8px 11px;border-radius:10px;background:#e9f7ef;color:#17633a;font-size:13px;font-weight:700}
+.hd-location-sharing-status.error{background:#fff3e0;color:#8a4b08}
+@media(max-width:520px){#hdLoginAccessRows .hd-login-access-actions{width:100%}.hd-last-location-card{padding:16px}}
+</style>
+<script>
+(function(){
+  var map={};
+  try{if(typeof saved!=="undefined"&&saved&&saved.loginLocations)map=JSON.parse(JSON.stringify(saved.loginLocations));else map=JSON.parse(localStorage.getItem("happyDropsManagerV12")||"{}").loginLocations||{};}catch(_){}
+  window.hdLoginLocations=map;
+  function clone(value){try{return JSON.parse(JSON.stringify(value||{}))}catch(_){return {}}}
+  function persistLocalLocations(){
+    try{
+      if(typeof saved!=="undefined"){saved=saved||{};saved.loginLocations=clone(window.hdLoginLocations);var json=JSON.stringify(saved);localStorage.setItem("happyDropsManagerV12",json);localStorage.setItem("happyDropsManagerV9",json)}
+      else{var data=JSON.parse(localStorage.getItem("happyDropsManagerV12")||"{}");data.loginLocations=clone(window.hdLoginLocations);localStorage.setItem("happyDropsManagerV12",JSON.stringify(data));localStorage.setItem("happyDropsManagerV9",JSON.stringify(data))}
+    }catch(error){console.warn("Could not save the latest login location on this phone.",error)}
+  }
+  var baseSnapshot=window.hdStaffAttendanceSnapshot;
+  if(typeof baseSnapshot==="function")window.hdStaffAttendanceSnapshot=function(){var state=baseSnapshot.apply(this,arguments)||{};state.loginLocations=clone(window.hdLoginLocations);return state};
+  var baseMerge=window.hdMergeStaffAttendanceCloudState;
+  if(typeof baseMerge==="function")window.hdMergeStaffAttendanceCloudState=function(remote){var merged=baseMerge.apply(this,arguments)||{},localMap=clone(window.hdLoginLocations),remoteMap=remote&&remote.loginLocations&&typeof remote.loginLocations==="object"?remote.loginLocations:{},result=Object.assign({},localMap);Object.keys(remoteMap).forEach(function(id){var incoming=remoteMap[id],existing=result[id];if(!existing||Date.parse(incoming&&incoming.capturedAt||"")>=Date.parse(existing.capturedAt||""))result[id]=incoming});merged.loginLocations=result;return merged};
+  var baseApply=window.hdApplyStaffAttendanceCloudState;
+  if(typeof baseApply==="function")window.hdApplyStaffAttendanceCloudState=function(state){var result=baseApply.apply(this,arguments);if(state&&state.loginLocations&&typeof state.loginLocations==="object")window.hdLoginLocations=clone(state.loginLocations);persistLocalLocations();return result};
+
+  function userKey(user){return user&&user.role==="owner"?"owner":user&&user.role==="login"&&user.id?String(user.id):""}
+  var activeWatchId=null,activeWatchKey="",sharingMessage="",sharingError=false;
+  function showSharingStatus(message,error){sharingMessage=message;sharingError=!!error;var app=document.getElementById("app"),badge=document.getElementById("hdLocationSharingStatus"),user=window.hdCurrentUser;if(!app||!user){if(badge)badge.remove();return}if(!badge){badge=document.createElement("div");badge.id="hdLocationSharingStatus";badge.className="hd-location-sharing-status";app.insertBefore(badge,app.firstChild)}badge.textContent=message;badge.classList.toggle("error",!!error)}
+  function distanceMetres(a,b){var rad=Math.PI/180,dLat=(b.latitude-a.latitude)*rad,dLon=(b.longitude-a.longitude)*rad,lat1=a.latitude*rad,lat2=b.latitude*rad,x=Math.sin(dLat/2)**2+Math.sin(dLon/2)**2*Math.cos(lat1)*Math.cos(lat2);return 6371000*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x))}
+  function stopLocationWatch(){if(activeWatchId!==null&&navigator.geolocation){try{navigator.geolocation.clearWatch(activeWatchId)}catch(_){}}activeWatchId=null;activeWatchKey=""}
+  window.hdCaptureLoginLocation=function(){
+    var user=window.hdCurrentUser,key=userKey(user);if(!key)return false;
+    if(!window.isSecureContext||!navigator.geolocation){showSharingStatus("📍 Location requires the secure HTTPS app and phone location support.",true);return false}
+    if(activeWatchId!==null&&activeWatchKey===key){showSharingStatus(sharingMessage||"📍 Location sharing is active while you are signed in.",sharingError);return true}
+    stopLocationWatch();activeWatchKey=key;showSharingStatus("📍 Allow location access to share your location with the Owner.",false);
+    try{activeWatchId=navigator.geolocation.watchPosition(function(position){
+      var coords=position&&position.coords;if(!coords||!Number.isFinite(coords.latitude)||!Number.isFinite(coords.longitude))return;
+      var now=Date.now(),previous=window.hdLoginLocations&&window.hdLoginLocations[key],next={userId:key,name:user.role==="owner"?"Chaitanya":String(user.name||"Staff"),latitude:Number(coords.latitude),longitude:Number(coords.longitude),accuracy:Number(coords.accuracy)||0,capturedAt:new Date(now).toISOString()};
+      showSharingStatus("📍 Location sharing is active while you are signed in.",false);
+      var moved=!previous||distanceMetres(previous,next)>=25,elapsed=!previous||now-Date.parse(previous.capturedAt||"")>=30000;
+      if(!moved&&!elapsed)return;
+      window.hdLoginLocations=window.hdLoginLocations||{};window.hdLoginLocations[key]=next;persistLocalLocations();
+      if(typeof window.hdQueueStaffAttendanceSync==="function")window.hdQueueStaffAttendanceSync();
+    },function(error){var denied=error&&error.code===1,reason=denied?"Location permission is off. Allow it to share your location with the Owner.":"Location is temporarily unavailable. Check phone location and internet.";showSharingStatus("📍 "+reason,true);console.warn("Login location sharing unavailable.",error&&error.message||error);if(denied)stopLocationWatch()},{enableHighAccuracy:true,maximumAge:0,timeout:20000});return true}catch(error){showSharingStatus("📍 Location sharing could not start on this phone.",true);console.warn("Could not start location sharing.",error);stopLocationWatch();return false}
+  };
+
+  function esc(value){return String(value==null?"":value).replace(/[&<>"']/g,function(ch){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]})}
+  window.hdViewLoginLocation=function(id){
+    id=String(id||"");var record=window.hdLoginLocations&&window.hdLoginLocations[id];
+    if(!record){alert("No location has been shared for this login yet. Ask them to open Happy Drops and allow location access.");return}
+    var overlay=document.createElement("div");overlay.className="hd-last-location-overlay";
+    var when=new Date(record.capturedAt||Date.now()).toLocaleString("en-IN",{timeZone:"Asia/Kolkata",dateStyle:"medium",timeStyle:"short"});
+    var lat=Number(record.latitude),lon=Number(record.longitude),url="https://www.google.com/maps?q="+encodeURIComponent(lat+","+lon);
+    overlay.innerHTML='<section class="hd-last-location-card" role="dialog" aria-modal="true"><h3>📍 Last location — '+esc(record.name||"Staff")+'</h3><p><b>Updated:</b> '+esc(when)+' IST</p><p><b>Coordinates:</b> '+esc(lat.toFixed(6))+', '+esc(lon.toFixed(6))+'</p><p><b>Accuracy:</b> about '+esc(Math.round(Number(record.accuracy)||0))+' metres</p><div class="hd-last-location-actions"><a class="btn" href="'+url+'" target="_blank" rel="noopener">Open in Google Maps</a><button class="btn secondary" type="button" data-close-location>Close</button></div></section>';
+    overlay.addEventListener("click",function(event){if(event.target===overlay||event.target.closest("[data-close-location]"))overlay.remove()});document.body.appendChild(overlay);
+  };
+  function addLocationButtons(){
+    var ownerRow=document.querySelector(".hd-owner-login-row");
+    if(ownerRow&&!ownerRow.querySelector("[data-hd-location-owner]")){var ownerButton=document.createElement("button");ownerButton.type="button";ownerButton.className="btn secondary";ownerButton.style.margin="0";ownerButton.textContent="📍 View last location";ownerButton.setAttribute("data-hd-location-owner","");ownerButton.onclick=function(){window.hdViewLoginLocation("owner")};ownerRow.appendChild(ownerButton)}
+    document.querySelectorAll("#hdLoginAccessRows .hd-login-access-row[data-login-id]").forEach(function(row){var actions=row.querySelector(".hd-login-access-actions");if(!actions||actions.querySelector("[data-hd-location-button]"))return;var encoded=row.getAttribute("data-login-id")||"",id;try{id=decodeURIComponent(encoded)}catch(_){id=encoded}var button=document.createElement("button");button.type="button";button.className="btn secondary";button.textContent="📍 View last location";button.setAttribute("data-hd-location-button","");button.onclick=function(){window.hdViewLoginLocation(id)};actions.appendChild(button)});
+  }
+  function sessionMarker(){var user=window.hdCurrentUser;if(!user)return "";var session=null;try{session=JSON.parse(localStorage.getItem("hdEmployeeLoginSessionV1")||"null")}catch(_){}return String(user.role)+":"+String(user.id||"owner")+":"+String(session&&session.createdAt||"")}
+  var lastMarker="";
+  function detectAppOpenOrLogin(){var marker=sessionMarker();if(!marker){if(activeWatchId!==null)stopLocationWatch();lastMarker="";var old=document.getElementById("hdLocationSharingStatus");if(old)old.remove();return}if(marker===lastMarker)return;lastMarker=marker;setTimeout(function(){if(sessionMarker()===marker)window.hdCaptureLoginLocation()},450)}
+  var baseSwitch=window.hdEmployeeSwitchUser;if(typeof baseSwitch==="function")window.hdEmployeeSwitchUser=function(){stopLocationWatch();lastMarker="";var result=baseSwitch.apply(this,arguments);var badge=document.getElementById("hdLocationSharingStatus");if(badge)badge.remove();return result};
+  detectAppOpenOrLogin();window.addEventListener("load",detectAppOpenOrLogin);window.addEventListener("pagehide",function(){stopLocationWatch();lastMarker=""});window.addEventListener("pageshow",function(){detectAppOpenOrLogin()});document.addEventListener("visibilitychange",function(){if(document.visibilityState==="visible"&&window.hdCurrentUser&&activeWatchId===null){lastMarker="";detectAppOpenOrLogin()}});setInterval(detectAppOpenOrLogin,1200);
+  var app=document.getElementById("app");if(app&&window.MutationObserver){new MutationObserver(function(){addLocationButtons();detectAppOpenOrLogin();if(window.hdCurrentUser&&sharingMessage)showSharingStatus(sharingMessage,sharingError)}).observe(app,{childList:true,subtree:true})}addLocationButtons();
 })();
 </script>
 </body></html>
