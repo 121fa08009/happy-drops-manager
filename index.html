@@ -4037,11 +4037,12 @@ var baseEditRental=window.saveEditedRentalCustomer;
   var applyBase=window.hdApplyStaffAttendanceCloudState;
   if(typeof applyBase==="function")window.hdApplyStaffAttendanceCloudState=function(state){var result=applyBase.apply(this,arguments);persistMergedStock(state,true);return result};
 
-  /* Stock writes through to Google Sheets and also merges changes through the
-     shared app cloud. Opening Stock reads the Sheet; the interval below keeps
-     an already-open Stock page current on phones where realtime is delayed. */
+  /* Stock shares the same Supabase app-cloud state as Attendance. Keep Google Sheets
+     writes and the manual Refresh button, while cloud state drives normal reads. */
   var renderBase=window.renderStockForm;
-  if(typeof renderBase==="function")window.renderStockForm=function(){return renderBase.apply(this,arguments)};
+  if(typeof renderBase==="function")window.renderStockForm=function(offset,forceEdit){return renderBase.call(this,offset,forceEdit,true)};
+  var stockPageBase=window.stock;
+  if(typeof stockPageBase==="function")window.stock=function(){var result=stockPageBase.apply(this,arguments);setTimeout(function(){if(typeof window.hdCloudSyncStaffAttendance==="function")Promise.resolve(window.hdCloudSyncStaffAttendance()).catch(function(){});},0);return result};
 
   var readBase=window.hdStockReadFromSheet;
   if(typeof readBase==="function")window.hdStockReadFromSheet=async function(offset,options){
@@ -4060,9 +4061,9 @@ var baseEditRental=window.saveEditedRentalCustomer;
     return result;
   };
 
-  if(!window.hdStockAutoRefreshTimer)window.hdStockAutoRefreshTimer=setInterval(function(){
-    if(!document.getElementById("hdStockRefreshBtn")||!navigator.onLine||typeof window.hdStockReadFromSheet!=="function")return;
-    window.hdStockReadFromSheet(window.hdStockSelectedOffset||0,{render:true}).catch(function(){});
+  if(!window.hdStockCloudSyncTimer)window.hdStockCloudSyncTimer=setInterval(function(){
+    if(!document.getElementById("hdStockRefreshBtn")||!navigator.onLine||typeof window.hdCloudSyncStaffAttendance!=="function")return;
+    Promise.resolve(window.hdCloudSyncStaffAttendance()).catch(function(){});
   },HD_STOCK_SYNC_INTERVAL_MS||5000);
 
   window.saveStockForm=async function(offset){
