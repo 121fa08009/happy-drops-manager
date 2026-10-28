@@ -3741,7 +3741,7 @@ function closeTransactionsDatePicker(){document.getElementById('hdTransactionsDa
     txEvents=txMerge(txEvents,[entry]);
     txPersist();
     txQueueCloud();
-    txSendOwnerNotification(entry);
+    if(input.notifyOwner!==false)txSendOwnerNotification(entry);
     if(document.getElementById("hdTransactionsEntries"))txRenderEntries();
     return entry;
   }
@@ -4084,6 +4084,28 @@ var baseEditRental=window.saveEditedRentalCustomer;
     if(!cloudSaved)queueCloud();
     alert(cloudSaved?"Stock deleted from Google Sheets and synced across phones.":"Stock deleted from Google Sheets. App cloud sync is pending; check the connection if other phones do not update.");
     window.renderStockForm(offset,true,true);
+  };
+
+  var attendancePickerBase=window.hdAttendanceOpenTimePicker;
+  if(typeof attendancePickerBase==="function")window.hdAttendanceOpenTimePicker=function(field,index){
+    var row=document.querySelector('[data-attendance-row][data-index="'+index+'"]'),name=row?decodeURIComponent(row.dataset.staff||""):"",result=attendancePickerBase.apply(this,arguments),heading=document.querySelector("#hdAttendanceTimePicker .hd-attendance-time-heading strong");
+    if(heading)heading.textContent=name+" - "+(field==="login"?"Login Time":"Logout Time");
+    return result;
+  };
+
+  var attendanceSaveBase=window.saveAttendance;
+  if(typeof attendanceSaveBase==="function")window.saveAttendance=async function(){
+    var date=typeof window.hdAttendanceDateForOffset==="function"?window.hdAttendanceDateForOffset(window.hdAttendanceOffset||0):"";
+    var beforeStamp=typeof attendanceData!=="undefined"&&attendanceData&&attendanceData[date]?attendanceData[date].updatedAt||"":"";
+    var result=await attendanceSaveBase.apply(this,arguments),day=typeof attendanceData!=="undefined"&&attendanceData?attendanceData[date]:null;
+    if(!day||!day.updatedAt||day.updatedAt===beforeStamp||typeof window.hdRecordTransaction!=="function")return result;
+    var submitTime=Date.now(),names=typeof window.hdAttendanceActiveStaff==="function"?window.hdAttendanceActiveStaff():Object.keys(day.staff||{});
+    if(!names.length)window.hdRecordTransaction({page:"Staff Attendance",direction:"activity",ts:submitTime,detail:"Attendance submitted for "+date+" (no staff rows)",notifyOwner:false});
+    names.forEach(function(name){
+      var entry=(day.staff||{})[name]||{},loginRaw=entry.login||"",logoutRaw=loginRaw?(entry.logout||""):"",login=loginRaw&&typeof window.hdAttendanceHintTime==="function"?window.hdAttendanceHintTime(loginRaw):"Absent",logout=logoutRaw&&typeof window.hdAttendanceHintTime==="function"?window.hdAttendanceHintTime(logoutRaw):"Not entered";
+      window.hdRecordTransaction({page:"Staff Attendance",direction:"activity",ts:submitTime,detail:String(name)+": Attendance submitted for "+date+" — Login "+login+"; Logout "+logout,notifyOwner:false});
+    });
+    return result;
   };
 
   setTimeout(queueCloud,0);
