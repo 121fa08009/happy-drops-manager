@@ -4037,10 +4037,11 @@ var baseEditRental=window.saveEditedRentalCustomer;
   var applyBase=window.hdApplyStaffAttendanceCloudState;
   if(typeof applyBase==="function")window.hdApplyStaffAttendanceCloudState=function(state){var result=applyBase.apply(this,arguments);persistMergedStock(state,true);return result};
 
-  /* Stock uses the shared realtime cloud as its live app source. The Sheet is
-     still written on every save; use the Refresh button to import Sheet edits. */
+  /* Stock writes through to Google Sheets and also merges changes through the
+     shared app cloud. Opening Stock reads the Sheet; the interval below keeps
+     an already-open Stock page current on phones where realtime is delayed. */
   var renderBase=window.renderStockForm;
-  if(typeof renderBase==="function")window.renderStockForm=function(offset,forceEdit){return renderBase.call(this,offset,forceEdit,true)};
+  if(typeof renderBase==="function")window.renderStockForm=function(){return renderBase.apply(this,arguments)};
 
   var readBase=window.hdStockReadFromSheet;
   if(typeof readBase==="function")window.hdStockReadFromSheet=async function(offset,options){
@@ -4052,12 +4053,17 @@ var baseEditRental=window.saveEditedRentalCustomer;
       changed=!before||stockSignature(before)!==stockSignature(after);
       if(changed){after.savedAt=nextStamp(before&&before.savedAt);after.syncedFromGoogleSheet=true;all[key]=after;writeForms(all);var deletes=readDeletes();if(time(deletes[key])<time(after.savedAt)){delete deletes[key];writeDeletes(deletes)}}
     }else if(!result.found&&before){
-      all[key]=before;writeForms(all);after=before;
+      all[key]=before;writeForms(all);after=before;changed=true;
     }
     if(changed)queueCloud();
     if(options.render!==false&&window.hdStockSelectedOffset===offset&&!dirty&&changed)window.renderStockForm(offset,false,true);
     return result;
   };
+
+  if(!window.hdStockAutoRefreshTimer)window.hdStockAutoRefreshTimer=setInterval(function(){
+    if(!document.getElementById("hdStockRefreshBtn")||!navigator.onLine||typeof window.hdStockReadFromSheet!=="function")return;
+    window.hdStockReadFromSheet(window.hdStockSelectedOffset||0,{render:true}).catch(function(){});
+  },HD_STOCK_SYNC_INTERVAL_MS||5000);
 
   window.saveStockForm=async function(offset){
     var key=window.hdStockDateKey(offset),all=readForms(),deletes=readDeletes(),get=function(id){var input=document.getElementById(id);return input?input.value:""},checked=function(id){var input=document.getElementById(id);return !!(input&&input.checked)};
