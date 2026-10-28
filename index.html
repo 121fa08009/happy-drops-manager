@@ -3209,6 +3209,68 @@ function phonepePage(){
   document.getElementById("app").innerHTML='<div class="card hd-phonepe-page"><div class="hd-phonepe-head"><button class="btn secondary" onclick="home()">🏠 Home</button></div><div class="hd-phonepe-logo-wrap"><img src="'+window.HD_PHONEPE_LOGO_DATA_URI+'" alt="PhonePe"></div><div class="hd-phonepe-empty"><div class="hd-phonepe-empty-mark">पे</div><strong>UPI QR codes will appear here</strong><p>Share the UPI IDs you want to use, and their QR codes can be added to this page.</p></div></div>';
 }
 window.phonepePage=phonepePage;
+// Global Android/browser Back handling: dismiss the top visible app popup first.
+(function(){
+  var selector='dialog[open],[role="dialog"],[aria-modal="true"],[class*="modal"],[class*="Modal"],[id*="modal"],[id*="Modal"],[class*="overlay"],[class*="Overlay"],[id*="overlay"],[id*="Overlay"],[class*="popup"],[class*="Popup"],[id*="popup"],[id*="Popup"],[class*="dialog"],[class*="Dialog"],[id*="dialog"],[id*="Dialog"],[class*="picker"],[class*="Picker"],[id*="picker"],[id*="Picker"]';
+  var openPopups=new Map(), sequence=0, cleanupPending=false;
+  function visible(el){
+    if(!el||!el.isConnected||el.hidden||el.getAttribute('aria-hidden')==='true')return false;
+    for(var node=el;node&&node.nodeType===1;node=node.parentElement){var style=getComputedStyle(node);if(style.display==='none'||style.visibility==='hidden'||style.visibility==='collapse')return false;}
+    var rect=el.getBoundingClientRect();if(rect.width>0&&rect.height>0)return true;return Array.from(el.querySelectorAll("*")).some(function(child){var cs=getComputedStyle(child),r=child.getBoundingClientRect();return (cs.position==="fixed"||cs.position==="absolute")&&cs.display!=="none"&&cs.visibility!=="hidden"&&r.width>0&&r.height>0;});
+  }
+  function candidates(){
+    var all=Array.from(document.querySelectorAll(selector)).filter(function(el){
+      if(!visible(el))return false;
+      if(el.matches('dialog[open],[role="dialog"],[aria-modal="true"]'))return true;
+      var style=getComputedStyle(el),idName=el.id||'',className=typeof el.className==='string'?el.className:'';
+      return /modal|overlay|popup|dialog|picker/i.test(idName)||(/modal|overlay|popup|dialog|picker/i.test(className)&&(style.position==='fixed'||style.position==='absolute'));
+    });
+    return all.filter(function(el){var style=getComputedStyle(el),independent=style.position==="fixed"||style.position==="absolute";for(var p=el.parentElement;p&&p!==document.body;p=p.parentElement){if(all.indexOf(p)>=0&&!independent)return false;}return true;});
+  }
+  function sync(){
+    var found=candidates();
+    found.forEach(function(el){
+      if(openPopups.has(el))return;
+      var token='hd-popup-'+Date.now()+'-'+(++sequence), base=history.state&&typeof history.state==='object'?Object.assign({},history.state):{};
+      var record={token:token,sequence:sequence,pushed:false,backConsumed:false};
+      try{history.pushState(Object.assign({},base,{hdPopupBackToken:token}),'',location.href);record.pushed=true;}catch(_){record.baseState=base;}
+      openPopups.set(el,record);
+    });
+    Array.from(openPopups.entries()).forEach(function(entry){
+      var el=entry[0], record=entry[1];
+      if(visible(el))return;
+      openPopups.delete(el);
+      if(record.pushed&&!record.backConsumed&&!cleanupPending&&history.state&&history.state.hdPopupBackToken===record.token){
+        cleanupPending=true;
+        try{history.back();}catch(_){cleanupPending=false;}
+      }
+    });
+  }
+  function topPopup(){
+    sync();var entries=Array.from(openPopups.entries()).filter(function(x){return visible(x[0]);});
+    entries.sort(function(a,b){return a[1].sequence-b[1].sequence;});
+    return entries.length?entries[entries.length-1]:null;
+  }
+  function closePopup(el){
+    if(!el)return;
+    if(el.id==='hdPhonePeCalcOverlay'&&typeof window.hdPhonePeHandleBack==='function'){window.hdPhonePeHandleBack();return;}
+    if(el.matches('dialog[open]')){try{el.close();return;}catch(_){}}
+    var controls=Array.from(el.querySelectorAll('[data-dismiss],[data-bs-dismiss],button[aria-label*="close" i],button[title*="close" i],[role="button"][aria-label*="close" i],button,[role="button"]'));
+    var closeControl=controls.find(function(button){var label=(button.getAttribute('aria-label')||'')+' '+(button.getAttribute('title')||'')+' '+(button.innerText||button.textContent||'');return /dismiss|close|cancel|^(\s*no\s*|\s*[×✕x]\s*)$/i.test(label.trim());});
+    if(closeControl){try{closeControl.click();}catch(_){}if(!el.isConnected)return;}
+    el.remove();
+  }
+  function stop(ev){ev.preventDefault();ev.stopPropagation();ev.stopImmediatePropagation();}
+  window.addEventListener('popstate',function(ev){
+    if(cleanupPending){cleanupPending=false;stop(ev);return;}
+    var popup=topPopup();
+    if(popup){stop(ev);popup[1].backConsumed=true;closePopup(popup[0]);return;}
+    if(ev.state&&ev.state.hdPopupBackToken){stop(ev);var clean=Object.assign({},ev.state);delete clean.hdPopupBackToken;try{history.replaceState(clean,'',location.href);}catch(_){}}
+  },true);
+  window.addEventListener('keydown',function(ev){if(ev.key!=='Escape')return;var popup=topPopup();if(!popup)return;stop(ev);closePopup(popup[0]);},true);
+  new MutationObserver(sync).observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['class','style','hidden','open','aria-hidden']});
+  sync();
+})();
 // Happy Drops PWA: keep screen navigation in sync with browser and Android Back.
 (function(){
   const pageFns = [
@@ -4186,16 +4248,16 @@ var baseEditRental=window.saveEditedRentalCustomer;
 </script><script>
 (function(){
   function ensureStyle(){if(document.getElementById("hdPhonePeCalculatorStyle"))return;var style=document.createElement("style");style.id="hdPhonePeCalculatorStyle";style.textContent=`.hd-phonepe-amount-row{display:flex;align-items:stretch;gap:8px}.hd-phonepe-amount-row input{flex:1;min-width:0}.hd-phonepe-calculate-button{flex:none;white-space:nowrap;background:transparent;color:inherit;width:42px;min-width:42px;height:42px;padding:2px;border:0;display:grid;place-items:center;cursor:pointer}.hd-phonepe-calculate-button img{display:block;width:38px;height:38px;object-fit:contain}.hd-phonepe-calculate-button:hover{background:#f1eafa;border-radius:9px}.hd-phonepe-calc-overlay{position:fixed;inset:0;z-index:100000;background:#0f172a88;display:flex;align-items:center;justify-content:center;padding:14px;box-sizing:border-box}.hd-phonepe-calc-card{width:min(360px,100%);background:#fff;border-radius:18px;padding:16px;box-shadow:0 18px 55px #0f172a55;box-sizing:border-box}.hd-phonepe-calc-card h3{margin:0 0 12px;color:#51258a}.hd-phonepe-calc-expression{width:100%;box-sizing:border-box;font-size:22px;font-weight:750;text-align:right;padding:12px;margin-bottom:11px}.hd-phonepe-calc-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.hd-phonepe-calc-key{min-height:48px;border:0;border-radius:11px;background:#f1eafa;color:#45217a;font-size:19px;font-weight:800;cursor:pointer}.hd-phonepe-calc-key.operator{background:#eee8f8}.hd-phonepe-calc-key.utility{background:#eef2f7;color:#334155}.hd-phonepe-calc-key.equals{background:#5f259f;color:#fff}.hd-phonepe-calc-actions{display:flex;gap:8px;margin-top:11px}.hd-phonepe-calc-actions button{flex:1}@media(max-width:380px){.hd-phonepe-amount-row{gap:6px}.hd-phonepe-calculate-button{padding:2px}.hd-phonepe-calc-grid{gap:6px}.hd-phonepe-calc-key{min-height:44px}}`;document.head.appendChild(style)}
-  var calculatorHistoryOpen=false;
-  function close(fromPop){document.getElementById("hdPhonePeCalcOverlay")?.remove();if(calculatorHistoryOpen){calculatorHistoryOpen=false;if(!fromPop){try{history.back()}catch(_){}}}}
+  
+  function close(){document.getElementById("hdPhonePeCalcOverlay")?.remove()}
   window.hdPhonePeCloseCalculator=close;
-  window.hdPhonePeOpenCalculator=function(){if(document.getElementById("hdPhonePeCalcOverlay"))return;ensureStyle();var initial=String(document.getElementById("hdPhonePeAmountInput")?.value||"");window.hdPhonePeCalcExpression=initial;var keys=["7","8","9","÷","4","5","6","×","1","2","3","−","(","0",".",")","+","Clear","⌫","="],buttons=keys.map(function(key){var cls=key==="="?"equals":(["÷","×","−","+","(",")"].indexOf(key)>=0?"operator":(["Clear","⌫"].indexOf(key)>=0?"utility":""));var action=key==="="?"hdPhonePeCalculateExpression()":"hdPhonePeCalcKey('"+key+"')";return '<button type="button" class="hd-phonepe-calc-key '+cls+'" onclick="'+action+'">'+key+'</button>'}).join("");document.body.insertAdjacentHTML("beforeend",'<div class="hd-phonepe-calc-overlay" id="hdPhonePeCalcOverlay" onclick="if(event.target===this)hdPhonePeCloseCalculator()"><div class="hd-phonepe-calc-card" role="dialog" aria-modal="true" aria-label="Amount calculator"><h3>🧮 Calculate Amount</h3><input class="hd-phonepe-calc-expression" id="hdPhonePeCalcInput" type="text" readonly inputmode="none" autocomplete="off" placeholder="" value="'+String(initial).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]})+'" oninput="window.hdPhonePeCalcExpression=this.value"><div class="hd-phonepe-calc-grid">'+buttons+'</div><div class="hd-phonepe-calc-actions"><button type="button" class="btn secondary" onclick="hdPhonePeCloseCalculator()">Cancel</button></div></div></div>');try{history.pushState(Object.assign({},history.state||{},{hdPhonePeCalculator:true}),"",location.href);calculatorHistoryOpen=true}catch(_){calculatorHistoryOpen=false}var input=document.getElementById("hdPhonePeCalcInput");if(input)input.blur()};
+  window.hdPhonePeOpenCalculator=function(){if(document.getElementById("hdPhonePeCalcOverlay"))return;ensureStyle();var initial=String(document.getElementById("hdPhonePeAmountInput")?.value||"");window.hdPhonePeCalcExpression=initial;var keys=["7","8","9","÷","4","5","6","×","1","2","3","−","(","0",".",")","+","Clear","⌫","="],buttons=keys.map(function(key){var cls=key==="="?"equals":(["÷","×","−","+","(",")"].indexOf(key)>=0?"operator":(["Clear","⌫"].indexOf(key)>=0?"utility":""));var action=key==="="?"hdPhonePeCalculateExpression()":"hdPhonePeCalcKey('"+key+"')";return '<button type="button" class="hd-phonepe-calc-key '+cls+'" onclick="'+action+'">'+key+'</button>'}).join("");document.body.insertAdjacentHTML("beforeend",'<div class="hd-phonepe-calc-overlay" id="hdPhonePeCalcOverlay" onclick="if(event.target===this)hdPhonePeCloseCalculator()"><div class="hd-phonepe-calc-card" role="dialog" aria-modal="true" aria-label="Amount calculator"><h3>🧮 Calculate Amount</h3><input class="hd-phonepe-calc-expression" id="hdPhonePeCalcInput" type="text" readonly inputmode="none" autocomplete="off" placeholder="" value="'+String(initial).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]})+'" oninput="window.hdPhonePeCalcExpression=this.value"><div class="hd-phonepe-calc-grid">'+buttons+'</div><div class="hd-phonepe-calc-actions"><button type="button" class="btn secondary" onclick="hdPhonePeCloseCalculator()">Cancel</button></div></div></div>');var input=document.getElementById("hdPhonePeCalcInput");if(input)input.blur()};
   window.hdPhonePeClearAmount=function(){var input=document.getElementById("hdPhonePeAmountInput");if(!input)return;input.value="";window.hdPhonePeAmount="";if(typeof window.hdPhonePeUpdateQR==="function")window.hdPhonePeUpdateQR();else if(typeof window.hdPhonePeFallbackUpdateQR==="function")window.hdPhonePeFallbackUpdateQR()};
   window.hdPhonePeCalcKey=function(key){var input=document.getElementById("hdPhonePeCalcInput");if(!input)return;var value=input.value;if(key==="Clear")value="";else if(key==="⌫")value=value.slice(0,-1);else value+=key;input.value=value;window.hdPhonePeCalcExpression=value;input.blur()};
   function evaluate(source){var text=String(source||"").replace(/[×x]/gi,"*").replace(/[÷]/g,"/").replace(/[−–]/g,"-");var position=0;function spaces(){while(/\s/.test(text.charAt(position)))position++}function factor(){spaces();var ch=text.charAt(position);if(ch==="+"){position++;return factor()}if(ch==="-"){position++;return -factor()}if(ch==="("){position++;var nested=expression();spaces();if(text.charAt(position)!==")")throw new Error("Check the brackets.");position++;return nested}var match=text.slice(position).match(/^(?:\d+(?:\.\d*)?|\.\d+)/);if(!match)throw new Error("Enter a valid calculation.");position+=match[0].length;return Number(match[0])}function term(){var value=factor();for(;;){spaces();var op=text.charAt(position);if(op!=="*"&&op!=="/")return value;position++;var right=factor();if(op==="/"&&right===0)throw new Error("Cannot divide by zero.");value=op==="*"?value*right:value/right}}function expression(){var value=term();for(;;){spaces();var op=text.charAt(position);if(op!=="+"&&op!=="-")return value;position++;var right=term();value=op==="+"?value+right:value-right}}var result=expression();spaces();if(position!==text.length||!Number.isFinite(result))throw new Error("Check the calculation and brackets.");return Math.round((result+Number.EPSILON)*100)/100}
   function commitCalculation(showError){var input=document.getElementById("hdPhonePeCalcInput");if(!input)return false;try{var result=evaluate(input.value);if(result<=0)throw new Error("The amount must be greater than zero.");var amount=String(Number(result.toFixed(2))),amountBox=document.getElementById("hdPhonePeAmountInput");if(amountBox){amountBox.value=amount;window.hdPhonePeAmount=amount;if(typeof window.hdPhonePeUpdateQR==="function")window.hdPhonePeUpdateQR();else if(typeof window.hdPhonePeFallbackUpdateQR==="function")window.hdPhonePeFallbackUpdateQR()}return true}catch(error){if(showError)alert(error.message||"Enter a valid calculation.");return false}}
   window.hdPhonePeCalculateExpression=function(){if(commitCalculation(true))close()};
-  window.hdPhonePeHandleBack=function(){if(!document.getElementById("hdPhonePeCalcOverlay"))return false;calculatorHistoryOpen=false;commitCalculation(false);close(true);return true};
+  window.hdPhonePeHandleBack=function(){if(!document.getElementById("hdPhonePeCalcOverlay"))return false;commitCalculation(false);close();return true};
 })();
 </script><style id="hd-phonepe-tiny-calculator">
 #hdPhonePeRoot .hd-phonepe-amount-row{display:flex!important;align-items:center!important;gap:6px!important}
