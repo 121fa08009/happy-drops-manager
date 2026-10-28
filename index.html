@@ -1511,7 +1511,7 @@ function rentalActivityKey(x){
   const ts=Number(x&&x.ts)||0;
   const d=new Date(ts);
   const day=Number.isNaN(d.getTime())?'':String(d.getFullYear())+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-  const repeatableAction=x&&(x.type==='addCans'||x.type==='refill');
+  const repeatableAction=x&&(x.type==='addCans'||x.type==='refill'||x.type==='edit'||(x.type==='status'&&String(x.text||'')==='Marked as Closed'));
   const actionTime=repeatableAction?String(Math.floor(ts/1000)):day;
   return [x&&x.type||'',actionTime,x&&x.pbt||0,x&&x.cc||0,x&&x.deposit||0,x&&x.refund||0,x&&x.balanceAfter||'',x&&x.amount||0,x&&x.rentalTotal||0,x&&x.text||'',x&&x.name||'',x&&x.phone||'',x&&x.bill||''].join('|');
 }
@@ -1969,10 +1969,10 @@ function renderRentalActivity(c,n){
   // action within a few seconds are one activity, not two separate actions.
   const deduped=[];
   for(const x of raw.sort((p,q)=>(Number(q.ts)||0)-(Number(p.ts)||0))){
-    const actionTime=(x.type==='addCans'||x.type==='refill')?Math.floor((Number(x.ts)||0)/1000):'';
+    const actionTime=(x.type==='addCans'||x.type==='refill'||x.type==='edit'||(x.type==='status'&&String(x.text||'')==='Marked as Closed'))?Math.floor((Number(x.ts)||0)/1000):'';
     const key=[x.type||'',x.date||'',x.pbt||0,x.cc||0,x.deposit||0,x.refund||0,x.rentalTotal||0,x.text||'',x.balanceAfter||'',actionTime].join('|');
     const duplicate=deduped.some(y=>{
-      const yActionTime=(y.type==='addCans'||y.type==='refill')?Math.floor((Number(y.ts)||0)/1000):'';
+      const yActionTime=(y.type==='addCans'||y.type==='refill'||y.type==='edit'||(y.type==='status'&&String(y.text||'')==='Marked as Closed'))?Math.floor((Number(y.ts)||0)/1000):'';
       const ykey=[y.type||'',y.date||'',y.pbt||0,y.cc||0,y.deposit||0,y.refund||0,y.rentalTotal||0,y.text||'',y.balanceAfter||'',yActionTime].join('|');
       return key===ykey && Math.abs((Number(x.ts)||0)-(Number(y.ts)||0))<=10000;
     });
@@ -2079,6 +2079,9 @@ function renderRentalActivity(c,n){
     if(eventRefillBT||eventRefillCC)actionParts.push(`<b>Refill</b> ${bt(eventRefillBT)} ${cc(eventRefillCC)}`);
     if(eventReturnBT||eventReturnCC)actionParts.push(`<b>Return</b> ${bt(eventReturnBT)} ${cc(eventReturnCC)}`);
     if(x.type==='status')actionParts.push(`<b>${escapeHtml(x.text||'Status changed')}</b>`);
+    if(x.type==='status'&&String(x.text||'')==='Marked as Closed')actionParts.push('<b>Refunded: ₹'+money(x.refundAmount||0)+'</b>');
+    if(x.type==='edit')actionParts.push('<b>Customer Details Edited</b>');
+    if(x.type==='edit'&&String(x.oldName||'')!==String(x.newName||x.name||''))actionParts.push('<b>Customer Name:</b> '+escapeHtml(x.oldName||'')+' → '+escapeHtml(x.newName||x.name||''));
     if(x.type==='depositRefund'){const moneyParts=[];if(Number(x.deposit)>0)moneyParts.push(`Deposit: ${money(x.deposit)}`);if(Number(x.refund)>0)moneyParts.push(`Refund: ${money(x.refund)}`);actionParts.push(`<b>Deposit/Refund</b>${moneyParts.length?' &nbsp;'+moneyParts.join(' &nbsp; | &nbsp; '):''}`);}
     if(x.type==='dailyRental')actionParts.push('<b>Rental Charge</b>');
     if(!actionParts.length)actionParts.push('<b>Balance</b>');
@@ -2089,7 +2092,7 @@ function renderRentalActivity(c,n){
     const summary=`${eventBillLabel}${rentalLabel} | <b>Refundable:</b> ${money(t.refundable)}`;
     const balance=`${bt(t.balanceBT)} &nbsp; ${cc(t.balanceCC)}`;
     const nameLine=x.type==='added'?`<b>Name:</b> ${escapeHtml(x.name||n)} | <b>Mobile:</b> ${escapeHtml(x.phone||c.phone||'')} | <b>Deposited:</b> ${money(x.deposit||c.deposit||0)}`:'';
-    return `<div class="period" style="line-height:1.65;border-bottom:1px solid #e6edf2;padding:8px 2px"><div style="font-weight:700">${stamp}</div>${nameLine?`<div>${nameLine}</div>`:''}<div>${actionParts.join(' &nbsp; | &nbsp; ')}</div><div><b>Balance</b> ${balance}</div><div>${summary}</div></div>`;
+    return `<div class="period" style="line-height:1.65;border-bottom:1px solid #e6edf2;padding:8px 2px"><div style="font-weight:700">${stamp}</div>${nameLine?`<div>${nameLine}</div>`:''}<div>${actionParts.join(' &nbsp; | &nbsp; ')}</div>${x.type==='edit'&&x.text?<div><b>Changes:</b> ${escapeHtml(x.text)}</div>:''}<div><b>Balance</b> ${balance}</div><div>${summary}</div></div>`;
   }).join('');
 }
 function rentalTotalsAtActivity(c,x){if(x&&x.closedFinal===true)return {pendingBT:0,pendingCC:0,totalBill:0,refund:0};const additions=c.additions||[],refills=c.refills||[],returns=c.returns||[],dr=c.depositRefunds||[];let addBT=0,addCC=0,refBT=0,refCC=0,retBT=0,retCC=0,depAdd=0,refundAdd=0;const ts=Number(x.ts)||Infinity;additions.forEach(v=>{if(Number(v.ts||0)<=ts){addBT+=Number(v.pbt)||0;addCC+=Number(v.cc)||0}});refills.forEach(v=>{if(Number(v.ts||0)<=ts){refBT+=Number(v.pbt)||0;refCC+=Number(v.cc)||0}});returns.forEach(v=>{if(Number(v.ts||0)<=ts){retBT+=Number(v.pbt)||0;retCC+=Number(v.cc)||0}});dr.forEach(v=>{if(Number(v.ts||0)<=ts){depAdd+=Number(v.deposit)||0;refundAdd+=Number(v.refund)||0}});const bt=(Number(c.pbt)||0)+addBT,cc=(Number(c.cc)||0)+addCC;const bill=bt*(Number.isFinite(+c.pbtPrice)?+c.pbtPrice:20)+cc*(Number.isFinite(+c.ccPrice)?+c.ccPrice:50);const totalBill=bill+refBT*15+refCC*30;const dep=(Number(c.deposit)||0)+depAdd-refundAdd;return {pendingBT:Math.max(0,bt-retBT),pendingCC:Math.max(0,cc-retCC),totalBill,refund:Math.max(0,dep-totalBill)};}
@@ -2312,9 +2315,17 @@ function saveEditedRentalCustomer(oldName){
   const x=R[oldName]; if(!x) return rentals();
   const name=document.getElementById('en').value.trim(); const phone=document.getElementById('ephone').value.replace(/\D/g,''); const dep=document.getElementById('edep').value.trim(); const date=document.getElementById('edate').value; const time=document.getElementById('etime').value; const pbt=document.getElementById('epbt').value.trim(); const cc=document.getElementById('ecc').value.trim(); const err=document.getElementById('editErr');
   if(!name){err.textContent='Enter customer name';return} if(phone.length!==10){err.textContent='Please enter a valid 10 digits mobile number.';return} if(dep===''){err.textContent='Enter security deposit amount';return} if((Number(pbt)||0)<=0&&(Number(cc)||0)<=0){err.textContent='Please enter at least one BT quantity or CC quantity.';return}
-  const updated={...x,name,phone,deposit:Number(dep),rentalDate:date,rentalTime:time,pbt:Number(pbt)||0,cc:Number(cc)||0}; R[oldName]=updated; save(); window.btccRentalStatus='active'; openRental(oldName);
-}
-function recordReturn(n){
+  const before={name:String(x.name||oldName),phone:String(x.phone||''),deposit:Number(x.deposit)||0,rentalDate:String(x.rentalDate||''),rentalTime:String(x.rentalTime||''),pbt:Number(x.pbt)||0,cc:Number(x.cc)||0};
+  const after={name:name,phone:phone,deposit:Number(dep),rentalDate:String(date||''),rentalTime:String(time||''),pbt:Number(pbt)||0,cc:Number(cc)||0};
+  const labels={name:'Customer Name',phone:'Mobile Number',deposit:'Security Deposit',rentalDate:'Rental Date',rentalTime:'Rental Time',pbt:'BT Quantity',cc:'CC Quantity'};
+  const changedFields=Object.keys(labels).filter(key=>String(before[key])!==String(after[key])).map(key=>({field:key,label:labels[key],before:String(before[key]),after:String(after[key])}));
+  const updated={...x,...after};
+  if(changedFields.length){
+    const summary=changedFields.filter(field=>field.field!=='name').map(field=>field.label+': '+(field.before||'—')+' → '+(field.after||'—')).join('; ');
+    addRentalActivity(updated,{type:'edit',text:summary,name:after.name,oldName:before.name,newName:after.name,phone:after.phone,before:before,after:after,changes:changedFields},{ts:Date.now()});
+  }
+  R[oldName]=updated; save(); window.btccRentalStatus='active'; openRental(oldName);
+}function recordReturn(n){
   n=n||window.currentBTCCCustomer;
   const c=R[n]; if(!c)return;
   const t=rentalTotals(c);
@@ -2435,7 +2446,7 @@ function closeBTCCRental(n){
   document.body.appendChild(modal);
   document.getElementById('btccCloseCancel').onclick=()=>modal.remove();
   document.getElementById('btccCloseConfirmBtn').onclick=()=>{
-    c.refundCompleted=true;c.closed=true;c.pending=false;c.closedFinal=true;c.closedDate=localDateKey(new Date());c.closedBalanceBT=0;c.closedBalanceCC=0;c.closedRefund=0;addRentalActivity(c,{type:'status',text:'Marked as Closed',closedFinal:true,balanceBT:0,balanceCC:0,refund:0,refundable:0});
+    const refundAmount=Math.max(0,Number(t.refund)||0),clearedAmount=Math.max(0,Number(amount)||0),closedAt=Date.now();c.refundCompleted=true;c.closed=true;c.pending=false;c.closedFinal=true;c.closedDate=localDateKey(new Date());c.closedBalanceBT=0;c.closedBalanceCC=0;c.closedRefund=refundAmount;c.closedClearedAmount=clearedAmount;c.closedClearedAmountType=amountLabel;addRentalActivity(c,{type:'status',text:'Marked as Closed',closedFinal:true,balanceBT:0,balanceCC:0,pendingBT:0,pendingCC:0,refund:refundAmount,refundAmount:refundAmount,amount:clearedAmount,clearedAmount:clearedAmount,clearedAmountType:amountLabel,refundable:0,name:String(c.name||n),phone:String(c.phone||'')},{ts:closedAt});
     normalizeRentalActivity(c);
     save();modal.remove();window.btccRentalStatus='active';rentals();
   };
@@ -4322,23 +4333,5 @@ var baseEditRental=window.saveEditedRentalCustomer;
   window.hdRentalSelectDepositQR=function(step){if(!state||state.items.length<2)return;state.index=(state.index+(Number(step)||0)+state.items.length)%state.items.length;render()};
   window.hdRentalCloseDepositQR=function(){document.getElementById("hdRentalDepositQrPopup")?.remove();state=null};
   window.hdRentalOpenDepositQR=function(){if(document.getElementById("hdRentalDepositQrPopup"))return;var items=visibleUPIs();if(!items.length){alert("No visible UPI IDs are available. Add or unhide a UPI ID in the Owner page first.");return}var input=document.getElementById("rdepPhonePe"),amount=String(input?.value||"").trim();if(amount&&(!Number.isFinite(Number(amount))||Number(amount)<=0)){alert("Enter a PhonePe amount greater than zero, or leave it blank.");return}state={items:items,index:0,amount:amount,generation:0};addStyles();var overlay=document.createElement("div");overlay.id="hdRentalDepositQrPopup";overlay.className="hd-rental-qr-overlay";overlay.innerHTML='<section class="hd-rental-qr-card" role="dialog" aria-modal="true" aria-label="Security deposit UPI QR"><button type="button" class="hd-rental-qr-close" id="hdRentalDepositQrClose" aria-label="Close QR popup" title="Close">×</button><div class="hd-rental-qr-title" id="hdRentalDepositQrBank"></div><div class="hd-rental-qr-upi" id="hdRentalDepositQrUPI"></div><div class="hd-rental-qr-stage"><button type="button" class="hd-rental-qr-arrow" id="hdRentalDepositQrPrev" aria-label="Previous UPI ID" onclick="hdRentalSelectDepositQR(-1)">‹</button><div class="hd-rental-qr-image" id="hdRentalDepositQrImage"></div><button type="button" class="hd-rental-qr-arrow" id="hdRentalDepositQrNext" aria-label="Next UPI ID" onclick="hdRentalSelectDepositQR(1)">›</button></div><div class="hd-rental-qr-status" id="hdRentalDepositQrStatus"></div><div class="hd-rental-qr-dots" id="hdRentalDepositQrDots"></div></section>';overlay.addEventListener("click",function(event){if(event.target===overlay)window.hdRentalCloseDepositQR()});overlay.querySelector("#hdRentalDepositQrClose").addEventListener("click",window.hdRentalCloseDepositQR);var card=overlay.querySelector(".hd-rental-qr-card"),startX=0,startY=0;card.addEventListener("touchstart",function(event){var touch=event.changedTouches&&event.changedTouches[0];if(touch){startX=touch.clientX;startY=touch.clientY}},{passive:true});card.addEventListener("touchend",function(event){var touch=event.changedTouches&&event.changedTouches[0];if(!touch||Math.abs(touch.clientX-startX)<45||Math.abs(touch.clientX-startX)<Math.abs(touch.clientY-startY))return;window.hdRentalSelectDepositQR(touch.clientX>startX?1:-1)},{passive:true});document.body.appendChild(overlay);render()};
-})();
-</script><script id="hd-phonepe-upi-reconcile-fix">
-(function(){
-  "use strict";
-  function copy(list){return JSON.parse(JSON.stringify(Array.isArray(list)?list:[]))}
-  function parseState(value){try{return typeof value==="string"?JSON.parse(value||"{}"):value||{}}catch(_){return {}}}
-  function ts(value){var n=Date.parse(value||"");return Number.isFinite(n)?n:0}
-  function candidate(state,source){if(!state||!Array.isArray(state.paymentUPIAccounts))return null;var list=copy(state.paymentUPIAccounts),stamp=state.paymentUPIAccountsUpdatedAt||"";if(!stamp){var newest=0;list.forEach(function(item){newest=Math.max(newest,ts(item&&item.updatedAt),ts(item&&item.createdAt))});if(newest)stamp=new Date(newest).toISOString()}return {list:list,stamp:stamp,source:source||""}}
-  function visibleCount(list){return list.filter(function(item){return item&&!item.hidden&&String(item.bankName||"").trim()&&String(item.upiId||"").trim()}).length}
-  function choose(a,b){if(!a)return b;if(!b)return a;var at=ts(a.stamp),bt=ts(b.stamp);if(at!==bt)return bt>at?b:a;var av=visibleCount(a.list),bv=visibleCount(b.list);if(av!==bv)return bv>av?b:a;if(a.list.length!==b.list.length)return b.list.length>a.list.length?b:a;return a}
-  function bestLocal(){var result=null;try{if(typeof saved!=="undefined")result=choose(result,candidate(saved,"memory"))}catch(_){}try{result=choose(result,candidate(parseState(localStorage.getItem("happyDropsManagerV12")),"v12"));result=choose(result,candidate(parseState(localStorage.getItem("happyDropsManagerV9")),"v9"))}catch(_){}return result}
-  function applyList(chosen){if(!chosen)return;try{if(typeof saved!=="undefined"){saved=saved||{};saved.paymentUPIAccounts=copy(chosen.list);saved.paymentUPIAccountsUpdatedAt=chosen.stamp||""}var v12=parseState(localStorage.getItem("happyDropsManagerV12")),v9=parseState(localStorage.getItem("happyDropsManagerV9"));v12.paymentUPIAccounts=copy(chosen.list);v12.paymentUPIAccountsUpdatedAt=chosen.stamp||"";v9.paymentUPIAccounts=copy(chosen.list);v9.paymentUPIAccountsUpdatedAt=chosen.stamp||"";localStorage.setItem("happyDropsManagerV12",JSON.stringify(v12));localStorage.setItem("happyDropsManagerV9",JSON.stringify(v9))}catch(error){console.warn("PhonePe UPI list reconciliation failed",error)}}
-  function reconcile(){var chosen=bestLocal();if(chosen)applyList(chosen);return chosen}
-  reconcile();
-  var snapshotBase=window.hdStaffAttendanceSnapshot;if(typeof snapshotBase==="function")window.hdStaffAttendanceSnapshot=function(){var state=snapshotBase.apply(this,arguments)||{},chosen=reconcile();if(chosen){state.paymentUPIAccounts=copy(chosen.list);state.paymentUPIAccountsUpdatedAt=chosen.stamp||""}return state};
-  var mergeBase=window.hdMergeStaffAttendanceCloudState;if(typeof mergeBase==="function")window.hdMergeStaffAttendanceCloudState=function(remote){var merged=mergeBase.apply(this,arguments)||{},local=reconcile(),cloud=candidate(remote,"cloud"),chosen=choose(local,cloud);if(chosen){merged.paymentUPIAccounts=copy(chosen.list);merged.paymentUPIAccountsUpdatedAt=chosen.stamp||""}return merged};
-  var applyBase=window.hdApplyStaffAttendanceCloudState;if(typeof applyBase==="function")window.hdApplyStaffAttendanceCloudState=function(state){var result=applyBase.apply(this,arguments),local=reconcile(),incoming=candidate(state,"cloud"),chosen=choose(local,incoming);if(incoming&&chosen)applyList(chosen);if(document.getElementById("hdPhonePeRoot")){setTimeout(function(){var render=window.hdPhonePeBaseRenderer;if(typeof render==="function")try{render.call(window)}catch(error){console.warn("PhonePe QR refresh failed",error)}},0)}return result};
-  var pageBase=window.phonepePage;if(typeof pageBase==="function")window.phonepePage=function(){reconcile();return pageBase.apply(this,arguments)};
 })();
 </script></body></html>
