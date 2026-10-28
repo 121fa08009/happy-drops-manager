@@ -4224,4 +4224,25 @@ var baseEditRental=window.saveEditedRentalCustomer;
   if(document.getElementById("hdPaymentUPIManagerOverlay")){style();addManagerSetting()}
   if(document.getElementById("hdPhonePeRoot")&&role()!=="owner"&&!preference()&&typeof window.home==="function")window.home();
 })();
+</script><style id="hd-phonepe-tiny-calculator">
+#hdPhonePeRoot .hd-phonepe-amount-row{display:flex!important;align-items:center!important;gap:6px!important}
+#hdPhonePeRoot .hd-phonepe-calculate-button.btn{box-sizing:border-box!important;flex:0 0 40px!important;width:40px!important;min-width:40px!important;max-width:40px!important;height:40px!important;min-height:40px!important;max-height:40px!important;padding:0!important;margin:0!important;border:0!important;border-radius:8px!important;background:transparent!important;box-shadow:none!important;display:grid!important;place-items:center!important;line-height:1!important}
+#hdPhonePeRoot .hd-phonepe-calculate-button img{display:block!important;width:18px!important;height:18px!important;min-width:18px!important;max-width:18px!important;min-height:18px!important;max-height:18px!important;object-fit:contain!important}
+#hdPhonePeRoot .hd-phonepe-calculate-button:hover{background:#f1eafa!important}
+@media(max-width:380px){#hdPhonePeRoot .hd-phonepe-calculate-button.btn{flex-basis:36px!important;width:36px!important;min-width:36px!important;max-width:36px!important;height:38px!important;min-height:38px!important;max-height:38px!important}#hdPhonePeRoot .hd-phonepe-calculate-button img{width:17px!important;height:17px!important;min-width:17px!important;max-width:17px!important;min-height:17px!important;max-height:17px!important}}
+</style><script id="hd-phonepe-sync-on-open">
+(function(){
+  "use strict";
+  var renderBase=window.phonepePage;
+  if(typeof renderBase!=="function")return;
+  window.phonepePage=function(){
+    var result=renderBase.apply(this,arguments);
+    if(typeof window.hdEmployeePageAllowed==="function"&&!window.hdEmployeePageAllowed("phonepe"))return result;
+    if(!document.getElementById("hdPhonePeRoot")||typeof window.hdCloudSyncStaffAttendance!=="function")return result;
+    Promise.resolve().then(function(){return window.hdCloudSyncStaffAttendance()}).then(function(ok){
+      if(ok&&document.getElementById("hdPhonePeRoot")&&(!window.hdEmployeePageAllowed||window.hdEmployeePageAllowed("phonepe")))renderBase.call(window);
+    }).catch(function(error){console.warn("Could not refresh PhonePe UPI data from the shared app cloud.",error)});
+    return result;
+  };
+})();
 </script></body></html>
