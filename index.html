@@ -248,7 +248,7 @@
 <script>
 const HAPPY_DROPS_SUPABASE_URL='https://gyrdmfnyypqoxhueqsjo.supabase.co';
 const HAPPY_DROPS_SUPABASE_PUBLISHABLE_KEY='sb_publishable_M1kXdYZnF8xjILQ_nzMbFQ_MIlblTa0';
-let hdSupabase=null, hdSession=null, hdCloudBusy=false, hdCloudSyncAgain=false, hdCloudSyncPromise=null;
+let hdSupabase=null, hdSession=null, hdCloudBusy=false, hdCloudSyncAgain=false, hdCloudSyncPromise=null, hdCloudAuthPromise=null;
 let hdCloudHasSynced=false, hdCloudBootstrappedUserId='', hdCloudBootstrapPromise=null;
 let hdDeletedRentalIds=new Set();
 let hdPendingRentalSyncIds=new Set();
@@ -612,8 +612,7 @@ async function hdCloudBootstrap(){
       await hdLoadRentalsAndMerge();
       const pushed=await hdCloudSyncRentals();
        if(pushed===false)return false;
-       const staffReady=await hdCloudSyncStaffAttendance();
-       if(staffReady)await hdStartStaffAttendanceRealtime();
+       const staffReady=await hdCloudSyncStaffAttendance(); if(!staffReady)throw new Error(window.hdStaffAttendanceCloudError||"Shared staff and attendance cloud sync failed."); await hdStartStaffAttendanceRealtime();
        await hdStartRentalRealtime();
       hdCloudBadge();
       hdCloudHasSynced=true;
@@ -766,7 +765,7 @@ async function hdStartRentalRealtime(){
 function hdInitCloud(){
   try{
     if(!window.supabase||!window.supabase.createClient)return;
-    hdSupabase=window.supabase.createClient(HAPPY_DROPS_SUPABASE_URL,HAPPY_DROPS_SUPABASE_PUBLISHABLE_KEY);
+    var localHtmlMode=location.protocol==="file:";hdSupabase=window.supabase.createClient(HAPPY_DROPS_SUPABASE_URL,HAPPY_DROPS_SUPABASE_PUBLISHABLE_KEY,{auth:{persistSession:!localHtmlMode,autoRefreshToken:!localHtmlMode,detectSessionInUrl:!localHtmlMode}});
     hdSupabase.auth.onAuthStateChange((event,session)=>{
       const previousUserId=String(hdSession?.user?.id||'');
       hdSession=session||null;
@@ -785,7 +784,7 @@ function hdInitCloud(){
            hdSupabase.removeChannel(channel).catch(e=>console.warn('Staff cloud channel close error',e));
          }
         hdSetCloudStatus('connecting','Connecting to shared cloud…');
-        if(event==='SIGNED_OUT')hdSupabase.auth.signInAnonymously().then(function(r){if(r.error)throw r.error;hdSession=r.data.session}).catch(function(e){console.warn('Anonymous cloud login failed',e)});
+        if(event==='SIGNED_OUT'&&typeof window.hdEnsureCloudSession==='function')window.hdEnsureCloudSession().catch(function(e){console.warn('Anonymous cloud login failed',e)});
         return;
       }
       if(event==='SIGNED_IN'){
@@ -802,26 +801,42 @@ function hdInitCloud(){
       }
       if(event!=='INITIAL_SESSION'&&!hdCloudHasSynced)hdSetCloudStatus('connecting','Connected — syncing…');
     });
-    hdSupabase.auth.getSession().then(async ({data,error})=>{
-      if(error)throw error;
-      hdSession=data?.session||null;
-      if(hdSession){
-        const ok=await hdCloudBootstrap();
-        if(ok)setTimeout(()=>hdStartPushRegistration(),250);
-      }else{
-        hdSetCloudStatus('connecting','Connecting to shared cloud…');var signed=await hdSupabase.auth.signInAnonymously();if(signed.error)throw signed.error;hdSession=signed.data?.session||null;if(hdSession){var ok=await hdCloudBootstrap();if(ok)setTimeout(()=>hdStartPushRegistration(),250);}
-      }
+    window.hdEnsureCloudSession().then(async function(){
+      const ok=await hdCloudBootstrap();
+      if(ok)setTimeout(()=>hdStartPushRegistration(),250);
     }).catch(e=>{
       console.error('Supabase session error',e);
-      hdSetCloudStatus(navigator.onLine?'error':'offline',navigator.onLine?(e?.message||'Cloud connection failed'):'Offline');if(window.hdEmployeeRefreshLoginChooser)window.hdEmployeeRefreshLoginChooser();
-    });
-  }catch(e){
+      hdSetCloudStatus(navigator.onLine?'error':'offline',navigator.onLine?(e?.message||'Cloud connection failed'):'Offline');
+      if(window.hdEmployeeRefreshLoginChooser)window.hdEmployeeRefreshLoginChooser();
+    });  }catch(e){
     console.error('Supabase init error',e);
     hdSetCloudStatus(navigator.onLine?'error':'offline',navigator.onLine?'Cloud connection failed':'Offline');
   }
 }
 
-// Happy Drops Manager Web Push registration
+window.hdEnsureCloudSession=async function(){
+  if(!hdSupabase){
+    if(typeof window.supabase==="undefined"||!window.supabase.createClient)throw new Error("The cloud connection library did not load.");
+    if(typeof hdInitCloud==="function")hdInitCloud();
+  }
+  if(!hdSupabase)throw new Error("Could not start the cloud connection.");
+  if(hdSession&&hdSession.user&&hdSession.user.id)return hdSession;
+  if(hdCloudAuthPromise)return hdCloudAuthPromise;
+  var authPromise=(async function(){
+    var current=await hdSupabase.auth.getSession();
+    if(current.error)throw new Error("Cloud session check failed: "+(current.error.message||current.error));
+    if(current.data&&current.data.session){hdSession=current.data.session;return hdSession;}
+    var signed=await hdSupabase.auth.signInAnonymously();
+    if(signed.error)throw new Error("Anonymous cloud sign-in failed: "+(signed.error.message||signed.error));
+    hdSession=signed.data&&signed.data.session||null;
+    if(!hdSession)throw new Error("Anonymous cloud sign-in returned no session.");
+    return hdSession;
+  })();
+  hdCloudAuthPromise=authPromise;
+  try{return await authPromise;}
+  catch(error){var message=String(error&&error.message||error||"");if(location.protocol==="file:"&&/Failed to fetch/i.test(message))throw new Error("Cloud sign-in is blocked in this direct file preview. Double-click Open_Happy_Drops_Local_Test.bat and use http://127.0.0.1:18787/ to test cloud sync.");if(/Failed to fetch/i.test(message))throw new Error("Cloud sign-in request could not reach Supabase. This browser reports Failed to fetch.");throw error;}
+  finally{if(hdCloudAuthPromise===authPromise)hdCloudAuthPromise=null;}
+}; // Happy Drops Manager Web Push registration
 const HD_VAPID_PUBLIC_KEY = "BGH9PGlRYn0dhEb23is7HW1SMKrVcJj2ud718u5DBcSSvbI5c-AH7vZacaIyahOsvCxfuogKcPjyG6b0MYhMJJw";
 
 function hdUrlBase64ToUint8Array(base64String){
@@ -979,7 +994,7 @@ R=hdNormalizeRentalKeys(R);
 let cur="",items=[];
 const HD_STAFF_ATTENDANCE_TABLE="happy_drops_staff_attendance_shared";
 const HD_STAFF_ATTENDANCE_SHARED_KEY="happy-drops-manager";
-let hdStaffAttendanceRealtimeChannel=null,hdStaffAttendanceSyncTimer=null,hdStaffAttendanceSyncBusy=false,hdStaffAttendanceSyncAgain=false,hdStaffAttendanceCloudSetupWarned=false;
+let hdStaffAttendanceRealtimeChannel=null,hdStaffAttendanceSyncTimer=null,hdStaffAttendanceSyncBusy=false,hdStaffAttendanceSyncAgain=false,hdStaffAttendanceSyncPromise=null,hdStaffAttendanceCloudSetupWarned=false;
 function hdStaffAttendanceStableJson(value){if(Array.isArray(value))return "["+value.map(hdStaffAttendanceStableJson).join(",")+"]";if(value&&typeof value==="object")return "{"+Object.keys(value).sort().map(key=>JSON.stringify(key)+":"+hdStaffAttendanceStableJson(value[key])).join(",")+"}";return JSON.stringify(value);}
 function hdStaffAttendanceSnapshot(){return {staff:JSON.parse(JSON.stringify(staff||{})),staffOrder:Array.isArray(staffOrder)?[...staffOrder]:[],attendanceData:JSON.parse(JSON.stringify(attendanceData||{})),attendanceResetAt:attendanceResetAt||"",staffDeletions:JSON.parse(JSON.stringify(staffDeletions||{})),staffOrderUpdatedAt:staffOrderUpdatedAt||"",loginAccessMembers:JSON.parse(JSON.stringify(loginAccessMembers||{})),loginAccessOrder:Array.isArray(loginAccessOrder)?[...loginAccessOrder]:[],loginAccessOrderUpdatedAt:loginAccessOrderUpdatedAt||"",ownerLoginPattern:(saved&&saved.ownerLoginPattern)||localStorage.getItem("hdOwnerLoginPatternV1")||"",ownerLoginPatternUpdatedAt:(saved&&saved.ownerLoginPatternUpdatedAt)||localStorage.getItem("hdOwnerLoginPatternUpdatedAtV1")||""};}
 function hdStaffAttendanceTimeValue(value){const parsed=Date.parse(value||"");return Number.isFinite(parsed)?parsed:0;}
@@ -989,8 +1004,41 @@ function hdMergeStaffAttendanceCloudState(remoteState){const local=hdStaffAttend
  const idToName={};Object.entries(mergedStaff).forEach(([name,rec])=>{if(rec.staffId)idToName[rec.staffId]=name;});const attendanceResetAt=hdStaffAttendanceTimeValue(local.attendanceResetAt)>=hdStaffAttendanceTimeValue(remote.attendanceResetAt)?(local.attendanceResetAt||""):(remote.attendanceResetAt||"");const resetMillis=hdStaffAttendanceTimeValue(attendanceResetAt);const mergedAttendance={};function ingestAttendance(source,isRemote){Object.entries(source.attendanceData||{}).forEach(([date,day])=>{if(!day||typeof day!=="object"||hdStaffAttendanceTimeValue(day.updatedAt)<=resetMillis)return;const target=mergedAttendance[date]||(mergedAttendance[date]={staff:{},updatedAt:day.updatedAt||""});if(hdStaffAttendanceTimeValue(day.updatedAt)>hdStaffAttendanceTimeValue(target.updatedAt))target.updatedAt=day.updatedAt;Object.entries(day.staff||{}).forEach(([name,entry])=>{const id=String(entry?.staffId||source.staff?.[name]?.staffId||""),targetName=idToName[id]||name,old=target.staff[targetName],entryTime=hdStaffAttendanceTimeValue(entry?._hdUpdatedAt||day.updatedAt),oldTime=hdStaffAttendanceTimeValue(old?._hdUpdatedAt||target.updatedAt);if(!old||entryTime>oldTime||(entryTime===oldTime&&isRemote))target.staff[targetName]={...(entry||{}),staffId:id||old?.staffId||""};});});}
  ingestAttendance(local,false);ingestAttendance(remote,true);const mergedLoginAccess={...(local.loginAccessMembers||{})};Object.entries(remote.loginAccessMembers||{}).forEach(([id,record])=>{const old=mergedLoginAccess[id],oldTime=hdStaffAttendanceTimeValue(old?.updatedAt),newTime=hdStaffAttendanceTimeValue(record?.updatedAt);if(!old||newTime>=oldTime)mergedLoginAccess[id]=record;});const localLoginOrderTime=hdStaffAttendanceTimeValue(local.loginAccessOrderUpdatedAt),remoteLoginOrderTime=hdStaffAttendanceTimeValue(remote.loginAccessOrderUpdatedAt),loginOrderSource=remoteLoginOrderTime>=localLoginOrderTime&&Array.isArray(remote.loginAccessOrder)?remote.loginAccessOrder:(Array.isArray(local.loginAccessOrder)?local.loginAccessOrder:[]),loginOrderTime=remoteLoginOrderTime>=localLoginOrderTime?(remote.loginAccessOrderUpdatedAt||""):(local.loginAccessOrderUpdatedAt||"");let mergedLoginOrder=loginOrderSource.filter(id=>mergedLoginAccess[id]&&!mergedLoginAccess[id].deleted);mergedLoginOrder=mergedLoginOrder.concat(Object.keys(mergedLoginAccess).filter(id=>mergedLoginAccess[id]&&!mergedLoginAccess[id].deleted&&!mergedLoginOrder.includes(id)));const localOwnerPattern=String(local.ownerLoginPattern||""),remoteOwnerPattern=String(remote.ownerLoginPattern||""),localOwnerPatternTime=hdStaffAttendanceTimeValue(local.ownerLoginPatternUpdatedAt),remoteOwnerPatternTime=hdStaffAttendanceTimeValue(remote.ownerLoginPatternUpdatedAt),useRemoteOwnerPattern=!!remoteOwnerPattern&&(!localOwnerPattern||remoteOwnerPatternTime>=localOwnerPatternTime),ownerLoginPattern=useRemoteOwnerPattern?remoteOwnerPattern:localOwnerPattern,ownerLoginPatternUpdatedAt=useRemoteOwnerPattern?(remote.ownerLoginPatternUpdatedAt||""):(local.ownerLoginPatternUpdatedAt||"");return {staff:mergedStaff,staffOrder:mergedOrder,attendanceData:mergedAttendance,attendanceResetAt:attendanceResetAt,staffDeletions:deletions,staffOrderUpdatedAt:orderTime,loginAccessMembers:mergedLoginAccess,loginAccessOrder:mergedLoginOrder,loginAccessOrderUpdatedAt:loginOrderTime,ownerLoginPattern:ownerLoginPattern,ownerLoginPatternUpdatedAt:ownerLoginPatternUpdatedAt};}
 function hdApplyStaffAttendanceCloudState(state){staff=state.staff||{};staffOrder=state.staffOrder||Object.keys(staff);attendanceData=state.attendanceData||{};attendanceResetAt=state.attendanceResetAt||"";staffDeletions=state.staffDeletions||{};staffOrderUpdatedAt=state.staffOrderUpdatedAt||"";loginAccessMembers=state.loginAccessMembers||{};loginAccessOrder=state.loginAccessOrder||Object.keys(loginAccessMembers||{});loginAccessOrderUpdatedAt=state.loginAccessOrderUpdatedAt||"";saved=saved||{};saved.staff=staff;saved.staffOrder=staffOrder;saved.loginAccessOrder=loginAccessOrder;saved.loginAccessOrderUpdatedAt=loginAccessOrderUpdatedAt;saved.attendanceData=attendanceData;saved.attendanceResetAt=attendanceResetAt;saved.staffDeletions=staffDeletions;saved.staffOrderUpdatedAt=staffOrderUpdatedAt;saved.loginAccessMembers=loginAccessMembers;if(state.ownerLoginPattern){saved.ownerLoginPattern=String(state.ownerLoginPattern);localStorage.setItem("hdOwnerLoginPatternV1",saved.ownerLoginPattern)}if(state.ownerLoginPatternUpdatedAt){saved.ownerLoginPatternUpdatedAt=String(state.ownerLoginPatternUpdatedAt);localStorage.setItem("hdOwnerLoginPatternUpdatedAtV1",saved.ownerLoginPatternUpdatedAt)}const local=JSON.stringify(saved);localStorage.setItem("happyDropsManagerV12",local);localStorage.setItem("happyDropsManagerV9",local);if(document.getElementById("staffAdminList")&&!document.getElementById("sn")&&!document.getElementById("esn"))renderStaffAdmin();if(document.getElementById("hdAttendanceDateTabs"))renderAttendance(window.hdAttendanceOffset||0);if(document.getElementById("hdLoginAccessRows")&&currentUser?.role==="owner"&&!hdLoginAccessPointerState)manageLoginAccess();}
-async function hdCloudSyncStaffAttendance(){if(!hdSupabase||!hdSession?.user?.id)return false;if(hdStaffAttendanceSyncBusy){hdStaffAttendanceSyncAgain=true;return false;}hdStaffAttendanceSyncBusy=true;try{const sharedKey=HD_STAFF_ATTENDANCE_SHARED_KEY,{data,error}=await hdSupabase.from(HD_STAFF_ATTENDANCE_TABLE).select("state").eq("shared_key",sharedKey).maybeSingle();if(error)throw error;const remote=data?.state||null,merged=hdMergeStaffAttendanceCloudState(remote),signature=hdStaffAttendanceStableJson(merged),remoteSignature=remote?hdStaffAttendanceStableJson(remote):"";hdApplyStaffAttendanceCloudState(merged);if(!remote||signature!==remoteSignature){const result=await hdSupabase.from(HD_STAFF_ATTENDANCE_TABLE).upsert({shared_key:sharedKey,state:merged,updated_at:new Date().toISOString()},{onConflict:"shared_key"});if(result.error)throw result.error;}hdStaffAttendanceCloudSetupWarned=false;return true;}catch(error){if(!hdStaffAttendanceCloudSetupWarned){console.warn("Shared staff and attendance cloud sync needs the shared Supabase table configured.",error);hdStaffAttendanceCloudSetupWarned=true;}return false;}finally{hdStaffAttendanceSyncBusy=false;if(hdStaffAttendanceSyncAgain){hdStaffAttendanceSyncAgain=false;setTimeout(()=>hdCloudSyncStaffAttendance(),250);}}}
-function hdQueueStaffAttendanceSync(){if(!hdSupabase||!hdSession?.user?.id)return;if(hdStaffAttendanceSyncTimer)clearTimeout(hdStaffAttendanceSyncTimer);hdStaffAttendanceSyncTimer=setTimeout(()=>{hdStaffAttendanceSyncTimer=null;hdCloudSyncStaffAttendance();},300);}
+function hdCloudSyncStaffAttendance(){
+ if(!hdSupabase||!hdSession?.user?.id)return Promise.resolve(false);
+ if(hdStaffAttendanceSyncPromise){hdStaffAttendanceSyncAgain=true;return hdStaffAttendanceSyncPromise;}
+ var syncPromise=(async function(){
+  var stage="shared-state read";
+  try{
+   const sharedKey=HD_STAFF_ATTENDANCE_SHARED_KEY;
+   const result=await hdSupabase.from(HD_STAFF_ATTENDANCE_TABLE).select("state").eq("shared_key",sharedKey).maybeSingle();
+   if(result.error)throw result.error;
+   const remote=result.data?.state||null;
+   const merged=hdMergeStaffAttendanceCloudState(remote);
+   const signature=hdStaffAttendanceStableJson(merged);
+   const remoteSignature=remote?hdStaffAttendanceStableJson(remote):"";
+   hdApplyStaffAttendanceCloudState(merged);
+   if(!remote||signature!==remoteSignature){
+    stage="shared-state write";
+    const savedResult=await hdSupabase.from(HD_STAFF_ATTENDANCE_TABLE).upsert({shared_key:sharedKey,state:merged,updated_at:new Date().toISOString()},{onConflict:"shared_key"});
+    if(savedResult.error)throw savedResult.error;
+   }
+   hdStaffAttendanceCloudSetupWarned=false;
+   window.hdStaffAttendanceCloudError="";
+   return true;
+  }catch(error){
+   window.hdStaffAttendanceCloudError="Cloud "+stage+" failed: "+String(error&&error.message||error||"Unknown cloud error");
+   if(typeof hdSetCloudStatus==="function")hdSetCloudStatus(navigator.onLine?"error":"offline",window.hdStaffAttendanceCloudError);
+   if(!hdStaffAttendanceCloudSetupWarned){console.warn("Shared staff and attendance cloud sync failed at "+stage+".",error);hdStaffAttendanceCloudSetupWarned=true;}
+   return false;
+  }
+ })();
+ hdStaffAttendanceSyncPromise=syncPromise;
+ return syncPromise.finally(function(){
+  if(hdStaffAttendanceSyncPromise===syncPromise)hdStaffAttendanceSyncPromise=null;
+  if(hdStaffAttendanceSyncAgain){hdStaffAttendanceSyncAgain=false;setTimeout(function(){hdCloudSyncStaffAttendance();},250);}
+ });
+}function hdQueueStaffAttendanceSync(){if(!hdSupabase||!hdSession?.user?.id)return;if(hdStaffAttendanceSyncTimer)clearTimeout(hdStaffAttendanceSyncTimer);hdStaffAttendanceSyncTimer=setTimeout(()=>{hdStaffAttendanceSyncTimer=null;hdCloudSyncStaffAttendance();},300);}
 function hdHandleStaffAttendanceRealtime(payload){if(payload?.eventType==="DELETE")return;const remote=payload?.new?.state;if(!remote)return;const merged=hdMergeStaffAttendanceCloudState(remote),mergedSignature=hdStaffAttendanceStableJson(merged),remoteSignature=hdStaffAttendanceStableJson(remote),currentSignature=hdStaffAttendanceStableJson(hdStaffAttendanceSnapshot());if(currentSignature!==mergedSignature)hdApplyStaffAttendanceCloudState(merged);if(mergedSignature!==remoteSignature)hdQueueStaffAttendanceSync();}
 async function hdStartStaffAttendanceRealtime(){if(!hdSupabase||!hdSession?.user?.id)return;try{if(hdStaffAttendanceRealtimeChannel){await hdSupabase.removeChannel(hdStaffAttendanceRealtimeChannel);hdStaffAttendanceRealtimeChannel=null;}const sharedKey=HD_STAFF_ATTENDANCE_SHARED_KEY,channel=hdSupabase.channel("happy-drops-staff-attendance-shared").on("postgres_changes",{event:"*",schema:"public",table:HD_STAFF_ATTENDANCE_TABLE,filter:"shared_key=eq."+sharedKey},hdHandleStaffAttendanceRealtime);hdStaffAttendanceRealtimeChannel=channel;channel.subscribe((status,error)=>{if(status==="CHANNEL_ERROR"||status==="TIMED_OUT")console.warn("Staff attendance live updates are unavailable; it will sync on the next save or login.",error||"");});}catch(error){console.warn("Staff attendance realtime setup error",error);}}
 function save(options){
@@ -3282,12 +3330,15 @@ window.phonepePage=phonepePage;
   new MutationObserver(sync).observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['class','style','hidden','open','aria-hidden']});
   sync();
 })();
+// Backwash route is defined before the shared Android/browser navigation wrapper.
+window.hdRenderBackwashPage=null;window.hdBackwashRenderPending=false;
+function backwash(){if(typeof window.hdRenderBackwashPage==="function")return window.hdRenderBackwashPage();window.hdBackwashRenderPending=true;}
 // Happy Drops PWA: keep screen navigation in sync with browser and Android Back.
 (function(){
   const pageFns = [
     'home','dealers','dealerAdmin','showDealerManager','showAddDealerForm','editDealer','openDealer',
     'rentals','newRental','openRental','editRentalCustomer',
-    'manageStaff','addStaff','editStaff','manageProducts','newProduct','editProduct','stock','money','attendance','phonepePage','owner','ownerDashboard'
+    'manageStaff','addStaff','editStaff','manageProducts','newProduct','editProduct','stock','money','attendance','phonepePage','backwash','owner','ownerDashboard'
   ];
   let restoring = false;
   let pageStack = [];
@@ -3433,7 +3484,7 @@ window.phonepePage=phonepePage;
     {key:"orders",label:"Orders"},
     {key:"stock",label:"Stock"},
     {key:"money",label:"Money Calculator"},
-    {key:"attendance",label:"Staff Attendance"},{key:"sales",label:"Sales"},{key:"transactions",label:"Transactions"},{key:"phonepe",label:"PhonePe"}
+    {key:"attendance",label:"Staff Attendance"},{key:"sales",label:"Sales"},{key:"transactions",label:"Transactions"},{key:"phonepe",label:"PhonePe"},{key:"backwash",label:"Backwash"}
   ];
   var OWNER_PATTERN_DEFAULT="3214789";
   var currentUser=null,selectedEmployee=null,drawing={active:false,points:[]},config=null,cloudAuthBusy=false;
@@ -3501,8 +3552,7 @@ window.phonepePage=phonepePage;
   function startPattern(e){if(config&&config.stage==="ready"){clearPatternDrawing();return}if(e.cancelable)e.preventDefault();drawing={active:true,points:[]};var area=document.getElementById("hdPatternArea");if(area&&area.setPointerCapture){try{area.setPointerCapture(e.pointerId)}catch(_){}}addDot(nearestDot(e.clientX,e.clientY))}
   function movePattern(e){if(!drawing.active)return;if(e.cancelable)e.preventDefault();addDot(nearestDot(e.clientX,e.clientY))}
   function endPattern(e){if(!drawing.active)return;if(e.cancelable)e.preventDefault();completeDraw()}
-  function chooseOwner(){var status=document.getElementById("hdLoginCloudStatus"),button=document.querySelector("[data-owner-login-choice]");if(typeof hdCloudHasSynced!=="undefined"&&hdCloudHasSynced){selectedEmployee={role:"owner"};patternScreen();return}if(status)status.textContent="Checking the latest owner pattern…";if(button)button.disabled=true;var started=Date.now();(async function(){while(Date.now()-started<20000){if(typeof hdCloudHasSynced!=="undefined"&&hdCloudHasSynced){selectedEmployee={role:"owner"};patternScreen();return}try{if(typeof hdCloudBootstrap==="function"&&typeof hdSession!=="undefined"&&hdSession)await hdCloudBootstrap()}catch(_){}if(typeof hdCloudHasSynced!=="undefined"&&hdCloudHasSynced){selectedEmployee={role:"owner"};patternScreen();return}await new Promise(function(resolve){setTimeout(resolve,350)})}var currentStatus=document.getElementById("hdLoginCloudStatus"),currentButton=document.querySelector("[data-owner-login-choice]");if(currentStatus)currentStatus.textContent="Could not confirm the latest owner pattern. Check internet/cloud sync, then tap Chaitanya to retry.";if(currentButton)currentButton.disabled=false})()}
-  function chooseLoginMember(id){id=String(id||"");var record=loginAccessMembers[id];if(!record||record.deleted||record.hidden)return chooser();selectedEmployee={role:"login",id:id,name:record.name};patternScreen()}
+  function chooseOwner(){var status=document.getElementById("hdLoginCloudStatus"),button=document.querySelector("[data-owner-login-choice]");if(status)status.textContent="Connecting to the shared cloud…";if(button)button.disabled=true;window.hdStaffAttendanceCloudError="";var started=Date.now(),lastError="",attempts=0;(async function(){while(Date.now()-started<25000){if(typeof window.hdEnsureCloudSession==="function"&&typeof hdCloudSyncStaffAttendance==="function"){attempts++;if(status)status.textContent=attempts>1?"Retrying the shared cloud connection…":"Connecting to the shared cloud…";var timeoutId=null;try{var request=(async function(){await window.hdEnsureCloudSession();return await hdCloudSyncStaffAttendance()})();var result=await Promise.race([request,new Promise(function(resolve){timeoutId=setTimeout(function(){resolve("__cloud_timeout__")},12000)})]);if(timeoutId)clearTimeout(timeoutId);if(result===true){selectedEmployee={role:"owner"};patternScreen();return}if(result==="__cloud_timeout__"){lastError="Cloud request timed out. Check the phone connection and retry.";break}if(window.hdStaffAttendanceCloudError){lastError=window.hdStaffAttendanceCloudError;if(attempts<3){await new Promise(function(resolve){setTimeout(resolve,700)});continue}break}if(attempts<3){await new Promise(function(resolve){setTimeout(resolve,700)});continue}}catch(error){if(timeoutId)clearTimeout(timeoutId);lastError=error&&error.message||String(error);if(attempts<3){await new Promise(function(resolve){setTimeout(resolve,700)});continue}break}}else{lastError="The cloud connection module is not ready. Reload the published app and try again.";break}}var currentStatus=document.getElementById("hdLoginCloudStatus"),currentButton=document.querySelector("[data-owner-login-choice]");if(typeof hdSetCloudStatus==="function")hdSetCloudStatus(navigator.onLine?"error":"offline",lastError);if(currentStatus)currentStatus.textContent="Could not confirm the latest owner pattern: "+lastError;if(currentButton)currentButton.disabled=false})()} function chooseLoginMember(id){id=String(id||"");var record=loginAccessMembers[id];if(!record||record.deleted||record.hidden)return chooser();selectedEmployee={role:"login",id:id,name:record.name};patternScreen()}
 var hdLoginAccessPointerState=null;
 function hdLoginAccessPointerDown(event){
   if(!currentUser||currentUser.role!=="owner")return;
@@ -3588,22 +3638,19 @@ function manageLoginAccess(){
   function applyVisibility(){
     var drawerEl=document.getElementById("drawer"),side=drawerEl&&drawerEl.querySelector(".side");if(!currentUser){if(drawerEl)drawerEl.classList.remove("open");return}
     var link=document.getElementById("hdEmployeeSwitchNav");if(side&&!link){link=document.createElement("div");link.id="hdEmployeeSwitchNav";link.className="nav";side.appendChild(link)}if(link){link.textContent=(currentUser.role==="owner"?"👑 Chaitanya":currentUser.name)+" (Logout)";link.onclick=window.hdEmployeeSwitchUser;link.style.display=""}
-    var navMap=[["dealers","dealers"],["rentals","rentals"],["orders","orders"],["stock","stock"],["money","money"],["attendance","attendance"],["owner","owner"]];
+    var navMap=[["dealers","dealers"],["rentals","rentals"],["orders","orders"],["stock","stock"],["money","money"],["attendance","attendance"],["backwash","backwash"],["owner","owner"]];
     document.querySelectorAll("#drawer .nav").forEach(function(el){if(el.id==="hdEmployeeSwitchNav"){el.style.display="";return}var click=String(el.getAttribute("onclick")||"").toLowerCase(),key=null;navMap.forEach(function(pair){if(click.indexOf(pair[0]+"()")>=0)key=pair[1]});if(key==="owner"&&currentUser.role!=="owner")el.style.display="none";else if(key)el.style.display=pageAllowed(key)?"":"none"});
     document.querySelectorAll(".home-grid button").forEach(function(el){var click=String(el.getAttribute("onclick")||"").toLowerCase(),key=null;navMap.forEach(function(pair){if(click.indexOf(pair[0]+"()")>=0)key=pair[1]});if(click.indexOf("window.open")>=0)key="orders";if(key==="owner"&&currentUser.role!=="owner")el.style.display="none";else if(key)el.style.display=pageAllowed(key)?"":"none"})
   }
   async function ensureCloud(){
-    if(typeof hdSupabase==="undefined"||!hdSupabase||hdSession||cloudAuthBusy)return;
+    if(typeof window.hdEnsureCloudSession!=="function"||cloudAuthBusy)return;
     cloudAuthBusy=true;
     try{
-      var existing=await hdSupabase.auth.getSession(),session=existing&&existing.data&&existing.data.session;
-      if(!session){var signed=await hdSupabase.auth.signInAnonymously();if(signed.error)throw signed.error;session=signed.data&&signed.data.session}
-      hdSession=session||null;
+      await window.hdEnsureCloudSession();
       if(hdSession&&typeof hdCloudBootstrap==="function"){var ok=await hdCloudBootstrap();if(ok&&typeof hdStartPushRegistration==="function")setTimeout(hdStartPushRegistration,250)}
-    }catch(error){console.warn("Cloud startup could not complete; local app login is still available.",error);if(typeof hdSetCloudStatus==="function")hdSetCloudStatus(navigator.onLine?"error":"offline","Cloud is unavailable; local login is available")}
+    }catch(error){console.warn("Cloud startup could not complete; local app login is still available.",error);if(typeof hdSetCloudStatus==="function")hdSetCloudStatus(navigator.onLine?"error":"offline",error&&error.message||"Cloud is unavailable")}
     finally{cloudAuthBusy=false;refreshChooser()}
-  }
-  function nextIst3amBoundary(now){
+  }  function nextIst3amBoundary(now){
     var shifted=new Date(now+19800000),year=shifted.getUTCFullYear(),month=shifted.getUTCMonth(),day=shifted.getUTCDate();
     var todayBoundary=Date.UTC(year,month,day,3,0,0)-19800000;
     return now<todayBoundary?todayBoundary:Date.UTC(year,month,day+1,3,0,0)-19800000;
@@ -3646,7 +3693,7 @@ function manageLoginAccess(){
     var routes=[
       ["home","home",false],["dealers","dealers",false],["openDealer","dealers",false],
       ["rentals","rentals",false],["newRental","rentals",false],["openRental","rentals",false],["editRentalCustomer","rentals",false],
-      ["stock","stock",false],["money","money",false],["attendance","attendance",false],
+       ["stock","stock",false],["money","money",false],["attendance","attendance",false],["backwash","backwash",false],
       ["owner",null,true],["ownerDashboard",null,true],["ownerLogout",null,true],
       ["manageStaff",null,true],["addStaff",null,true],["editStaff",null,true],
       ["manageProducts",null,true],["newProduct",null,true],["editProduct",null,true],
@@ -3678,6 +3725,7 @@ function manageLoginAccess(){
     {key:"attendance",label:"👥 Staff Attendance",onclick:"attendance()"},
     {key:"sales",label:"💳 Sales",onclick:"salesPage()"},
     {key:"transactions",label:"🧾 Transactions",onclick:"transactionsPage()"},
+    {key:"backwash",label:"🔄 Backwash",onclick:"backwash()"},
     {key:"phonepe",label:"💜 PhonePe",onclick:"phonepePage()"},
     {key:"owner",label:"👑 Owner",onclick:"owner()"}
   ];
@@ -4166,12 +4214,8 @@ var baseEditRental=window.saveEditedRentalCustomer;
     var beforeStamp=typeof attendanceData!=="undefined"&&attendanceData&&attendanceData[date]?attendanceData[date].updatedAt||"":"";
     var result=await attendanceSaveBase.apply(this,arguments),day=typeof attendanceData!=="undefined"&&attendanceData?attendanceData[date]:null;
     if(!day||!day.updatedAt||day.updatedAt===beforeStamp||typeof window.hdRecordTransaction!=="function")return result;
-    var submitTime=Date.now(),names=typeof window.hdAttendanceActiveStaff==="function"?window.hdAttendanceActiveStaff():Object.keys(day.staff||{});
-    if(!names.length)window.hdRecordTransaction({page:"Staff Attendance",direction:"activity",ts:submitTime,detail:"Attendance submitted for "+date+" (no staff rows)",notifyOwner:false});
-    names.forEach(function(name){
-      var entry=(day.staff||{})[name]||{},loginRaw=entry.login||"",logoutRaw=loginRaw?(entry.logout||""):"",login=loginRaw&&typeof window.hdAttendanceHintTime==="function"?window.hdAttendanceHintTime(loginRaw):"Absent",logout=logoutRaw&&typeof window.hdAttendanceHintTime==="function"?window.hdAttendanceHintTime(logoutRaw):"Not entered";
-      window.hdRecordTransaction({page:"Staff Attendance",direction:"activity",ts:submitTime,detail:String(name)+": Attendance submitted for "+date+" — Login "+login+"; Logout "+logout,notifyOwner:false});
-    });
+    var submitTime=Date.now();
+    window.hdRecordTransaction({page:"Staff Attendance",direction:"activity",ts:submitTime,detail:"Attendance updated for "+date,notifyOwner:false});
     return result;
   };
 
@@ -4333,5 +4377,209 @@ var baseEditRental=window.saveEditedRentalCustomer;
   window.hdRentalSelectDepositQR=function(step){if(!state||state.items.length<2)return;state.index=(state.index+(Number(step)||0)+state.items.length)%state.items.length;render()};
   window.hdRentalCloseDepositQR=function(){document.getElementById("hdRentalDepositQrPopup")?.remove();state=null};
   window.hdRentalOpenDepositQR=function(){if(document.getElementById("hdRentalDepositQrPopup"))return;var items=visibleUPIs();if(!items.length){alert("No visible UPI IDs are available. Add or unhide a UPI ID in the Owner page first.");return}var input=document.getElementById("rdepPhonePe"),amount=String(input?.value||"").trim();if(amount&&(!Number.isFinite(Number(amount))||Number(amount)<=0)){alert("Enter a PhonePe amount greater than zero, or leave it blank.");return}state={items:items,index:0,amount:amount,generation:0};addStyles();var overlay=document.createElement("div");overlay.id="hdRentalDepositQrPopup";overlay.className="hd-rental-qr-overlay";overlay.innerHTML='<section class="hd-rental-qr-card" role="dialog" aria-modal="true" aria-label="Security deposit UPI QR"><button type="button" class="hd-rental-qr-close" id="hdRentalDepositQrClose" aria-label="Close QR popup" title="Close">×</button><div class="hd-rental-qr-title" id="hdRentalDepositQrBank"></div><div class="hd-rental-qr-upi" id="hdRentalDepositQrUPI"></div><div class="hd-rental-qr-stage"><button type="button" class="hd-rental-qr-arrow" id="hdRentalDepositQrPrev" aria-label="Previous UPI ID" onclick="hdRentalSelectDepositQR(-1)">‹</button><div class="hd-rental-qr-image" id="hdRentalDepositQrImage"></div><button type="button" class="hd-rental-qr-arrow" id="hdRentalDepositQrNext" aria-label="Next UPI ID" onclick="hdRentalSelectDepositQR(1)">›</button></div><div class="hd-rental-qr-status" id="hdRentalDepositQrStatus"></div><div class="hd-rental-qr-dots" id="hdRentalDepositQrDots"></div></section>';overlay.addEventListener("click",function(event){if(event.target===overlay)window.hdRentalCloseDepositQR()});overlay.querySelector("#hdRentalDepositQrClose").addEventListener("click",window.hdRentalCloseDepositQR);var card=overlay.querySelector(".hd-rental-qr-card"),startX=0,startY=0;card.addEventListener("touchstart",function(event){var touch=event.changedTouches&&event.changedTouches[0];if(touch){startX=touch.clientX;startY=touch.clientY}},{passive:true});card.addEventListener("touchend",function(event){var touch=event.changedTouches&&event.changedTouches[0];if(!touch||Math.abs(touch.clientX-startX)<45||Math.abs(touch.clientX-startX)<Math.abs(touch.clientY-startY))return;window.hdRentalSelectDepositQR(touch.clientX>startX?1:-1)},{passive:true});document.body.appendChild(overlay);render()};
+})();
+</script><script id="hd-phonepe-final-load-restore">(function(){setTimeout(function(){try{var page=JSON.parse(localStorage.getItem("hdCurrentPage")||"null");if(page&&page.hdPage==="phonepePage"&&window.hdCurrentUser&&window.hdCurrentUser.role&&typeof window.phonepePage==="function")window.phonepePage()}catch(error){console.warn("PhonePe page restore failed",error)}},0)})();</script><script id="hd-backwash-page">
+(function(){
+  "use strict";
+  var storageKey="happyDropsBackwashTimersV2";
+  var legacyStorageKey="happyDropsBackwashTimersV1";
+  var vessels=[{id:"sand",number:"Vessel 1",name:"Sand Vessel",tone:"sand"},{id:"carbon",number:"Vessel 2",name:"Carbon Vessel",tone:"carbon"}];
+  var phases=[{key:"backwash",name:"Backwash",defaultMinutes:20},{key:"rinse",name:"Rinse",defaultMinutes:10}];
+  var timerDefs=[];
+  vessels.forEach(function(v){phases.forEach(function(p){timerDefs.push({id:v.id+p.key,name:v.name+" — "+p.name,vesselId:v.id,phase:p.key,label:p.name,defaultMinutes:p.defaultMinutes})})});
+  var state=readState(),ticker=null,audioContext=null,alarmInterval=null,vibrationInterval=null,toneNumber=0;
+
+  function timerDef(id){for(var i=0;i<timerDefs.length;i++)if(timerDefs[i].id===id)return timerDefs[i];return null}
+  function makeRecord(minutes){var m=Math.max(1,Math.min(1440,Math.round(Number(minutes)||1))),ms=m*60000;return {durationMinutes:m,status:"ready",remainingMs:ms,runningUntil:0}}
+  function defaultState(){var timers={};timerDefs.forEach(function(d){timers[d.id]=makeRecord(d.defaultMinutes)});return {activeTimerId:null,alarmTimerId:null,timers:timers}}
+  function normalizeRecord(source,def){
+    if(!source)return makeRecord(def.defaultMinutes);
+    var minutes=Number(source.durationMinutes);
+    if(!(minutes>0)&&Number(source.durationMs)>0)minutes=Number(source.durationMs)/60000;
+    if(!(minutes>0))minutes=def.defaultMinutes;
+    minutes=Math.max(1,Math.min(1440,Math.round(minutes)));
+    var durationMs=minutes*60000,status=["ready","running","paused","stopped","complete"].indexOf(source.status)>=0?source.status:"ready",runningUntil=Math.max(0,Number(source.runningUntil)||0),remainingMs=Math.max(0,Number(source.remainingMs)||0),expired=false;
+    if(status==="running"){
+      if(runningUntil>Date.now())remainingMs=runningUntil-Date.now();
+      else{status="complete";runningUntil=0;remainingMs=0;expired=true}
+    }else if(status==="ready")remainingMs=durationMs;
+    else if(status==="complete"){remainingMs=0;runningUntil=0}
+    else if(remainingMs<=0)remainingMs=durationMs;
+    return {durationMinutes:minutes,status:status,remainingMs:remainingMs,runningUntil:runningUntil,expired:expired};
+  }
+  function readState(){
+    var result=defaultState();
+    try{
+      var parsed=JSON.parse(localStorage.getItem(storageKey)||"null");
+      if(parsed&&parsed.timers){
+        timerDefs.forEach(function(d){result.timers[d.id]=normalizeRecord(parsed.timers[d.id],d)});
+        result.alarmTimerId=timerDef(parsed.alarmTimerId)?parsed.alarmTimerId:null;
+        var running=timerDefs.filter(function(d){return result.timers[d.id].status==="running"}).map(function(d){return d.id});
+        var active=timerDef(parsed.activeTimerId)&&result.timers[parsed.activeTimerId].status==="running"?parsed.activeTimerId:(running[0]||null);
+        running.forEach(function(id){if(id!==active){var r=result.timers[id];r.remainingMs=Math.max(0,r.runningUntil-Date.now());r.runningUntil=0;r.status="paused"}});
+        result.activeTimerId=active;
+        if(!result.alarmTimerId)timerDefs.some(function(d){if(result.timers[d.id].expired){result.alarmTimerId=d.id;return true}return false});
+        timerDefs.forEach(function(d){delete result.timers[d.id].expired});
+        return result;
+      }
+      var legacy=JSON.parse(localStorage.getItem(legacyStorageKey)||"null");
+      if(legacy){
+        var activeLegacy=null;
+        vessels.forEach(function(v){
+          var old=legacy[v.id];
+          if(!old)return;
+          var def=timerDef(v.id+"backwash"),rec=normalizeRecord(old,def);
+          if(rec.status==="running"){
+            if(!activeLegacy){activeLegacy=def.id;result.activeTimerId=def.id}
+            else{rec.status="paused";rec.remainingMs=Math.max(0,rec.runningUntil-Date.now());rec.runningUntil=0}
+          }
+          if(rec.expired)result.alarmTimerId=result.alarmTimerId||def.id;
+          delete rec.expired;
+          result.timers[def.id]=rec;
+        });
+      }
+    }catch(error){console.warn("Backwash timer data could not be read; using default timers.",error)}
+    return result;
+  }
+  function persist(){try{timerDefs.forEach(function(d){delete state.timers[d.id].expired});localStorage.setItem(storageKey,JSON.stringify(state))}catch(error){console.warn("Could not save Backwash timers",error)}}
+  function remaining(record){if(!record)return 0;if(record.status==="running")return Math.max(0,record.runningUntil-Date.now());if(record.status==="ready")return record.durationMinutes*60000;return Math.max(0,record.remainingMs||0)}
+  function format(ms){var seconds=Math.ceil(Math.max(0,ms)/1000),minutes=Math.floor(seconds/60),rest=seconds%60,hours=Math.floor(minutes/60);minutes%=60;return hours>0?[hours,minutes,rest].map(function(n){return String(n).padStart(2,"0")}).join(":"):[minutes,rest].map(function(n){return String(n).padStart(2,"0")}).join(":")}
+  function ensureStyles(){
+    if(document.getElementById("hdBackwashStyles"))return;
+    var style=document.createElement("style");style.id="hdBackwashStyles";
+    style.textContent=".hd-backwash-page{max-width:820px;margin:12px auto}.hd-backwash-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.hd-backwash-head h2{margin:2px 0}.hd-backwash-vessels{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-top:12px}.hd-backwash-vessel{margin:0;padding:13px;border:1px solid #dce7ef;border-top:5px solid #c18b42;border-radius:13px;background:#fffaf1}.hd-backwash-vessel.carbon{border-top-color:#475569;background:#f7f9fc}.hd-backwash-vessel h3{margin:1px 0 10px;color:#263850}.hd-backwash-kicker{font-size:11px;font-weight:800;color:#657789;text-transform:uppercase;letter-spacing:.5px}.hd-backwash-phases{display:grid;grid-template-columns:1fr;gap:9px}.hd-backwash-timer{padding:10px;border:1px solid #e3eaf0;border-radius:11px;background:#fff}.hd-backwash-timer h4{margin:0 0 7px;color:#263850;font-size:15px}.hd-backwash-timer label{display:block;margin:0 0 4px;font-size:12px;font-weight:700;color:#586e80}.hd-backwash-timer input{width:100%;box-sizing:border-box;font-size:16px;font-weight:800;color:#142b43;background:#fff;border:1px solid #cdd9e2;border-radius:8px;padding:8px}.hd-backwash-clock{font-variant-numeric:tabular-nums;text-align:center;font-size:38px;font-weight:900;letter-spacing:1px;color:#172b43;margin:8px 0 1px}.hd-backwash-status{text-align:center;min-height:18px;font-size:12px;font-weight:750;color:#64748b}.hd-backwash-status.running{color:#16803c}.hd-backwash-status.complete{color:#087fc1}.hd-backwash-status.stopped{color:#b45309}.hd-backwash-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:8px}.hd-backwash-actions .btn{padding:8px 4px;min-height:36px;font-size:12px;white-space:nowrap}.hd-backwash-actions button:disabled{opacity:.42;cursor:not-allowed}.hd-backwash-note{margin-top:11px;padding:10px 12px;border-radius:9px;background:#eef8fd;color:#4c6579;font-size:12px;line-height:1.4}.hd-backwash-alarm{display:none;margin-top:10px;padding:10px;border:1px solid #efb1a7;border-radius:10px;background:#fff0ed;color:#9b2517;font-weight:800;align-items:center;justify-content:space-between;gap:8px}.hd-backwash-alarm.show{display:flex}.hd-backwash-alarm button{flex:0 0 auto}@media(max-width:600px){.hd-backwash-vessels{grid-template-columns:1fr}.hd-backwash-vessel{padding:11px}.hd-backwash-clock{font-size:36px}.hd-backwash-actions .btn{padding:8px 3px;font-size:11px}}";
+    document.head.appendChild(style);
+  }
+  function label(record){if(record.status==="running")return "Running";if(record.status==="paused")return "Paused";if(record.status==="stopped")return "Stopped";if(record.status==="complete")return "Finished";return "Ready"}
+  function statusClass(record){return "hd-backwash-status"+(record.status==="running"?" running":record.status==="complete"?" complete":record.status==="stopped"?" stopped":"")}
+  function paint(){
+    timerDefs.forEach(function(d){
+      var record=state.timers[d.id],clock=document.getElementById("hdBackwashClock-"+d.id),status=document.getElementById("hdBackwashStatus-"+d.id),input=document.getElementById("hdBackwashDuration-"+d.id);
+      var start=document.getElementById("hdBackwashStart-"+d.id),pause=document.getElementById("hdBackwashPause-"+d.id),stop=document.getElementById("hdBackwashStop-"+d.id),restart=document.getElementById("hdBackwashRestart-"+d.id),reset=document.getElementById("hdBackwashReset-"+d.id);
+      if(clock)clock.textContent=format(remaining(record));
+      if(status){status.textContent=label(record);status.className=statusClass(record)}
+      if(input){input.value=String(record.durationMinutes);input.disabled=record.status==="running"}
+      var otherRunning=!!(state.activeTimerId&&state.activeTimerId!==d.id&&state.timers[state.activeTimerId]&&state.timers[state.activeTimerId].status==="running"),alarmNeedsStop=!!state.alarmTimerId;
+      if(start)start.disabled=record.status==="running"||otherRunning||alarmNeedsStop;
+      if(pause){pause.disabled=record.status!=="running";pause.textContent="Pause"}
+      if(stop)stop.disabled=record.status!=="running";
+      if(restart)restart.disabled=otherRunning||alarmNeedsStop;
+      if(reset)reset.disabled=record.status==="ready"&&remaining(record)>=record.durationMinutes*60000&&!alarmNeedsStop;
+    });
+    var banner=document.getElementById("hdBackwashAlarm"),alarmText=document.getElementById("hdBackwashAlarmText");
+    if(banner){banner.className="hd-backwash-alarm"+(state.alarmTimerId?" show":"");if(alarmText&&state.alarmTimerId){var alarmDef=timerDef(state.alarmTimerId);alarmText.textContent="🔔 "+(alarmDef?alarmDef.name:"Timer")+" finished";}}
+  }
+  function ensureAudio(){
+    var AudioCtor=window.AudioContext||window.webkitAudioContext;
+    if(!AudioCtor)return;
+    try{if(!audioContext)audioContext=new AudioCtor();if(audioContext.state==="suspended")audioContext.resume().catch(function(){})}catch(error){console.warn("Mobile alarm audio is unavailable",error)}
+  }
+  function playTone(){
+    if(!state.alarmTimerId)return;
+    ensureAudio();if(!audioContext)return;
+    try{
+      if(audioContext.state==="suspended")audioContext.resume().catch(function(){});
+      var now=audioContext.currentTime,osc=audioContext.createOscillator(),gain=audioContext.createGain();
+      osc.type="sine";osc.frequency.setValueAtTime(toneNumber++%2?760:980,now);
+      gain.gain.setValueAtTime(0.0001,now);gain.gain.exponentialRampToValueAtTime(0.22,now+0.025);gain.gain.exponentialRampToValueAtTime(0.0001,now+0.42);
+      osc.connect(gain);gain.connect(audioContext.destination);osc.start(now);osc.stop(now+0.44);
+    }catch(error){console.warn("Could not play Backwash alarm",error)}
+  }
+  function ringAlarm(){
+    if(!state.alarmTimerId)return;
+    ensureAudio();playTone();
+    if(!alarmInterval)alarmInterval=setInterval(playTone,850);
+    if(navigator.vibrate){try{navigator.vibrate([450,180,450])}catch(_){}if(!vibrationInterval)vibrationInterval=setInterval(function(){try{navigator.vibrate([450,180,450])}catch(_){}},2200)}
+  }
+  function stopAlarmSilently(){
+    if(alarmInterval){clearInterval(alarmInterval);alarmInterval=null}
+    if(vibrationInterval){clearInterval(vibrationInterval);vibrationInterval=null}
+    try{if(navigator.vibrate)navigator.vibrate(0)}catch(_){}
+  }
+  function stopAlarm(){
+    if(!state.alarmTimerId)return;
+    stopAlarmSilently();state.alarmTimerId=null;persist();paint();
+  }
+  function ensureTicker(){if(!ticker){ticker=setInterval(tick,500)}tick()}
+  function tick(){
+    var id=state.activeTimerId,record=id&&state.timers[id],now=Date.now();
+    if(!record||record.status!=="running"){if(ticker){clearInterval(ticker);ticker=null}paint();return}
+    if(record.runningUntil<=now){
+      record.status="complete";record.remainingMs=0;record.runningUntil=0;state.activeTimerId=null;state.alarmTimerId=id;persist();ringAlarm();
+    }else record.remainingMs=record.runningUntil-now;
+    paint();
+  }
+  function canStart(id){
+    if(state.activeTimerId&&state.activeTimerId!==id&&state.timers[state.activeTimerId]&&state.timers[state.activeTimerId].status==="running"){alert("Only one countdown timer can run at a time. Pause or stop the running timer first.");return false}
+    if(state.alarmTimerId){alert("Stop the finished timer alarm before starting another timer.");return false}
+    return true;
+  }
+  function runTimer(id,durationMs){
+    var record=state.timers[id];if(!record||!canStart(id))return false;
+    ensureAudio();record.status="running";record.remainingMs=durationMs;record.runningUntil=Date.now()+durationMs;state.activeTimerId=id;persist();ensureTicker();paint();return true;
+  }
+  window.hdBackwashSetDuration=function(id){
+    var record=state.timers[id],input=document.getElementById("hdBackwashDuration-"+id),minutes=Number(input&&input.value);
+    if(!record||record.status==="running")return;
+    if(!Number.isFinite(minutes)||minutes<1||minutes>1440){alert("Enter a timer duration from 1 to 1440 minutes.");paint();return}
+    record.durationMinutes=Math.round(minutes);record.remainingMs=record.durationMinutes*60000;record.runningUntil=0;record.status="ready";
+    if(state.alarmTimerId===id)stopAlarm();
+    persist();paint();
+  };
+  window.hdBackwashStart=function(id){
+    var record=state.timers[id],input=document.getElementById("hdBackwashDuration-"+id);if(!record||record.status==="running"||!canStart(id))return;
+    var minutes=Number(input&&input.value);
+    if(Number.isFinite(minutes)&&minutes>=1&&minutes<=1440){record.durationMinutes=Math.round(minutes)}
+    var duration=(record.status==="paused"||record.status==="stopped")&&record.remainingMs>0?record.remainingMs:record.durationMinutes*60000;
+    runTimer(id,duration);
+  };
+  window.hdBackwashPause=function(id){
+    var record=state.timers[id];if(!record||record.status!=="running"||state.activeTimerId!==id)return;
+    record.remainingMs=remaining(record);record.runningUntil=0;record.status=record.remainingMs>0?"paused":"complete";
+    if(record.status==="complete"){state.activeTimerId=null;state.alarmTimerId=id;ringAlarm()}
+    else state.activeTimerId=null;
+    persist();paint();if(!state.activeTimerId&&ticker){clearInterval(ticker);ticker=null}
+  };
+  window.hdBackwashStop=function(id){
+    var record=state.timers[id];if(!record||record.status!=="running"||state.activeTimerId!==id)return;
+    record.remainingMs=remaining(record);record.runningUntil=0;record.status="stopped";state.activeTimerId=null;persist();paint();
+    if(ticker){clearInterval(ticker);ticker=null}
+  };
+  window.hdBackwashRestart=function(id){
+    var record=state.timers[id];if(!record||!canStart(id))return;
+    var input=document.getElementById("hdBackwashDuration-"+id),minutes=Number(input&&input.value);
+    if(Number.isFinite(minutes)&&minutes>=1&&minutes<=1440)record.durationMinutes=Math.round(minutes);
+    runTimer(id,record.durationMinutes*60000);
+  };
+  window.hdBackwashReset=function(id){
+    var record=state.timers[id];if(!record)return;
+    if(state.activeTimerId===id){state.activeTimerId=null;if(ticker){clearInterval(ticker);ticker=null}}
+    if(state.alarmTimerId===id)stopAlarmSilently();
+    record.status="ready";record.remainingMs=record.durationMinutes*60000;record.runningUntil=0;
+    if(state.alarmTimerId===id)state.alarmTimerId=null;
+    persist();paint();
+  };
+  window.hdBackwashStopAlarm=stopAlarm;
+
+  function render(){
+    if(typeof window.hdEmployeePageAllowed==="function"&&!window.hdEmployeePageAllowed("backwash")){alert("The Owner has not given your account access to this page.");if(typeof window.home==="function")window.home();return}
+    var app=document.getElementById("app");if(!app)return;ensureStyles();
+    var vesselHtml=vessels.map(function(v){
+      var phaseHtml=phases.map(function(p){
+        var id=v.id+p.key,r=state.timers[id];
+        return '<article class="hd-backwash-timer" data-backwash-timer="'+id+'"><h4>'+p.name+'</h4><label for="hdBackwashDuration-'+id+'">Duration (minutes)</label><input id="hdBackwashDuration-'+id+'" type="number" min="1" max="1440" step="1" inputmode="numeric" value="'+r.durationMinutes+'" onchange="hdBackwashSetDuration(&quot;'+id+'&quot;)"><div class="hd-backwash-clock" id="hdBackwashClock-'+id+'">'+format(remaining(r))+'</div><div class="hd-backwash-status" id="hdBackwashStatus-'+id+'">'+label(r)+'</div><div class="hd-backwash-actions"><button type="button" class="btn" id="hdBackwashStart-'+id+'" onclick="hdBackwashStart(&quot;'+id+'&quot;)">Start</button><button type="button" class="btn secondary" id="hdBackwashPause-'+id+'" onclick="hdBackwashPause(&quot;'+id+'&quot;)">Pause</button><button type="button" class="btn secondary" id="hdBackwashStop-'+id+'" onclick="hdBackwashStop(&quot;'+id+'&quot;)">Stop</button><button type="button" class="btn secondary" id="hdBackwashRestart-'+id+'" onclick="hdBackwashRestart(&quot;'+id+'&quot;)">Restart</button><button type="button" class="btn secondary" id="hdBackwashReset-'+id+'" onclick="hdBackwashReset(&quot;'+id+'&quot;)">Reset</button></div></article>';
+      }).join("");
+      return '<section class="card hd-backwash-vessel '+v.tone+'" data-backwash-vessel="'+v.id+'"><div class="hd-backwash-kicker">'+v.number+'</div><h3>'+v.name+'</h3><div class="hd-backwash-phases">'+phaseHtml+'</div></section>';
+    }).join("");
+    app.innerHTML='<div class="card hd-backwash-page" id="hdBackwashPageRoot"><div class="hd-backwash-head"><div><h2>🔄 Backwash</h2><div class="small">Sand and carbon vessel wash timers</div></div><button type="button" class="btn secondary" onclick="home()">🏠 Home</button></div><div class="hd-backwash-note">Edit each duration as needed. Only one countdown can run at a time. Timers continue if you leave this page or refresh while the app is open.</div><div class="hd-backwash-alarm'+(state.alarmTimerId?" show":"")+'" id="hdBackwashAlarm" role="status" aria-live="assertive"><span id="hdBackwashAlarmText">'+(state.alarmTimerId?"🔔 "+((timerDef(state.alarmTimerId)||{}).name||"Timer")+" finished":"")+'</span><button type="button" class="btn" onclick="hdBackwashStopAlarm()">Stop Alarm</button></div><div class="hd-backwash-vessels">'+vesselHtml+'</div></div>';
+    paint();if(state.activeTimerId)ensureTicker();if(state.alarmTimerId)ringAlarm();
+  }
+  window.hdRenderBackwashPage=render;
+  if(window.hdBackwashRenderPending&&window.hdCurrentUser){window.hdBackwashRenderPending=false;render()}
+  document.addEventListener("visibilitychange",function(){if(!document.hidden){tick();if(state.alarmTimerId)ringAlarm()}});
+  window.addEventListener("storage",function(event){if(event.key===storageKey){state=readState();paint();if(state.activeTimerId)ensureTicker();if(state.alarmTimerId)ringAlarm();else stopAlarmSilently()}});
+  if(state.activeTimerId)ensureTicker();
+  if(state.alarmTimerId)setTimeout(ringAlarm,0);
+  setTimeout(function(){try{var page=JSON.parse(localStorage.getItem("hdCurrentPage")||"null");if(page&&page.hdPage==="backwash"&&window.hdCurrentUser&&typeof window.backwash==="function")window.backwash()}catch(error){console.warn("Backwash page restore failed",error)}},0);
 })();
 </script></body></html>
