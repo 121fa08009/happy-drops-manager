@@ -5135,5 +5135,55 @@ window.hdRenderCustomerSales=renderSales;window.hdSalesOpenCategoryV2=function(i
 var oldSalesPage=window.salesPage;if(typeof oldSalesPage==="function")window.salesPage=function(){if(typeof window.hdEmployeePageAllowed==="function"&&!window.hdEmployeePageAllowed("sales")){oldSalesPage.apply(this,arguments);return}oldSalesPage.apply(this,arguments);window.hdSalesActiveCategoryId="";window.hdSalesNotice="";renderSales()};
 })();
 </script>
+<style id="hdCustomerDealerButtonColorsV3">
+/* Keep the app's normal light page and card surfaces. Use deep colors on actions only. */
+#app .hd-catalog-manager,#app .hd-sales-page{background:#fff!important;color:#18324a!important;border:1px solid #dbe6ef!important;box-shadow:0 8px 24px #17324d14!important}
+#app .hd-catalog-manager h2,#app .hd-sales-page h2,#app .hd-catalog-manager h3,#app .hd-sales-page h3,#app .hd-catalog-manager b,#app .hd-sales-page b{color:#18324a!important}
+.hd-catalog-manager .small,.hd-sales-page .small{color:#59748b!important}
+.hd-cat-intro,.hd-catalog-prompt{color:#536d82!important}
+.hd-cat-card,.hd-cat-column,#app .hd-sales-section{background:#f5f9fc!important;border:1px solid #d5e2ec!important;color:#18324a!important}
+.hd-cat-card .hd-cat-title,.hd-cat-card h4,.hd-cat-column h3,#app .hd-sales-section h3{color:#18324a!important}
+.hd-cat-card small,.hd-cat-product small,.hd-sales-product small,.hd-sales-cart-row small,.hd-cat-meta{color:#60788d!important}
+.hd-cat-product{border-color:#e1e9f0!important;color:#18324a!important}
+.hd-hidden-tag{background:#ece7fb!important;color:#59408a!important}
+.hd-catalog-choice,.hd-sales-category{background:#123f67!important;border:1px solid #0d3455!important;color:#fff!important;box-shadow:0 4px 10px #123f6725!important}
+.hd-catalog-choice strong,.hd-catalog-choice span,.hd-sales-category b,.hd-sales-category small{color:#fff!important}
+.hd-catalog-choice span,.hd-sales-category small{opacity:.82}
+.hd-catalog-choice:hover,.hd-sales-category:hover{background:#0d3152!important;border-color:#062844!important}
+.hd-dark-action{background:#174e78!important;border:1px solid #113e61!important;color:#fff!important}
+.hd-dark-action:hover{background:#103c5f!important;border-color:#0a2e4a!important}
+.hd-dark-action.hd-accent{background:#176044!important;border-color:#104a34!important;color:#fff!important}
+.hd-dark-action.hd-danger{background:#963b3b!important;border-color:#7d2929!important;color:#fff!important}
+.hd-cat-add,#app .hd-sales-product .btn{background:#164d78!important;border:1px solid #103c60!important;color:#fff!important}
+#app .hd-catalog-manager .btn.secondary,#app .hd-sales-page .btn.secondary{background:#244e73!important;border:1px solid #1b405f!important;color:#fff!important}
+#hdCatalogModal.hd-cat-modal{background:#17324d66!important;backdrop-filter:blur(3px)}
+#hdCatalogModal .hd-cat-modal-card{background:#fff!important;border:1px solid #d8e3ec!important;color:#18324a!important;box-shadow:0 18px 48px #142b422e!important}
+#hdCatalogModal .hd-cat-modal-card h3,#hdCatalogModal .hd-cat-modal-card label{color:#18324a!important}
+#hdCatalogModal .hd-cat-modal-card input{background:#fff!important;border:1px solid #b9cad8!important;color:#18324a!important}
+#hdCatalogModal .hd-cat-modal-card>header button{background:#edf3f7!important;color:#18324a!important}
+.hd-sales-head{border-color:#dce6ee!important}.hd-sales-head h2{color:#18324a!important}
+.hd-sales-product{background:#fff!important;border:1px solid #d7e3ec!important;color:#18324a!important}
+.hd-sales-product label{color:#536d82!important}.hd-sales-product input{background:#fff!important;border:1px solid #b9cad8!important;color:#18324a!important}
+.hd-sales-cart-row{border-color:#e0e8ef!important;color:#18324a!important}
+.hd-sales-cart-qty button{background:#244e73!important;border:1px solid #1b405f!important;color:#fff!important}
+.hd-sales-total{background:#edf7f2!important;border:1px solid #b9ddca!important;color:#174a35!important}.hd-sales-total b{color:#174a35!important}
+.hd-sales-save{background:#176044!important;border:1px solid #104a34!important;color:#fff!important}
+.hd-sales-notice{color:#176044!important}.hd-cat-empty{color:#60788d!important}
+</style>
+<style id="hdCustomerDealerSoftButtonColorsV4">
+/* Soft, readable button colors; keep the light app surfaces unchanged. */
+.hd-catalog-choice,.hd-sales-category{background:#e6f2fc!important;border:1px solid #bfd8ee!important;color:#17456b!important;box-shadow:0 3px 9px #17456b12!important}
+.hd-catalog-choice strong,.hd-catalog-choice span,.hd-sales-category b,.hd-sales-category small{color:#17456b!important}.hd-catalog-choice span,.hd-sales-category small{opacity:.82}
+.hd-catalog-choice:hover,.hd-sales-category:hover{background:#d8eafa!important;border-color:#a8c9e5!important}
+.hd-dark-action{background:#e3eff9!important;border:1px solid #c1d7e9!important;color:#24587d!important}
+.hd-dark-action:hover{background:#d4e7f6!important;border-color:#a9c8e0!important}
+.hd-dark-action.hd-accent{background:#e0f2e8!important;border-color:#badcc7!important;color:#286144!important}
+.hd-dark-action.hd-danger{background:#fae7e7!important;border-color:#ecc6c6!important;color:#9a3939!important}
+.hd-cat-add,#app .hd-sales-product .btn{background:#d8ecfb!important;border:1px solid #b4d4ed!important;color:#174e78!important}
+#app .hd-catalog-manager .btn.secondary,#app .hd-sales-page .btn.secondary{background:#e4eff8!important;border:1px solid #c5d8e8!important;color:#204e70!important}
+.hd-sales-cart-qty button{background:#e1eef8!important;border:1px solid #bfd5e7!important;color:#24587d!important}
+.hd-sales-save{background:#d9f0e3!important;border:1px solid #b5dcc5!important;color:#205b3e!important}
+.hd-sales-save:hover{background:#cce9d8!important}
+</style>
 </body></html>
 
