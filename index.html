@@ -2471,8 +2471,8 @@ function closeBTCCRental(n){
   const c=R[n]; if(!c)return;
   if(c.closed){window.btccRentalStatus='active';rentals();return;}
   const t=rentalTotals(c);
-  const amount=t.refund>0?t.refund:t.extraBill>0?t.extraBill:t.bill+t.refillBill;
-  const amountLabel=t.refund>0?'Refund':t.extraBill>0?'Bill':'Bill/Refund';
+  const amount=Math.max(0,Number(t.deposit)||0);
+  const amountLabel='Full Deposit Refund';
   const old=document.getElementById('btccCloseConfirm'); if(old)old.remove();
   const modal=document.createElement('div');
   modal.id='btccCloseConfirm';
@@ -2480,10 +2480,10 @@ function closeBTCCRental(n){
   modal.innerHTML=`<div style="background:#fff;border-radius:18px;padding:22px;max-width:380px;width:100%;box-shadow:0 15px 40px rgba(0,0,0,.25)">
     <h3 style="margin:0 0 14px">Mark as Closed</h3>
     <div style="font-size:16px;line-height:1.7;margin-bottom:18px">
-      <b>${amountLabel} amount: ₹${amount}</b><br>
+      <b>${amountLabel}: ₹${amount}</b><br>
       <b>BT: ${t.pendingBT}</b><br>
       <b>CC: ${t.pendingCC}</b><br><br>
-      Are these bill/refund amount and cans cleared?
+      Confirm the full remaining deposit refund and that all cans are cleared.
     </div>
     <div style="display:flex;gap:10px">
       <button class="btn secondary" id="btccCloseCancel" style="flex:1">Cancel</button>
@@ -2493,7 +2493,7 @@ function closeBTCCRental(n){
   document.body.appendChild(modal);
   document.getElementById('btccCloseCancel').onclick=()=>modal.remove();
   document.getElementById('btccCloseConfirmBtn').onclick=()=>{
-    const refundAmount=Math.max(0,Number(t.refund)||0),clearedAmount=Math.max(0,Number(amount)||0),closedAt=Date.now();c.refundCompleted=true;c.closed=true;c.pending=false;c.closedFinal=true;c.closedDate=localDateKey(new Date());c.closedBalanceBT=0;c.closedBalanceCC=0;c.closedRefund=refundAmount;c.closedClearedAmount=clearedAmount;c.closedClearedAmountType=amountLabel;addRentalActivity(c,{type:'status',text:'Marked as Closed',closedFinal:true,balanceBT:0,balanceCC:0,pendingBT:0,pendingCC:0,refund:refundAmount,refundAmount:refundAmount,amount:clearedAmount,clearedAmount:clearedAmount,clearedAmountType:amountLabel,refundable:0,name:String(c.name||n),phone:String(c.phone||'')},{ts:closedAt});
+    const refundAmount=Math.max(0,Number(t.deposit)||0),clearedAmount=refundAmount,closedAt=Date.now();c.depositRefunds=c.depositRefunds||[];if(refundAmount>0)c.depositRefunds.push({deposit:0,refund:refundAmount,balanceAfter:0,ts:closedAt});c.refundCompleted=true;c.closed=true;c.pending=false;c.closedFinal=true;c.closedDate=localDateKey(new Date());c.closedBalanceBT=0;c.closedBalanceCC=0;c.closedRefund=refundAmount;c.closedClearedAmount=clearedAmount;c.closedClearedAmountType=amountLabel;addRentalActivity(c,{type:'status',text:'Marked as Closed',closedFinal:true,balanceBT:0,balanceCC:0,pendingBT:0,pendingCC:0,refund:refundAmount,refundAmount:refundAmount,amount:clearedAmount,clearedAmount:clearedAmount,clearedAmountType:amountLabel,refundable:0,name:String(c.name||n),phone:String(c.phone||'')},{ts:closedAt});
     normalizeRentalActivity(c);
     save();modal.remove();window.btccRentalStatus='active';rentals();
   };
@@ -5407,6 +5407,655 @@ document.addEventListener("backbutton",function(e){onHomeBack(e,"native")},true)
 document.addEventListener("keydown",function(e){if(e.key==="Escape"||e.key==="Back"||e.key==="GoBack"||e.keyCode===4)onHomeBack(e,"keyboard")},true);
 })();
 
+</script>
+<style id="hdSharedAccessRulesV11">
+.hd-permission-matrix{display:grid;gap:9px;margin:10px 0 6px}
+.hd-permission-row{display:grid;grid-template-columns:minmax(120px,1.2fr) repeat(4,minmax(54px,.7fr));align-items:center;gap:6px;padding:9px 10px;border:1px solid #dbe6ef;border-radius:10px;background:#f7fafc}
+.hd-permission-row.hd-permission-heading{padding:6px 10px;border:0;background:transparent;color:#5b7386;font-size:11px;font-weight:800;text-align:center}
+.hd-permission-row.hd-permission-heading span:first-child{text-align:left}
+.hd-permission-row label{display:flex;align-items:center;justify-content:center;gap:4px;font-size:11px;font-weight:700;color:#34566d}
+.hd-permission-row input{width:17px;height:17px;margin:0;accent-color:#087fbd}
+.hd-login-access-summary{display:block;margin-top:4px;color:#5e7588;font-size:11px;line-height:1.35}
+.hd-sales-journal-record{position:relative}
+.hd-sales-record-actions{display:flex;gap:7px;margin-top:8px}
+.hd-sales-record-actions button{min-height:32px;padding:6px 10px;border:1px solid #c5d8e8;border-radius:8px;background:#e7f1f9;color:#24587d;font-weight:800}
+.hd-sales-record-actions .delete{background:#fdeaea;border-color:#efcaca;color:#9e3232}
+.hd-online-toast-v11{position:fixed;z-index:25000;left:50%;bottom:max(18px,env(safe-area-inset-bottom));transform:translateX(-50%);max-width:calc(100vw - 28px);padding:11px 15px;border-radius:22px;background:#244d69;color:#fff;font-size:13px;font-weight:700;text-align:center;box-shadow:0 6px 20px #102c4233}
+@media(max-width:460px){.hd-permission-row{grid-template-columns:minmax(66px,1fr) repeat(4,minmax(38px,.62fr));gap:2px;padding:6px 4px}.hd-permission-row label{flex-direction:column;gap:2px;font-size:10px}.hd-permission-row.hd-permission-heading{font-size:10px;padding-left:4px;padding-right:4px}}
+</style>
+<script id="hdSharedAccessRulesV11Script">
+(function(){
+  "use strict";
+  var PAGE_LIST=[
+    ["dealers","Dealers"],["rentals","BT/CC Rentals"],["orders","Orders"],
+    ["stock","Stock"],["money","Calculator"],["attendance","Staff Attendance"],
+    ["sales","Sales"],["transactions","Transactions"],["phonepe","PhonePe"],["backwash","Backwash"]
+  ];
+  var PERMS=["view","add","edit","delete"],pendingClicks=new WeakSet(),replayedClick=null,toastTimer=null,cloudReadyAt=0,cloudCheckPromise=null;
+  function clone(value){try{return JSON.parse(JSON.stringify(value))}catch(_){return value}}
+  function owner(){return !!(window.hdCurrentUser&&window.hdCurrentUser.role==="owner")}
+  function currentRecord(){var u=window.hdCurrentUser;if(!u||u.role==="owner")return null;return typeof loginAccessMembers!=="undefined"&&loginAccessMembers?loginAccessMembers[u.id]:null}
+  function normalizePagePermission(value,defaultView){
+    if(value===true)return {view:true,add:true,edit:true,delete:true};
+    if(value===false||value==null)return {view:!!defaultView,add:false,edit:false,delete:false};
+    if(typeof value!=="object")return {view:!!defaultView,add:false,edit:false,delete:false};
+    var p={view:!!value.view,add:!!value.add,edit:!!value.edit,delete:!!value.delete};
+    if(p.add||p.edit||p.delete)p.view=true;
+    return p;
+  }
+  function getPermission(page,action){
+    if(owner())return true;
+    var record=currentRecord();if(!record||record.deleted||record.hidden)return false;
+    var raw=record.appAccess&&record.appAccess[page];
+    var p=normalizePagePermission(raw,false);
+    return p[action||"view"]===true;
+  }
+  window.hdEmployeeActionAllowed=function(page,action){return getPermission(String(page||""),String(action||"view"))};
+  window.hdEmployeePageAllowed=function(page){return getPermission(String(page||""),"view")};
+  function localState(){
+    try{return typeof saved!=="undefined"&&saved?saved:{}}catch(_){return {}}
+  }
+  function persistSharedState(){
+    try{
+      if(typeof saved!=="undefined"&&saved){
+        saved.salesRecords=clone(window.hdSharedSalesRecords||[]);
+        saved.transactionEvents=clone(window.hdTransactionEvents||saved.transactionEvents||[]);
+        var json=JSON.stringify(saved);
+        localStorage.setItem("happyDropsManagerV12",json);
+        localStorage.setItem("happyDropsManagerV9",json);
+        localStorage.setItem("hdTransactionEventsV1",JSON.stringify(saved.transactionEvents));
+        localStorage.setItem("hdSharedSalesRecordsV1",JSON.stringify(saved.salesRecords));
+      }
+    }catch(error){console.warn("Shared activity could not be stored locally.",error)}
+  }
+  function getEvents(){
+    var list=window.hdTransactionEvents;
+    if(!Array.isArray(list)){var state=localState();list=Array.isArray(state.transactionEvents)?state.transactionEvents:[];window.hdTransactionEvents=list}
+    return list;
+  }
+  function replaceEventsInPlace(next){
+    var list=getEvents();list.splice(0,list.length);
+    (Array.isArray(next)?next:[]).forEach(function(item){list.push(item)});
+    window.hdTransactionEvents=list;
+    persistSharedState();
+    if(typeof window.hdQueueStaffAttendanceSync==="function")window.hdQueueStaffAttendanceSync();
+    if(document.getElementById("hdTransactionsEntries"))renderTransactions();
+  }
+  function istDate(ts){
+    try{return new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Kolkata",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date(Number(ts)||Date.now()))}
+    catch(_){var d=new Date(Number(ts)||Date.now());return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+  }
+  function stamp(){return new Date().toISOString()}
+  function uuid(prefix){try{return prefix+crypto.randomUUID()}catch(_){return prefix+Date.now()+"-"+Math.random().toString(36).slice(2,10)}}
+  function escapeHtml(v){return String(v==null?"":v).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
+  function money(v){return "₹"+(Number(v)||0).toLocaleString("en-IN",{maximumFractionDigits:2})}
+  function actor(){var u=window.hdCurrentUser||{};return u.role==="owner"?"Chaitanya":String(u.name||"Unknown")}
+  function toast(message){
+    var el=document.getElementById("hdOnlineToastV11");if(!el){el=document.createElement("div");el.id="hdOnlineToastV11";el.className="hd-online-toast-v11";el.setAttribute("role","status");document.body.appendChild(el)}
+    el.textContent=message;el.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(function(){if(el)el.hidden=true},3200);
+  }
+
+  /* Four separate permissions per page. New login profiles get View only by default. */
+  function accessMatrixMarkup(record,isNew){
+    var html='<div class="hd-permission-matrix"><div class="hd-permission-row hd-permission-heading"><span>Page</span><span>View</span><span>Add</span><span>Edit</span><span>Delete</span></div>';
+    PAGE_LIST.forEach(function(page){
+      var raw=record&&record.appAccess?record.appAccess[page[0]]:undefined;
+      var p=normalizePagePermission(raw,!!isNew);
+      html+='<div class="hd-permission-row" data-hd-permission-row="'+page[0]+'"><strong>'+page[1]+'</strong>';
+      PERMS.forEach(function(action){
+        var checked=p[action]?' checked':'';
+        if(action==="view")html+='<label><input type="checkbox" data-hd-access="'+page[0]+'" data-hd-permission="'+page[0]+':view"'+checked+'>View</label>';
+        else html+='<label><input type="checkbox" data-hd-permission="'+page[0]+':'+action+'"'+checked+'> '+action.charAt(0).toUpperCase()+action.slice(1)+'</label>';
+      });
+      html+='</div>';
+    });
+    return html+'</div>';
+  }
+  function enhanceAccessForm(id,isNew){
+    var box=document.querySelector("#app .hd-access-options");if(!box)return;
+    var record=id&&typeof loginAccessMembers!=="undefined"?loginAccessMembers[id]:null;
+    window.hdLoginAccessEditingIdV11=id||"";
+    var draft=window.hdPermissionDraftV11&&window.hdPermissionDraftV11.key===(id||"__new__")?window.hdPermissionDraftV11.value:null;
+    box.innerHTML=accessMatrixMarkup(record,!!isNew);
+    if(draft)PAGE_LIST.forEach(function(page){PERMS.forEach(function(action){var input=box.querySelector('[data-hd-permission="'+page[0]+':'+action+'"]');if(input)input.checked=!!(draft[page[0]]&&draft[page[0]][action])})});
+    box.dataset.hdPermissionMatrixV11=id||"__new__";
+    box.addEventListener("change",function(event){
+      var input=event.target;if(!input||input.type!=="checkbox")return;
+      var row=input.closest(".hd-permission-row");if(!row)return;
+      var view=row.querySelector('[data-hd-permission$=":view"]');
+      if(input===view&&!input.checked)row.querySelectorAll('[data-hd-permission]:not([data-hd-permission$=":view"])').forEach(function(action){action.checked=false});
+      else if(input.checked&&view)view.checked=true;
+      var value={};PAGE_LIST.forEach(function(page){var p={};PERMS.forEach(function(action){var check=box.querySelector('[data-hd-permission="'+page[0]+':'+action+'"]');p[action]=!!(check&&check.checked)});value[page[0]]=p});
+      window.hdPermissionDraftV11={key:id||"__new__",value:value};
+    });
+  }
+  function wrapLoginAccessForms(){
+    var baseNew=window.hdStartNewLoginAccess;
+    if(typeof baseNew==="function"&&!baseNew.__hdV11){
+      var nextNew=function(){window.hdLoginAccessEditingIdV11="";window.hdPermissionDraftV11=null;var r=baseNew.apply(this,arguments);setTimeout(function(){enhanceAccessForm("",true)},0);return r};
+      nextNew.__hdV11=true;window.hdStartNewLoginAccess=nextNew;
+    }
+    var baseEdit=window.hdEditLoginAccess;
+    if(typeof baseEdit==="function"&&!baseEdit.__hdV11){
+      var nextEdit=function(id){window.hdLoginAccessEditingIdV11=String(id||"");window.hdPermissionDraftV11=null;var r=baseEdit.apply(this,arguments);setTimeout(function(){enhanceAccessForm(String(id||""),false)},0);return r};
+      nextEdit.__hdV11=true;window.hdEditLoginAccess=nextEdit;
+    }
+    var basePatternChange=window.hdRequestLoginPatternChange;
+    if(typeof basePatternChange==="function"&&!basePatternChange.__hdV11){
+      var nextPatternChange=function(){var id=window.hdLoginAccessEditingIdV11||"",box=document.querySelector("#app .hd-access-options"),value={};if(box)PAGE_LIST.forEach(function(page){var p={};PERMS.forEach(function(action){var input=box.querySelector('[data-hd-permission="'+page[0]+':'+action+'"]');p[action]=!!(input&&input.checked)});value[page[0]]=p});window.hdPermissionDraftV11={key:id||"__new__",value:value};var r=basePatternChange.apply(this,arguments);setTimeout(function(){enhanceAccessForm(id,!id)},0);return r};
+      nextPatternChange.__hdV11=true;window.hdRequestLoginPatternChange=nextPatternChange;
+    }
+    var baseSave=window.hdSaveLoginAccess;
+    if(typeof baseSave==="function"&&!baseSave.__hdV11){
+      var nextSave=function(){
+        var form=document.getElementById("hdLoginPersonName"),name=form&&form.value.trim(),id=window.hdLoginAccessEditingIdV11;
+        var permissions={};
+        PAGE_LIST.forEach(function(page){
+          var row=document.querySelector('[data-hd-permission-row="'+page[0]+'"]'),p={view:false,add:false,edit:false,delete:false};
+          if(row)PERMS.forEach(function(action){var input=row.querySelector('[data-hd-permission="'+page[0]+':'+action+'"]');p[action]=!!(input&&input.checked)});
+          if(p.add||p.edit||p.delete)p.view=true;
+          permissions[page[0]]=p.view?p:false;
+        });
+        var r=baseSave.apply(this,arguments);
+        var target=id&&typeof loginAccessMembers!=="undefined"?loginAccessMembers[id]:null;
+        if(!target&&name&&typeof loginAccessMembers!=="undefined")Object.keys(loginAccessMembers).some(function(key){var candidate=loginAccessMembers[key];if(candidate&&!candidate.deleted&&String(candidate.name||"").trim().toLowerCase()===name.toLowerCase()){target=candidate;return true}return false});
+        if(target){target.appAccess=permissions;target.updatedAt=stamp();try{if(typeof save==="function")save()}catch(_){}persistSharedState();if(typeof window.hdQueueStaffAttendanceSync==="function")window.hdQueueStaffAttendanceSync();if(typeof window.hdCloudSyncStaffAttendance==="function"&&navigator.onLine)window.hdCloudSyncStaffAttendance();window.manageLoginAccess()}
+        return r;
+      };
+      nextSave.__hdV11=true;window.hdSaveLoginAccess=nextSave;
+    }
+    var baseManage=window.manageLoginAccess;
+    if(typeof baseManage==="function"&&!baseManage.__hdV11){
+      var nextManage=function(){var r=baseManage.apply(this,arguments);setTimeout(function(){document.querySelectorAll("#hdLoginAccessRows [data-login-id]").forEach(function(row){var id=decodeURIComponent(row.getAttribute("data-login-id")||""),record=typeof loginAccessMembers!=="undefined"&&loginAccessMembers[id];if(!record)return;var target=row.querySelector(".hd-login-access-drag-handle");if(!target)return;var summary=target.querySelector(".hd-login-access-summary");if(!summary){summary=document.createElement("small");summary.className="hd-login-access-summary";target.appendChild(summary)}var access=[];PAGE_LIST.forEach(function(page){var p=normalizePagePermission(record.appAccess&&record.appAccess[page[0]],false);if(p.view)access.push(page[1]+(p.add||p.edit||p.delete?" ("+[p.add?"Add":"",p.edit?"Edit":"",p.delete?"Delete":""].filter(Boolean).join("/")+")":""))});summary.textContent=access.length?"Access: "+access.join(" · "):"No dashboard pages enabled";});},0);return r};
+      nextManage.__hdV11=true;window.manageLoginAccess=nextManage;
+    }
+  }
+  function normalizeStoredPermissions(){
+    if(typeof loginAccessMembers==="undefined"||!loginAccessMembers)return;
+    Object.keys(loginAccessMembers).forEach(function(id){
+      var record=loginAccessMembers[id];if(!record||!record.appAccess)return;
+      var changed=false;PAGE_LIST.forEach(function(page){
+        var raw=record.appAccess[page[0]];
+        if(typeof raw==="boolean"){record.appAccess[page[0]]=raw?{view:true,add:true,edit:true,delete:true}:false;changed=true}
+        else if(raw&&typeof raw==="object"){
+          var p=normalizePagePermission(raw,false);
+          if(JSON.stringify(raw)!==JSON.stringify(p)){record.appAccess[page[0]]=p.view?p:false;changed=true}
+        }
+      });
+      if(changed&&typeof saved!=="undefined"&&saved){saved.loginAccessMembers=loginAccessMembers}
+    });
+  }
+  normalizeStoredPermissions();
+  wrapLoginAccessForms();
+  var accessFormObserver=new MutationObserver(function(){var box=document.querySelector("#app .hd-login-config .hd-access-options");if(!box)return;var id=window.hdLoginAccessEditingIdV11||"",key=id||"__new__";if(box.dataset.hdPermissionMatrixV11===key)return;enhanceAccessForm(id,!id)});
+  accessFormObserver.observe(document.getElementById("app")||document.body,{childList:true,subtree:true});
+  function guardRoute(name,page){var original=window[name];if(typeof original!=="function"||original.__hdPermissionRouteV11)return;var guarded=function(){if(!allowed(page,"view")){alert("The Owner has not given your account access to "+(PAGE_LIST.find(function(x){return x[0]===page})||[page,page])[1]+".");return}return original.apply(this,arguments)};guarded.__hdPermissionRouteV11=true;guarded.__hdOriginal=original;window[name]=guarded}
+
+  /* Shared sales records live in the app cloud, separate from the transaction activity list. */
+  function readSales(){
+    var data=window.hdSharedSalesRecords;
+    if(!Array.isArray(data)){var state=localState();data=Array.isArray(state.salesRecords)?state.salesRecords:[];try{if(!data.length){var cached=JSON.parse(localStorage.getItem("hdSharedSalesRecordsV1")||"[]");if(Array.isArray(cached))data=cached}}catch(_){}}
+    window.hdSharedSalesRecords=Array.isArray(data)?data:[];
+    return window.hdSharedSalesRecords;
+  }
+  function mergeSales(localList,remoteList){
+    var map=new Map();
+    [localList,remoteList].forEach(function(list,sourceIndex){(Array.isArray(list)?list:[]).forEach(function(record){if(!record||!record.id)return;var key=String(record.id),old=map.get(key),t=Date.parse(record.updatedAt||record.createdAt||"")||0,ot=Date.parse(old&& (old.updatedAt||old.createdAt)||"")||0;if(!old||t>ot||(t===ot&&sourceIndex===1))map.set(key,clone(record))})});
+    return Array.from(map.values()).sort(function(a,b){return (Number(a.ts)||0)-(Number(b.ts)||0)});
+  }
+  function transactionEventsMutable(){return getEvents()}
+  function salesFromLegacyEvents(events,existing){
+    var records=Array.isArray(existing)?existing.slice():[],known=new Set(records.map(function(x){return String(x.migratedFrom||"")}));
+    (Array.isArray(events)?events:[]).forEach(function(event){
+      if(!event||String(event.page||"").toLowerCase()!=="sales"||!/^sale\s*:/i.test(String(event.detail||"")))return;
+      if(known.has(String(event.id||"")))return;
+      var detail=String(event.detail||"").replace(/^sale\s*:\s*/i,"");
+      records.push({id:"sale-migrated-"+String(event.id||uuid("")),migratedFrom:String(event.id||""),ts:Number(event.ts)||Date.now(),dateKey:String(event.dateKey||istDate(event.ts)),actor:String(event.actor||"Unknown"),detail:detail,legacyDetail:detail,items:[],amount:Number(event.amount)||0,originalAmount:Number(event.amount)||0,createdAt:new Date(Number(event.ts)||Date.now()).toISOString(),updatedAt:event.updatedAt||new Date(Number(event.ts)||Date.now()).toISOString(),deleted:false});
+      known.add(String(event.id||""));
+    });
+    return records;
+  }
+  function removeLegacySaleEvents(events){
+    return (Array.isArray(events)?events:[]).filter(function(event){return !(event&&String(event.page||"").toLowerCase()==="sales"&&/^sale\s*:/i.test(String(event.detail||"")))});
+  }
+  function migrateLegacySales(){
+    var events=transactionEventsMutable(),records=salesFromLegacyEvents(events,readSales()),filtered=removeLegacySaleEvents(events);
+    window.hdSharedSalesRecords=records;
+    if(filtered.length!==events.length)replaceEventsInPlace(filtered);
+    persistSharedState();
+  }
+  migrateLegacySales();
+  var snapshotBase=window.hdStaffAttendanceSnapshot;
+  if(typeof snapshotBase==="function"&&!snapshotBase.__hdSalesCloudV11){
+    var snapshotNext=function(){migrateLegacySales();var state=snapshotBase.apply(this,arguments)||{};state.salesRecords=clone(readSales());return state};
+    snapshotNext.__hdSalesCloudV11=true;window.hdStaffAttendanceSnapshot=snapshotNext;
+  }
+  var mergeBase=window.hdMergeStaffAttendanceCloudState;
+  if(typeof mergeBase==="function"&&!mergeBase.__hdSalesCloudV11){
+    var mergeNext=function(remote){
+      migrateLegacySales();var state=mergeBase.apply(this,arguments)||{},remoteState=remote&&typeof remote==="object"?remote:{};
+      var legacyRemote=salesFromLegacyEvents(remoteState.transactionEvents,[]);
+      state.salesRecords=mergeSales(readSales(),mergeSales(remoteState.salesRecords,legacyRemote));
+      state.transactionEvents=removeLegacySaleEvents(state.transactionEvents);
+      return state;
+    };
+    mergeNext.__hdSalesCloudV11=true;window.hdMergeStaffAttendanceCloudState=mergeNext;
+  }
+  var applyBase=window.hdApplyStaffAttendanceCloudState;
+  if(typeof applyBase==="function"&&!applyBase.__hdSalesCloudV11){
+    var applyNext=function(state){
+      var r=applyBase.apply(this,arguments);
+      if(state&&Array.isArray(state.salesRecords))window.hdSharedSalesRecords=mergeSales(readSales(),state.salesRecords);
+      migrateLegacySales();persistSharedState();
+      setTimeout(function(){if(document.getElementById("hdSalesRoot")&&typeof window.hdRenderCustomerSales==="function")window.hdRenderCustomerSales();if(document.getElementById("hdTransactionsEntries"))renderTransactions()},0);
+      return r;
+    };
+    applyNext.__hdSalesCloudV11=true;window.hdApplyStaffAttendanceCloudState=applyNext;
+  }
+
+  async function cloudReachable(){
+    if(!navigator.onLine)return false;
+    if(Date.now()-cloudReadyAt<3000)return true;
+    if(cloudCheckPromise)return await cloudCheckPromise;
+    cloudCheckPromise=(async function(){
+    try{
+      if(typeof window.hdEnsureCloudSession==="function")await window.hdEnsureCloudSession();
+      if(typeof window.hdCloudSyncStaffAttendance!=="function")return false;
+      var ok=await window.hdCloudSyncStaffAttendance()===true;if(ok)cloudReadyAt=Date.now();return ok;
+    }catch(error){return false}
+    })();
+    try{return await cloudCheckPromise}finally{cloudCheckPromise=null}
+  }
+  window.hdRequireCloudBeforeSaveV11=cloudReachable;
+
+  function persistSalesLocal(){
+    window.hdSharedSalesRecords=readSales();
+    if(typeof saved!=="undefined"&&saved)saved.salesRecords=clone(window.hdSharedSalesRecords);
+    persistSharedState();
+    if(typeof window.hdQueueStaffAttendanceSync==="function")window.hdQueueStaffAttendanceSync();
+  }
+  function syncNow(){
+    if(typeof window.hdCloudSyncStaffAttendance!=="function")return Promise.resolve(false);
+    return Promise.resolve(window.hdCloudSyncStaffAttendance()).catch(function(){return false});
+  }
+  function getTxRecorder(){return typeof window.hdRecordTransaction==="function"?window.hdRecordTransaction:null}
+  function recordCorrection(info){
+    var rec=getTxRecorder();if(!rec)return null;
+    var event=rec(Object.assign({notifyOwner:false},info||{}));
+    if(event){
+      var events=getEvents(),stored=events.find(function(x){return String(x.id)===String(event.id)});
+      if(stored){stored.creditAmount=Number(info&&info.creditAmount)||0;stored.debitAmount=Number(info&&info.debitAmount)||0;stored.actionType=String(info&&info.actionType||"");persistSharedState();if(typeof window.hdQueueStaffAttendanceSync==="function")window.hdQueueStaffAttendanceSync()}
+    }
+    return event;
+  }
+  function saleSummary(record){
+    if(record&&Array.isArray(record.items)&&record.items.length)return record.items.map(function(item){var qty=Number(item.qty)||0,unit=Number(item.price)||0;return qty+" "+String(item.name||"Product")+" × "+money(unit)+" = "+money(qty*unit)}).join("; ");
+    return String(record&& (record.legacyDetail||record.detail)||"Sale");
+  }
+  function recordSummary(record){
+    var names=(record.items||[]).map(function(x){return {id:String(x.id),name:String(x.name||"Product"),qty:Number(x.qty)||0,price:Number(x.price)||0,total:(Number(x.qty)||0)*(Number(x.price)||0)}});
+    return names.length?names.map(function(x){return x.qty+" "+x.name+" @ "+money(x.price)+" = "+money(x.total)}).join("; "):saleSummary(record);
+  }
+  function currentSalesDay(offset){
+    var today=typeof window.hdAttendanceToday==="function"?window.hdAttendanceToday():istDate(Date.now());
+    var delta=Number(offset)||0;return typeof window.hdAttendanceAddDays==="function"?window.hdAttendanceAddDays(today,-delta):istDate(Date.now()-delta*86400000);
+  }
+  function displayDate(key){var m=String(key||"").match(/^(\d{4})-(\d{2})-(\d{2})$/);return m?m[3]+"/"+m[2]+"/"+m[1].slice(-2):String(key||"")}
+  function displayTime(ts){try{return new Intl.DateTimeFormat("en-IN",{timeZone:"Asia/Kolkata",hour:"2-digit",minute:"2-digit",hour12:true}).format(new Date(Number(ts)||Date.now())).replace(/^0(?=\d:)/,"")}catch(_){return ""}}
+  function allowed(page,action){return getPermission(page,action||"view")}
+
+  function renderSalesPage(){
+    var app=document.getElementById("app");if(!app)return;
+    if(!allowed("sales","view")){app.innerHTML='<div class="card"><h2>Sales</h2><p>You do not have access to this page.</p><button class="btn secondary" onclick="home()">🏠 Home</button></div>';return}
+    var offset=Math.max(0,Math.min(2,Number(window.hdSalesJournalOffset)||0)),today=currentSalesDay(0),day=currentSalesDay(offset),list=readSales().filter(function(x){return !x.deleted&&String(x.dateKey||istDate(x.ts))===day}).sort(function(a,b){return (Number(a.ts)||0)-(Number(b.ts)||0)});
+    var tabs=[0,1,2].map(function(i){var key=currentSalesDay(i),title=i===0?"Today":i===1?"Yesterday":"2 Days Back";return '<button type="button" class="hd-sales-journal-tab '+(i===0?"today":i===1?"yesterday":"past")+(offset===i?" active":"")+'" onclick="hdSalesJournalSelectDayV11('+i+')"><b>'+title+'</b><small>'+displayDate(key)+'</small></button>'}).join("");
+    var rows=list.length?list.map(function(record){
+      var actorLine=escapeHtml(record.actor||"Unknown")+' · '+escapeHtml(displayTime(record.ts));
+      var detail=escapeHtml(recordSummary(record));
+      var actions='<div class="hd-sales-record-actions">'+(allowed("sales","edit")?'<button type="button" onclick="hdSalesEditRecordV11(\''+escapeHtml(encodeURIComponent(record.id))+'\')">Edit</button>':"")+(allowed("sales","delete")?'<button type="button" class="delete" onclick="hdSalesDeleteRecordV11(\''+escapeHtml(encodeURIComponent(record.id))+'\')">Delete</button>':"")+'</div>';
+      return '<article class="hd-sales-journal-record"><div class="hd-sales-journal-record-head"><span class="hd-sales-journal-time">'+actorLine+'</span><span class="hd-sales-journal-actor">'+escapeHtml(displayDate(record.dateKey||istDate(record.ts)))+'</span></div><div class="hd-sales-journal-detail">'+detail+'</div><strong class="hd-sales-journal-amount">'+money(record.amount)+'</strong>'+actions+'</article>';
+    }).join(""):'<div class="hd-sales-journal-empty">No sales recorded for this date.</div>';
+    app.innerHTML='<section class="card hd-sales-journal-page" id="hdSalesRoot"><header class="hd-sales-journal-head"><h2>💳 Sales</h2><button type="button" class="hd-sales-journal-home" onclick="hdNewPageHome()">🏠 Home</button></header><div class="hd-sales-journal-tabs">'+tabs+'</div><div class="hd-sales-journal-day">📅 '+(offset===0?"Today":offset===1?"Yesterday":"2 Days Back")+' ('+displayDate(day)+')</div>'+(allowed("sales","add")?'<button type="button" class="hd-sales-journal-add" onclick="hdSalesJournalOpenEntryV8()">＋ Add Sale</button>':"")+'<div id="hdSalesJournalRecordsV11">'+rows+'</div></section>';
+    if(window.hdSalesEntryOpenV8&&typeof window.hdSalesJournalOpenEntryV8==="function"){}
+  }
+  window.hdRenderCustomerSales=renderSalesPage;
+  window.hdSalesJournalSelectDayV11=function(i){window.hdSalesJournalOffset=Math.max(0,Math.min(2,Number(i)||0));renderSalesPage()};
+  var oldSalesOpen=window.hdOpenSalesBillingV7;
+  window.hdOpenSalesBillingV7=function(){
+    if(!allowed("sales","view")){alert("The Owner has not given your account access to Sales.");return}
+    var route={hdPage:"salesPage",hdArgs:[]};try{if(!history.state||history.state.hdPage!==route.hdPage)history.pushState(route,"",location.href)}catch(_){}
+    try{localStorage.setItem("hdCurrentPage",JSON.stringify(route))}catch(_){}
+    window.hdSalesJournalOffset=0;window.hdSalesEntryOpenV8=false;window.hdSalesEntryCategoryV8="";window.hdSalesEditingRecordIdV11="";renderSalesPage();
+  };
+  window.salesPage=window.hdOpenSalesBillingV7;
+  var oldOpenSaleEntry=window.hdSalesJournalOpenEntryV8;
+  if(typeof oldOpenSaleEntry==="function")window.hdSalesJournalOpenEntryV8=function(){if(!allowed("sales","add")){alert("Your login does not have Add access for Sales.");return}window.hdSalesEditingRecordIdV11="";window.hdSalesCart=[];return oldOpenSaleEntry.apply(this,arguments)};
+  window.hdSalesEditRecordV11=function(encodedId){
+    if(!allowed("sales","edit")){alert("Your login does not have Edit access for Sales.");return}
+    var id=decodeURIComponent(String(encodedId||"")),record=readSales().find(function(x){return String(x.id)===id&&!x.deleted});if(!record)return;
+    window.hdSalesEditingRecordIdV11=id;
+    window.hdSalesCart=Array.isArray(record.items)&&record.items.length?clone(record.items):[{id:"legacy-sale-"+id,name:"Previous sale",qty:1,price:Number(record.amount)||0}];
+    if(typeof oldOpenSaleEntry==="function")oldOpenSaleEntry.call(window);
+    setTimeout(function(){var modal=document.getElementById("hdSalesEntryModalV8");if(modal){var h=modal.querySelector("h3");if(h)h.textContent="Edit Sale";var b=modal.querySelector(".hd-sales-entry-save");if(b)b.textContent="Save Changes"}},0);
+  };
+  function restoreEvents(oldEvents){
+    var arr=getEvents();arr.splice(0,arr.length);(oldEvents||[]).forEach(function(item){arr.push(item)});window.hdTransactionEvents=arr;persistSharedState();
+  }
+  async function saveSaleEntry(){
+    if(window.hdSalesEntrySaveBusyV11)return;
+    var isEdit=!!window.hdSalesEditingRecordIdV11,action=isEdit?"edit":"add";
+    if(!allowed("sales",action)){alert("Your login does not have "+action.toUpperCase()+" access for Sales.");return}
+    var cart=(window.hdSalesCart||[]).map(function(x){return {id:String(x.id),name:String(x.name||"Product"),qty:Math.max(0,Number(x.qty)||0),price:Math.max(0,Number(x.price)||0)}});
+    if(!cart.length||cart.some(function(x){return x.qty<1})){alert("Enter a valid quantity for every product.");return}
+    window.hdSalesEntrySaveBusyV11=true;
+    var button=document.querySelector("#hdSalesEntryModalV8 .hd-sales-entry-save");if(button)button.disabled=true;
+    if(!await cloudReachable()){window.hdSalesEntrySaveBusyV11=false;if(button)button.disabled=false;alert("Internet and shared cloud access are required to save. Your sale is still on this form; reconnect and try again.");return}
+    var items=cart.map(function(x){return {id:x.id,name:x.name,qty:x.qty,price:x.price}}),amount=items.reduce(function(sum,x){return sum+x.qty*x.price},0),now=Date.now(),when=new Date(now).toISOString(),records=readSales(),edit=records.find(function(x){return String(x.id)===String(window.hdSalesEditingRecordIdV11)&&!x.deleted}),oldRecords=clone(records),oldEvents=clone(getEvents()),record,delta=0,eventInfo=null;
+    if(isEdit&&!edit){window.hdSalesEntrySaveBusyV11=false;if(button)button.disabled=false;alert("This sale was changed or removed on another phone. Reopen the Sales page and try again.");return}
+    if(edit){
+      delta=amount-(Number(edit.amount)||0);
+      record=Object.assign({},edit,{items:items,amount:amount,detail:items.map(function(x){return x.qty+" "+x.name+" X "+money(x.price)+" = "+money(x.qty*x.price)}).join("; "),updatedAt:when,updatedBy:actor()});
+    }else{
+      record={id:uuid("sale-"),ts:now,dateKey:istDate(now),actor:actor(),items:items,amount:amount,originalAmount:amount,detail:items.map(function(x){return x.qty+" "+x.name+" X "+money(x.price)+" = "+money(x.qty*x.price)}).join("; "),createdAt:when,updatedAt:when,deleted:false};
+    }
+    window.hdSharedSalesRecords=records.filter(function(x){return String(x.id)!==String(record.id)}).concat(record);
+    persistSalesLocal();
+    if(edit){
+      var direction=delta>0?"credit":delta<0?"debit":"activity",from=saleSummary(edit),to=saleSummary(record);
+      eventInfo=recordCorrection({id:"sale-correction-"+record.id+"-"+now,page:"Sales",direction:direction,amount:Math.abs(delta),creditAmount:delta>0?delta:0,debitAmount:delta<0?Math.abs(delta):0,actionType:"Edit sale",detail:"Edited sale. Old: "+from+" — "+money(edit.amount)+". New: "+to+" — "+money(record.amount)+"."});
+    }
+    var synced=await syncNow();
+    if(!synced){
+      window.hdSharedSalesRecords=oldRecords;restoreEvents(oldEvents);persistSalesLocal();window.hdSalesEntrySaveBusyV11=false;if(button)button.disabled=false;alert("The cloud did not confirm the save. Your sale remains on the form; please retry when the connection is stable.");return;
+    }
+    window.hdSalesCart=[];window.hdSalesEditingRecordIdV11="";window.hdSalesEntrySaveBusyV11=false;
+    if(typeof window.hdSalesEntryCloseV8==="function")window.hdSalesEntryCloseV8();
+    renderSalesPage();
+  }
+  window.hdSalesEntrySaveV8=saveSaleEntry;
+  window.hdSalesDeleteRecordV11=async function(encodedId){
+    if(!allowed("sales","delete")){alert("Your login does not have Delete access for Sales.");return}
+    var id=decodeURIComponent(String(encodedId||"")),record=readSales().find(function(x){return String(x.id)===id&&!x.deleted});if(!record)return;
+    if(!confirm("Delete this sale? Its original entry will stay in the balance history, and a correction will be recorded."))return;
+    if(!await cloudReachable()){alert("Internet and shared cloud access are required to delete. Nothing was deleted.");return}
+    var records=readSales(),oldRecords=clone(records),oldEvents=clone(getEvents()),now=Date.now(),when=new Date(now).toISOString(),copy=Object.assign({},record,{deleted:true,deletedAt:when,deletedBy:actor(),updatedAt:when});
+    window.hdSharedSalesRecords=records.map(function(x){return String(x.id)===id?copy:x});
+    persistSalesLocal();
+    recordCorrection({id:"sale-correction-"+id+"-delete-"+now,page:"Sales",direction:"debit",amount:Number(record.amount)||0,creditAmount:0,debitAmount:Number(record.amount)||0,actionType:"delete",detail:"Deleted sale. Old: "+saleSummary(record)+" — "+money(record.amount)+". New: Deleted."});
+    if(!await syncNow()){window.hdSharedSalesRecords=oldRecords;restoreEvents(oldEvents);persistSalesLocal();alert("Cloud did not confirm deletion. The sale was restored.");return}
+    renderSalesPage();
+  };
+  var modalObserver=new MutationObserver(function(){var modal=document.getElementById("hdSalesEntryModalV8");if(!modal)return;var title=modal.querySelector("h3"),button=modal.querySelector(".hd-sales-entry-save"),wantTitle=window.hdSalesEditingRecordIdV11?"Edit Sale":"Add Sale",wantButton=window.hdSalesEditingRecordIdV11?"Save Changes":"Save Sale";if(title&&title.textContent!==wantTitle)title.textContent=wantTitle;if(button&&button.textContent!==wantButton)button.textContent=wantButton});
+  modalObserver.observe(document.body,{childList:true,subtree:true});
+
+  function txDay(){
+    var today=typeof window.hdAttendanceToday==="function"?window.hdAttendanceToday():istDate(Date.now()),offset=Number(window.hdTransactionsOffset)||0;
+    if(offset===1)return typeof window.hdAttendanceAddDays==="function"?window.hdAttendanceAddDays(today,-1):istDate(Date.now()-86400000);
+    if(offset===2)return window.hdTransactionsCustomPastDate||(typeof window.hdAttendanceAddDays==="function"?window.hdAttendanceAddDays(today,-2):istDate(Date.now()-172800000));
+    return today;
+  }
+  function renderTransactions(){
+    var container=document.getElementById("hdTransactionsEntries");if(!container)return;
+    var key=txDay(),events=getEvents().filter(function(e){return e&&String(e.dateKey||istDate(e.ts))===key}),sales=readSales().filter(function(s){return String(s.dateKey||istDate(s.ts))===key});
+    var salesBase=sales.reduce(function(sum,s){return sum+(Number(s.originalAmount===undefined?s.amount:s.originalAmount)||0)},0);
+    var credit=events.reduce(function(sum,e){var explicit=(Number(e.creditAmount)||0)+(Number(e.debitAmount)||0)>0;return sum+(explicit?(Number(e.creditAmount)||0):(e.direction==="credit"?(Number(e.amount)||0):0))},salesBase);
+    var debit=events.reduce(function(sum,e){var explicit=(Number(e.creditAmount)||0)+(Number(e.debitAmount)||0)>0;return sum+(explicit?(Number(e.debitAmount)||0):(e.direction==="debit"?(Number(e.amount)||0):0))},0);
+    var balance=credit-debit,summary=document.getElementById("hdTransactionsSummary"),renderSignature=JSON.stringify({key:key,events:events,salesBase:salesBase,credit:credit,debit:debit});
+    if(container.getAttribute("data-hd-tx-render-signature")===renderSignature)return;
+    container.setAttribute("data-hd-tx-render-signature",renderSignature);
+    if(summary)summary.innerHTML='<span class="hd-tx-credit-summary">Credit '+money(credit)+'</span><span class="hd-tx-balance-summary '+(balance<0?"negative":"positive")+'">Balance '+(balance<0?"−":"")+money(Math.abs(balance))+'</span><span class="hd-tx-debit-summary">Debit '+money(debit)+'</span>';
+    events.sort(function(a,b){return (Number(b.ts)||0)-(Number(a.ts)||0)});
+    if(!events.length){container.innerHTML='<div class="hd-tx-empty">No transaction activity recorded for this date.</div>';return}
+    container.innerHTML=events.map(function(event){
+      var direction=["credit","debit"].indexOf(event.direction)>=0?event.direction:"activity",label=event.actionType?String(event.actionType):direction==="credit"?"Credit":direction==="debit"?"Debit":"Activity";
+      var amount=Number(event.amount)||0,stampText="";
+      try{stampText=new Intl.DateTimeFormat("en-IN",{timeZone:"Asia/Kolkata",day:"2-digit",month:"short",year:"numeric",hour:"numeric",minute:"2-digit",hour12:true}).format(new Date(Number(event.ts)||Date.now()))}catch(_){}
+      var extras=[];if(Number(event.creditAmount)>0)extras.push("Credit "+money(event.creditAmount));if(Number(event.debitAmount)>0)extras.push("Debit "+money(event.debitAmount));
+      return '<article class="hd-tx-card hd-tx-'+direction+'"><div class="hd-tx-card-top"><div class="hd-tx-source"><strong>'+escapeHtml(event.actor||"Unknown")+'</strong><span>·</span><span>'+escapeHtml(event.page||"Activity")+'</span></div><span class="hd-tx-badge hd-tx-badge-'+direction+'">'+escapeHtml(label)+'</span></div><div class="hd-tx-detail">'+escapeHtml(event.detail||"Record updated")+'</div><div class="hd-tx-card-bottom"><time>'+escapeHtml(stampText)+'</time>'+(extras.length?'<strong class="hd-tx-amount">'+extras.map(escapeHtml).join(" · ")+'</strong>':amount>0?'<strong class="hd-tx-amount hd-tx-amount-'+direction+'">'+(direction==="debit"?"−":"")+money(amount)+'</strong>':"")+'</div></article>';
+    }).join("");
+  }
+  var transactionPageBase=window.transactionsPage;
+  if(typeof transactionPageBase==="function")window.transactionsPage=function(){if(!allowed("transactions","view")){alert("The Owner has not given your account access to Transactions.");return}var r=transactionPageBase.apply(this,arguments);setTimeout(renderTransactions,0);return r};
+  ["hdTransactionsSelectOffset","hdTransactionsChoosePastDate","hdTransactionsThirdTap"].forEach(function(name){var base=window[name];if(typeof base!=="function")return;window[name]=function(){var r=base.apply(this,arguments);setTimeout(renderTransactions,0);return r}});
+  var txObserver=new MutationObserver(function(){if(document.getElementById("hdTransactionsEntries"))renderTransactions()});
+  txObserver.observe(document.getElementById("app")||document.body,{childList:true,subtree:true});
+
+  /* Use one attendance update entry; include changed fields and advance correction totals. */
+  function field(v){return v===undefined||v===null||v===""?"—":String(v)}
+  function attendanceDate(){return typeof window.hdAttendanceDateForOffset==="function"?window.hdAttendanceDateForOffset(window.hdAttendanceOffset||0):istDate(Date.now())}
+  function attendanceDiff(before,after){
+    var names=new Set(Object.keys(before&&before.staff||{}).concat(Object.keys(after&&after.staff||{}))),rows=[],credit=0,debit=0;
+    names.forEach(function(name){var a=(before&&before.staff||{})[name]||{},b=(after&&after.staff||{})[name]||{},parts=[];
+      [["login","Login"],["logout","Logout"],["advance","Advance"]].forEach(function(fieldPair){var key=fieldPair[0],oldVal=field(a[key]),newVal=field(b[key]);if(oldVal===newVal)return;parts.push(fieldPair[1]+": "+oldVal+" → "+newVal);if(key==="advance"){var delta=(Number(b[key])||0)-(Number(a[key])||0);if(delta>0)debit+=delta;else if(delta<0)credit+=Math.abs(delta)}});
+      if(parts.length)rows.push(name+" — "+parts.join(", "));
+    });
+    return {rows:rows,credit:credit,debit:debit};
+  }
+  var attendanceSaveBase=window.saveAttendance;
+  if(typeof attendanceSaveBase==="function"&&!attendanceSaveBase.__hdV11){
+    var saveAttendanceNext=async function(){
+      var date=attendanceDate(),day=(typeof attendanceData!=="undefined"&&attendanceData&&attendanceData[date])||null,before=clone(day||{staff:{}}),stampBefore=day&&day.updatedAt||"",txIds=new Set(getEvents().map(function(e){return String(e.id)})),result=await attendanceSaveBase.apply(this,arguments),after=(typeof attendanceData!=="undefined"&&attendanceData&&attendanceData[date])||null;
+      if(after&&after.updatedAt!==stampBefore){
+        var diff=attendanceDiff(before,after);
+        var entry=getEvents().slice().reverse().find(function(e){return !txIds.has(String(e.id))&&e.page==="Staff Attendance"&&String(e.detail||"").indexOf("Attendance updated for "+date)===0});
+        if(entry){entry.direction="activity";entry.amount=0;entry.actionType="Attendance update";entry.detail="Attendance saved for "+date+(diff.rows.length?". "+diff.rows.join(" | "):".");entry.creditAmount=diff.credit;entry.debitAmount=diff.debit;persistSharedState();if(typeof window.hdQueueStaffAttendanceSync==="function")window.hdQueueStaffAttendanceSync()}
+        else recordCorrection({id:"attendance-save-"+date+"-"+String(after.updatedAt||Date.now()).replace(/[^0-9]/g,""),page:"Staff Attendance",direction:"activity",actionType:"Attendance update",detail:"Attendance saved for "+date+(diff.rows.length?". "+diff.rows.join(" | "):"."),creditAmount:diff.credit,debitAmount:diff.debit});
+      }
+      return result;
+    };
+    saveAttendanceNext.__hdV11=true;window.saveAttendance=saveAttendanceNext;
+  }
+  var attendanceDeleteBase=window.deleteAttendance;
+  if(typeof attendanceDeleteBase==="function"&&!attendanceDeleteBase.__hdV11){
+    var deleteAttendanceNext=async function(){
+      var date=attendanceDate(),day=(typeof attendanceData!=="undefined"&&attendanceData&&attendanceData[date])||null,before=clone(day||{staff:{}}),eventsBefore=getEvents().slice(),result=await attendanceDeleteBase.apply(this,arguments),still=(typeof attendanceData!=="undefined"&&attendanceData&&attendanceData[date]);
+      if(day&&!still){
+        var amounts=0,names=[];
+        Object.keys(before.staff||{}).forEach(function(name){var e=before.staff[name]||{};if(Number(e.advance)>0){amounts+=Number(e.advance);names.push(name+" Advance "+money(e.advance))}});
+        recordCorrection({id:"attendance-delete-"+date+"-"+Date.now(),page:"Staff Attendance",direction:"activity",actionType:"Delete attendance",detail:"Deleted attendance for "+date+". Removed values: "+Object.keys(before.staff||{}).map(function(name){var e=before.staff[name]||{};return name+" [Login "+field(e.login)+", Logout "+field(e.logout)+", Advance "+money(e.advance)+"]"}).join(" | "),creditAmount:amounts,debitAmount:0});
+      }
+      return result;
+    };
+    deleteAttendanceNext.__hdV11=true;window.deleteAttendance=deleteAttendanceNext;
+  }
+
+  /* Order changes are audit entries; money adjustments use only the changed advance amount. */
+  function orderText(record){
+    if(!record)return "—";
+    return [record.name||"",record.mobile||"",record.alternateMobile||"",record.orderDate||"",record.orderTime||"",record.address1||"",record.orderNote||"",record.customLabels||"",record.deliveryType||"",record.deliveryCharges||""].join(" · ");
+  }
+  function orderAdvance(record){return (Number(record&&record.advanceCash)||0)+(Number(record&&record.advancePhonePe)||0)}
+  var orderSaveBase=window.hdOrdersSave;
+  if(typeof orderSaveBase==="function"&&!orderSaveBase.__hdV11){
+    var orderSaveNext=function(){
+      var id=String(window.hdOrdersEditingId||""),before=(window.hdOrdersData||[]).find(function(x){return String(x.id)===id})||null,result=orderSaveBase.apply(this,arguments),list=window.hdOrdersData||[],after=list.find(function(x){return String(x.id)===(id||String(window.hdOrdersEditingId||""))})||list[list.length-1];
+      if(after){
+        var oldAmount=orderAdvance(before),newAmount=orderAdvance(after),delta=newAmount-oldAmount,summary=(before?"Edited order. Old: "+orderText(before)+". New: ":"New order: ")+orderText(after);
+        if(before)summary+=". Advance changed from "+money(oldAmount)+" to "+money(newAmount)+".";
+        recordCorrection({id:"order-"+(before?"edit":"add")+"-"+after.id+"-"+String(after.updatedAt||Date.now()).replace(/[^0-9]/g,""),page:"Orders",direction:before?(delta>0?"credit":delta<0?"debit":"activity"):(newAmount>0?"credit":"activity"),amount:before?Math.abs(delta):newAmount,creditAmount:before&&delta>0?delta:0,debitAmount:before&&delta<0?Math.abs(delta):0,actionType:before?"Edit order":"New order",detail:summary});
+      }
+      return result;
+    };
+    orderSaveNext.__hdV11=true;window.hdOrdersSave=orderSaveNext;
+  }
+  var orderDeleteOpenBase=window.hdOrdersDelete;
+  if(typeof orderDeleteOpenBase==="function"&&!orderDeleteOpenBase.__hdV11){
+    var orderDeleteOpenNext=function(id){
+      var r=orderDeleteOpenBase.apply(this,arguments),button=document.getElementById("hdOrderDeleteConfirm"),record=(window.hdOrdersData||[]).find(function(x){return String(x.id)===String(id)});
+      if(button&&!button.__hdV11){var confirmBase=button.onclick;button.onclick=function(event){var before=clone(record),out=confirmBase&&confirmBase.call(this,event);if(before&&!(window.hdOrdersData||[]).some(function(x){return String(x.id)===String(id)})){var advance=orderAdvance(before);recordCorrection({id:"order-delete-"+id+"-"+Date.now(),page:"Orders",direction:advance>0?"debit":"activity",amount:advance,debitAmount:advance,actionType:"Delete order",detail:"Deleted order. Old: "+orderText(before)+". New: Deleted. Advance reversed: "+money(advance)+"."})}return out};button.__hdV11=true}
+      return r;
+    };
+    orderDeleteOpenNext.__hdV11=true;window.hdOrdersDelete=orderDeleteOpenNext;
+  }
+
+  /* Saved stock edits keep the before/after values in the audit trail. */
+  function stockSnapshot(date){
+    try{var forms=typeof window.hdStockLoad==="function"?window.hdStockLoad():{};return clone((forms||{})[date]||{})}catch(_){return {}}
+  }
+  function diffObject(before,after){
+    var keys=new Set(Object.keys(before||{}).concat(Object.keys(after||{}))),parts=[];
+    keys.forEach(function(key){if(["savedAt","updatedAt","syncedFromGoogleSheet"].indexOf(key)>=0)return;var a=before&&before[key],b=after&&after[key];if(JSON.stringify(a)===JSON.stringify(b))return;parts.push(key+": "+field(a)+" → "+field(b))});
+    return parts;
+  }
+  var stockSaveBase=window.saveStockForm;
+  if(typeof stockSaveBase==="function"&&!stockSaveBase.__hdV11){
+    var stockSaveNext=async function(offset){
+      var date=typeof window.hdStockDateKey==="function"?window.hdStockDateKey(offset):istDate(Date.now()),before=stockSnapshot(date),result=await stockSaveBase.apply(this,arguments),after=stockSnapshot(date),changes=diffObject(before,after);
+      if(changes.length)recordCorrection({id:"stock-save-"+date+"-"+Date.now(),page:"Stock",direction:"activity",actionType:"Stock update",detail:"Stock saved for "+date+". "+changes.join(" | ")});
+      return result;
+    };
+    stockSaveNext.__hdV11=true;window.saveStockForm=stockSaveNext;
+  }
+
+  /* Rental edits retain exact before/after values; rental returns remain separate from Stock. */
+  var rentalEditBase=window.saveEditedRentalCustomer;
+  if(typeof rentalEditBase==="function"&&!rentalEditBase.__hdV11){
+    var rentalEditNext=function(oldName){
+      var before=typeof R!=="undefined"&&R&&R[oldName]?clone(R[oldName]):null,eventsBefore=new Set(getEvents().map(function(e){return String(e.id)})),result=rentalEditBase.apply(this,arguments),after=typeof R!=="undefined"&&R?R[oldName]:null;
+      if(before&&after){
+        var oldText=[before.name,before.phone,"BT "+(before.pbt||0),"CC "+(before.cc||0),"Deposit "+money(before.deposit)].join(" · "),newText=[after.name,after.phone,"BT "+(after.pbt||0),"CC "+(after.cc||0),"Deposit "+money(after.deposit)].join(" · ");
+        if(oldText!==newText){
+          var events=getEvents(),entry=events.slice().reverse().find(function(e){return !eventsBefore.has(String(e.id))&&e.page==="CC Rentals"});
+          var delta=(Number(after.deposit)||0)-(Number(before.deposit)||0);
+          if(entry){entry.actionType="Edit rental";entry.detail="Edited rental. Old: "+oldText+". New: "+newText+".";entry.direction=delta>0?"credit":delta<0?"debit":"activity";entry.amount=Math.abs(delta);persistSharedState()}
+          else recordCorrection({id:"rental-edit-"+Date.now(),page:"CC Rentals",direction:delta>0?"credit":delta<0?"debit":"activity",amount:Math.abs(delta),actionType:"Edit rental",detail:"Edited rental. Old: "+oldText+". New: "+newText+"."});
+        }
+      }
+      return result;
+    };
+    rentalEditNext.__hdV11=true;window.saveEditedRentalCustomer=rentalEditNext;
+  }
+  var rentalDeleteBase=window.confirmDeleteRentalCustomer;
+  if(typeof rentalDeleteBase==="function"&&!rentalDeleteBase.__hdV11){
+    var rentalDeleteNext=async function(name){
+      var key=String(name||window.currentBTCCCustomer||""),before=typeof R!=="undefined"&&R&&R[key]?clone(R[key]):null,result=await rentalDeleteBase.apply(this,arguments);
+      if(before&&typeof R!=="undefined"&&!R[key]){
+        var events=getEvents(),entry=events.slice().reverse().find(function(e){return e.page==="CC Rentals"&&/customer deleted/i.test(String(e.detail||""))});
+        var summary=[before.name,before.phone,"BT "+(before.pbt||0),"CC "+(before.cc||0),"Deposit "+money(before.deposit)].join(" · ");
+        if(entry){entry.actionType="Delete rental";entry.detail="Deleted rental. Old: "+summary+". New: Deleted.";persistSharedState()}
+      }
+      return result;
+    };
+    rentalDeleteNext.__hdV11=true;window.confirmDeleteRentalCustomer=rentalDeleteNext;
+  }
+
+  /* A closed rental always returns the full deposit in cash. */
+  var rentalActivityBase=window.addRentalActivity;
+  if(typeof rentalActivityBase==="function"&&!rentalActivityBase.__hdV11){
+    var rentalActivityNext=function(customer,activity,meta){
+      var beforeIds=new Set(getEvents().map(function(e){return String(e.id)})),r=rentalActivityBase.apply(this,arguments),a=activity||{},closed=(a.type==="status"&&(a.closedFinal===true||/closed/i.test(String(a.text||""))));
+      if(a.type==="depositRefund"||closed){
+        var events=getEvents(),fresh=events.filter(function(e){return !beforeIds.has(String(e.id))&&e.page==="CC Rentals"});
+        if(a.type==="depositRefund"){
+          fresh.forEach(function(e){if(e.direction==="credit"&&/deposit/i.test(e.detail||"")){var arr=getEvents(),idx=arr.indexOf(e);if(idx>=0)arr.splice(idx,1)}else if(e.direction==="debit"){e.detail=String(e.detail||"").replace(/refund/i,"Refund");e.actionType="Deposit refund"}});
+        }else if(closed&&fresh.length){
+          var refund=Number(a.refundAmount!==undefined?a.refundAmount:a.refund)||0;
+          if(!refund&&customer)refund=Number(customer.deposit)||((Number(customer.depositCash)||0)+(Number(customer.depositPhonePe)||0));
+          var target=fresh[fresh.length-1];
+          if(refund>0){target.direction="debit";target.amount=refund;target.creditAmount=0;target.debitAmount=0;target.actionType="Rental closed";target.detail=String(customer&&customer.name||a.name||"Customer")+": Rental closed — total deposit refunded "+money(refund)+"; BT 0, CC 0"}
+        }
+        persistSharedState();if(typeof window.hdQueueStaffAttendanceSync==="function")window.hdQueueStaffAttendanceSync();
+      }
+      return r;
+    };
+    rentalActivityNext.__hdV11=true;window.addRentalActivity=rentalActivityNext;
+  }
+
+  /* Block writes without cloud connectivity, and enforce the selected page actions. */
+  function pageFor(button){
+    var text=((button&&button.textContent)||"")+" "+((button&&button.getAttribute("onclick"))||"");text=text.toLowerCase();
+    if(/attendance|staffattendance/.test(text)||document.getElementById("hdAttendanceRows"))return "attendance";
+    if(/stock/.test(text)||document.getElementById("hdStockRefreshBtn"))return "stock";
+    if(/order/.test(text)||document.getElementById("hdOrdersRoot")||document.getElementById("hdOrderFormRoot"))return "orders";
+    if(/sales/.test(text)||document.getElementById("hdSalesRoot"))return "sales";
+    if(document.getElementById("hdTransactionsEntries"))return "transactions";
+    if(document.getElementById("hdPhonePeRoot"))return "phonepe";
+    if(document.getElementById("rn")||document.getElementById("rdepCash")||document.getElementById("en")||document.getElementById("epbt"))return "rentals";
+    var appText=((document.getElementById("app")||{}).innerText||"").toLowerCase();
+    if(/staff attendance|attendance/.test(appText))return "attendance";
+    if(/transactions/.test(appText))return "transactions";
+    if(/phonepe|upi qr/.test(appText))return "phonepe";
+    if(/sales|current bill/.test(appText))return "sales";
+    if(/orders|new order/.test(appText))return "orders";
+    if(/stock/.test(appText))return "stock";
+    if(/cc rentals|bt\/cc rentals|rental customer|customer profile/.test(appText))return "rentals";
+    if(/calculator/.test(appText))return "money";
+    if(/transaction/.test(text)||document.getElementById("hdTransactionsEntries"))return "transactions";
+    if(/rental|btcc|customerprofile/.test(text)||/rental|closed customers|active customers/i.test((document.getElementById("app")&&document.getElementById("app").innerText||"").slice(0,450)))return "rentals";
+    if(/dealer/.test(text))return "dealers";
+    if(/phonepe|upi/.test(text))return "phonepe";
+    if(/backwash/.test(text))return "backwash";
+    if(/calculator|money/.test(text))return "money";
+    var h=(document.querySelector("#app h1,#app h2,#app h3")||{}).textContent||"";
+    h=h.toLowerCase();
+    if(h.indexOf("attendance")>=0)return "attendance";if(h.indexOf("stock")>=0)return "stock";if(h.indexOf("order")>=0)return "orders";if(h.indexOf("sales")>=0)return "sales";if(h.indexOf("transaction")>=0)return "transactions";if(h.indexOf("rental")>=0)return "rentals";if(h.indexOf("dealer")>=0)return "dealers";if(h.indexOf("backwash")>=0)return "backwash";if(h.indexOf("phonepe")>=0)return "phonepe";
+    return "";
+  }
+  function actionFor(button,page){
+    var label=((button&&button.textContent)||"").trim().toLowerCase(),code=String(button&&button.getAttribute("onclick")||"").toLowerCase(),all=label+" "+code;
+    if(/delete|remove/.test(all))return "delete";
+    if(/\bedit\b|edit[A-Z_]|saveedited/.test(all))return "edit";
+    if(/\bhide\b|\bshow\b|pattern|rearrange|reorder/.test(all))return "edit";
+    if(/\badd\b|\bnew\b|create/.test(all))return "add";
+    if(/save|submit|update/.test(all)){
+      if(page==="attendance")return window.hdAttendanceEditDate?"edit":"add";
+      if(page==="sales")return window.hdSalesEditingRecordIdV11?"edit":"add";
+      if(page==="orders")return window.hdOrdersEditingId?"edit":"add";
+      if(page==="rentals"&&/saveedited/.test(code))return "edit";
+      var title=(document.querySelector("#app h1,#app h2,#app h3")||{}).textContent||"";
+      return /\bedit\b/i.test(title)?"edit":"add";
+    }
+    if(/mark as closed|reopen|refund|return cans|water refill|add cans/.test(all))return /add cans|water refill|return cans/.test(all)?"add":"edit";
+    return "";
+  }
+  function actionIsWrite(button,action){
+    var all=((button&&button.textContent)||"")+" "+((button&&button.getAttribute("onclick"))||"");
+    return ["add","edit","delete"].indexOf(action)>=0||/save|submit|update|mark as closed|reopen|refund|return cans|water refill|add cans|hide|show|pattern/i.test(all);
+  }
+  function prevent(event){event.preventDefault();event.stopPropagation();if(event.stopImmediatePropagation)event.stopImmediatePropagation()}
+  [["dealers","dealers"],["openDealer","dealers"],["rentals","rentals"],["newRental","rentals"],["openRental","rentals"],["editRentalCustomer","rentals"],["stock","stock"],["money","money"],["attendance","attendance"],["backwash","backwash"],["salesPage","sales"],["hdOpenSalesBillingV7","sales"],["transactionsPage","transactions"],["phonepePage","phonepe"]].forEach(function(pair){guardRoute(pair[0],pair[1])});
+  function onlineClickGuard(event){
+    var button=event.target&&event.target.closest?event.target.closest("button,[role=button]"):null;if(!button)return;
+    if(replayedClick===button){replayedClick=null;return}
+    var page=pageFor(button),action=actionFor(button,page),modal=button.closest("#btccCloseConfirm,#btccActiveConfirm,#btccDeleteConfirm");
+    if(modal){page="rentals";action=modal.id==="btccDeleteConfirm"?"delete":"edit"}
+    if(!action)return;
+    if(page&&!allowed(page,action)){prevent(event);toast("The Owner has not granted "+action+" access for this page.");return}
+    if(!actionIsWrite(button,action))return;
+    prevent(event);
+    if(pendingClicks.has(button))return;
+    pendingClicks.add(button);
+    cloudReachable().then(function(connected){
+      if(!button.isConnected){toast("The page changed. Review it and retry.");return}
+      if(!connected){toast("Internet and cloud access are required before saving. Your form is still open.");return}
+      replayedClick=button;button.click();
+    }).catch(function(){toast("Could not reach the shared cloud. Your form is still open.")}).finally(function(){pendingClicks.delete(button)});
+  }
+  document.addEventListener("click",onlineClickGuard,true);
+  document.addEventListener("pointerup",function(event){
+    var row=document.querySelector("#hdLoginAccessRows .hd-login-access-row-dragging");if(!row)return;
+    prevent(event);var replay={pointerId:event.pointerId,clientX:event.clientX,clientY:event.clientY};
+    cloudReachable().then(function(connected){var fn=connected?window.hdLoginAccessPointerUp:window.hdLoginAccessPointerCancel;if(typeof fn==="function")fn(replay);if(!connected)toast("Internet and cloud access are required to rearrange login access. The previous order was restored.")}).catch(function(){if(typeof window.hdLoginAccessPointerCancel==="function")window.hdLoginAccessPointerCancel(replay);toast("Could not reach the shared cloud. The previous order was restored.")});
+  },true);
+  document.addEventListener("submit",function(event){
+    var form=event.target;if(!form||!form.closest||!form.closest("#app"))return;
+    if(!navigator.onLine){event.preventDefault();event.stopPropagation();toast("Internet is required before saving. Your form is still open.")}
+  },true);
+  function applyActionVisibility(){
+    if(owner())return;
+    document.querySelectorAll("#app button").forEach(function(button){
+      var page=pageFor(button),action=actionFor(button,page);if(!page||!action)return;
+      if(action==="add"||action==="edit"||action==="delete")button.style.display=allowed(page,action)?"":"none";
+    });
+  }
+  var appRoot=document.getElementById("app");
+  if(appRoot){new MutationObserver(function(){applyActionVisibility()}).observe(appRoot,{childList:true,subtree:true});applyActionVisibility()}
+  window.addEventListener("online",function(){if(typeof window.hdCloudSyncStaffAttendance==="function")window.hdCloudSyncStaffAttendance()});
+  window.addEventListener("offline",function(){cloudReadyAt=0});
+
+  /* Store all converted permission settings on the shared app record. */
+  if(typeof saved!=="undefined"&&saved){saved.loginAccessMembers=loginAccessMembers;persistSharedState()}
+})();
 </script>
 </body></html>
 
