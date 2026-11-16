@@ -5016,30 +5016,25 @@ window.addEventListener("popstate",backHandler,true);
 <script id="hdRentalSingleSubmitGuard">
 (function(){
 "use strict";
-function rentalKeys(){try{return Object.keys(typeof R!=="undefined"&&R?R:(window.R||{}))}catch(_){return Object.keys(window.R||{})}}
-function releaseButton(button){window.hdRentalSaveInProgress=false;if(button){button.disabled=false;button.textContent="Save Customer"}}
+function readRentals(){var out={};try{if(typeof R!=="undefined"&&R&&typeof R==="object")Object.assign(out,R)}catch(_){}try{["happyDropsManagerV12","happyDropsManagerV9"].forEach(function(key){var stored=JSON.parse(localStorage.getItem(key)||"null");if(stored&&stored.rentals&&typeof stored.rentals==="object")Object.assign(out,stored.rentals)})}catch(_){}try{if(window.R&&typeof window.R==="object")Object.assign(out,window.R)}catch(_){}return out}
+function unlock(button){window.hdRentalSaveInProgress=false;if(button){button.disabled=false;button.textContent="Save Customer"}}
 var saveBase=window.saveRental;
 if(typeof saveBase==="function")window.saveRental=function(){
  if(window.hdRentalSaveInProgress)return false;
- var button=document.querySelector('#app button[onclick*="saveRental"]');
- var before=new Set(rentalKeys());window.hdRentalSaveInProgress=true;
- if(button){button.disabled=true;button.textContent="Saving…"}
- var result,error;
- try{result=saveBase.apply(this,arguments)}catch(e){error=e}
- var addedId=rentalKeys().find(function(id){return !before.has(id)});
- if(!addedId){releaseButton(button);if(error)throw error;return result}
- try{
-  window.btccRentalStatus="active";
-  if(document.getElementById("rn")&&typeof window.rentals==="function")window.rentals();
-  if(!document.getElementById("rentalWhatsappPopup")&&typeof window.showRentalWhatsAppPopup==="function")window.showRentalWhatsAppPopup(addedId);
- }catch(recoveryError){console.error("Rental saved, but the screen refresh needed recovery.",recoveryError)}
+ var button=document.querySelector('#app button[onclick*="saveRental"]'),before=readRentals();
+ window.hdRentalSaveInProgress=true;if(button){button.disabled=true;button.textContent="Saving…"}
+ var result,error;try{result=saveBase.apply(this,arguments)}catch(e){error=e}
+ var after=readRentals(),addedId=Object.keys(after).find(function(id){return !Object.prototype.hasOwnProperty.call(before,id)});
+ if(!addedId){unlock(button);if(error)throw error;return result}
+ // Persisting the rental happens before cloud sync. Restore the rentals list and
+ // WhatsApp prompt even if a later sync step interrupted the original handler.
+ try{window.btccRentalStatus="active";if(typeof window.rentals==="function")window.rentals()}catch(recoveryError){console.error("Rental saved; could not refresh the rental list.",recoveryError)}
+ try{if(typeof window.showRentalWhatsAppPopup==="function"&&window._pendingRentalWhatsapp!==addedId)window.showRentalWhatsAppPopup(addedId)}catch(popupError){console.error("Rental saved; WhatsApp prompt could not be shown.",popupError)}
  if(error)console.error("Rental saved; recovered after a post-save screen error.",error);
- // Keep the lock until the form is opened afresh, preventing a late second tap.
  setTimeout(function(){if(!document.getElementById("rn"))window.hdRentalSaveInProgress=false},1200);
  return result
 };
-var newRentalBase=window.newRental;
-if(typeof newRentalBase==="function")window.newRental=function(){window.hdRentalSaveInProgress=false;return newRentalBase.apply(this,arguments)};
+var newRentalBase=window.newRental;if(typeof newRentalBase==="function")window.newRental=function(){window.hdRentalSaveInProgress=false;return newRentalBase.apply(this,arguments)};
 })();
 </script>
 <style id="hdHomeBrandAndHeadingSpacingFix">
