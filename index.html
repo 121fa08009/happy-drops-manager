@@ -5013,5 +5013,40 @@ window.addEventListener("popstate",backHandler,true);
 #app #hdOrderFormRoot .hd-order-estimation-row>strong:first-child,#app #hdOrderFormRoot .hd-order-estimation-row>strong:last-child{white-space:nowrap!important}
 #app #hdOrderFormRoot .hd-order-estimation-row input{width:64px!important;min-width:64px!important;max-width:64px!important;flex:none!important}
 </style>
+<script id="hdRentalSingleSubmitGuard">
+(function(){
+"use strict";
+function rentalKeys(){try{return Object.keys(typeof R!=="undefined"&&R?R:(window.R||{}))}catch(_){return Object.keys(window.R||{})}}
+function releaseButton(button){window.hdRentalSaveInProgress=false;if(button){button.disabled=false;button.textContent="Save Customer"}}
+var saveBase=window.saveRental;
+if(typeof saveBase==="function")window.saveRental=function(){
+ if(window.hdRentalSaveInProgress)return false;
+ var button=document.querySelector('#app button[onclick*="saveRental"]');
+ var before=new Set(rentalKeys());window.hdRentalSaveInProgress=true;
+ if(button){button.disabled=true;button.textContent="Saving…"}
+ var result,error;
+ try{result=saveBase.apply(this,arguments)}catch(e){error=e}
+ var addedId=rentalKeys().find(function(id){return !before.has(id)});
+ if(!addedId){releaseButton(button);if(error)throw error;return result}
+ try{
+  window.btccRentalStatus="active";
+  if(document.getElementById("rn")&&typeof window.rentals==="function")window.rentals();
+  if(!document.getElementById("rentalWhatsappPopup")&&typeof window.showRentalWhatsAppPopup==="function")window.showRentalWhatsAppPopup(addedId);
+ }catch(recoveryError){console.error("Rental saved, but the screen refresh needed recovery.",recoveryError)}
+ if(error)console.error("Rental saved; recovered after a post-save screen error.",error);
+ // Keep the lock until the form is opened afresh, preventing a late second tap.
+ setTimeout(function(){if(!document.getElementById("rn"))window.hdRentalSaveInProgress=false},1200);
+ return result
+};
+var newRentalBase=window.newRental;
+if(typeof newRentalBase==="function")window.newRental=function(){window.hdRentalSaveInProgress=false;return newRentalBase.apply(this,arguments)};
+})();
+</script>
+<style id="hdHomeBrandAndHeadingSpacingFix">
+#app:has(> .home-hero){padding-top:0!important}
+#app > .home-hero{padding-top:0!important;padding-bottom:4px!important;margin-top:0!important;margin-bottom:2px!important}
+#app > .home-hero + .card{margin-top:0!important;padding-top:8px!important}
+#app > .home-hero + .card > h3{margin-top:0!important}
+</style>
 </body></html>
 
