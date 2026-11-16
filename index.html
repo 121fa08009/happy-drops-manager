@@ -3379,6 +3379,8 @@ function orders(){window.hdOrdersTab="upcoming";window.hdOrderFormOpen=false;win
   pageFns.forEach(wrap);
   const rootState={hdRoot:true,hdPage:'home',hdArgs:[]};
   const homeState={hdPage:'home',hdArgs:[]};
+  try{localStorage.setItem('hdCurrentPage',JSON.stringify(homeState));}catch(e){}
+
   try{
     history.replaceState(rootState,'',location.href);
     history.pushState(homeState,'',location.href);
@@ -5359,6 +5361,50 @@ function renderEntry(){if(!window.hdSalesEntryOpenV8)return;var old=document.get
 function updateEntryTotal(){var cart=window.hdSalesCart||[],total=cart.reduce(function(a,x){return a+(Number(x.qty)||0)*(Number(x.price)||0)},0),target=document.getElementById("hdSalesEntryGrandTotalV8");if(target)target.textContent=money(total);document.querySelectorAll("[data-sales-entry-line]").forEach(function(row){var id=row.getAttribute("data-sales-entry-line"),line=cart.find(function(x){return String(x.id)===String(id)});if(line){var node=row.querySelector(".hd-sales-entry-line-total");if(node)node.textContent=money((Number(line.qty)||0)*(Number(line.price)||0))}})}
 window.hdSalesJournalSelectDayV8=function(i){window.hdSalesJournalOffset=Math.max(0,Math.min(2,Number(i)||0));renderPage()};window.hdSalesJournalOpenEntryV8=openEntry;window.hdSalesEntryCloseV8=closeEntry;window.hdSalesEntryChooseCategoryV8=function(id){window.hdSalesEntryCategoryV8=String(id);renderEntry()};window.hdSalesEntryBackV8=function(){window.hdSalesEntryCategoryV8="";renderEntry()};window.hdSalesEntryQtyV8Change=function(id,v){window.hdSalesEntryQtyV8=window.hdSalesEntryQtyV8||{};window.hdSalesEntryQtyV8[id]=Math.max(1,Math.floor(Number(v)||1))};window.hdSalesEntryAddV8=function(id){var f=productById(id);if(!f)return;var qel=document.getElementById("hdSalesEntryQtyV8_"+id),qty=Math.max(1,Math.floor(Number(qel&&qel.value||(window.hdSalesEntryQtyV8||{})[id])||1)),cart=window.hdSalesCart=window.hdSalesCart||[],line=cart.find(function(x){return String(x.id)===String(id)});if(line)line.qty=(Number(line.qty)||0)+qty;else cart.push({id:String(id),name:String(f.product.name||"Product"),price:Math.max(0,Number(f.product.price)||0),qty:qty});window.hdSalesEntryQtyV8[id]=1;window.hdSalesEntryMessageV8="Added to this sale.";renderEntry()};window.hdSalesEntryChangeV8=function(id,field,value){var x=(window.hdSalesCart||[]).find(function(y){return String(y.id)===String(id)});if(!x)return;var n=Number(value);x[field]=value===""?0:Math.max(0,field==="qty"?Math.floor(Number.isFinite(n)?n:0):Number.isFinite(n)?n:0);updateEntryTotal()};window.hdSalesEntryNormalizeQtyV8=function(id,input){var x=(window.hdSalesCart||[]).find(function(y){return String(y.id)===String(id)});if(x){x.qty=Math.max(1,Math.floor(Number(input.value)||1));input.value=String(x.qty);updateEntryTotal()}};window.hdSalesEntryRemoveV8=function(id){window.hdSalesCart=(window.hdSalesCart||[]).filter(function(x){return String(x.id)!==String(id)});window.hdSalesEntryMessageV8="Product removed.";renderEntry()};window.hdSalesEntryClearV8=function(){window.hdSalesCart=[];window.hdSalesEntryMessageV8="";renderEntry()};window.hdSalesEntrySaveV8=function(){var cart=window.hdSalesCart||[];if(!cart.length)return;if(cart.some(function(x){return Number(x.qty)<1})){alert("Enter a quantity of at least 1 for every product.");return}var rec=window.hdRecordSalesTransaction||(typeof txRecord==="function"?txRecord:null);if(typeof rec!=="function"){alert("Sales cannot be saved right now. Please try again.");return}var total=cart.reduce(function(a,x){return a+(Number(x.qty)||0)*(Number(x.price)||0)},0),detail=cart.map(function(x){return x.qty+" "+x.name+" X "+money(x.price)+" = "+money((Number(x.qty)||0)*(Number(x.price)||0))}).join("; ");try{rec({page:"Sales",direction:"credit",amount:total,detail:"Sale: "+detail});window.hdSalesCart=[];window.hdSalesEntryMessageV8="Sale saved.";closeEntry();renderPage()}catch(e){console.error("Unable to record sale",e);alert("The sale could not be saved. Please try again.")}};
 window.hdRenderCustomerSales=renderPage;window.hdOpenSalesBillingV7=function(){if(typeof window.hdEmployeePageAllowed==="function"&&!window.hdEmployeePageAllowed("sales")){alert("The Owner has not given your account access to Sales.");return}var route={hdPage:"salesPage",hdArgs:[]};try{if(!history.state||history.state.hdPage!==route.hdPage)history.pushState(route,"",location.href)}catch(_){}try{localStorage.setItem("hdCurrentPage",JSON.stringify(route))}catch(_){}window.hdSalesJournalOffset=0;window.hdSalesEntryOpenV8=false;window.hdSalesActiveCategoryId="";window.hdSalesNotice="";renderPage()};window.salesPage=window.hdOpenSalesBillingV7;
+})();
+
+</script>
+<style id="hdOwnerHomeReturnV9">
+#app .hd-owner-buttons-only{position:relative}
+#app .hd-owner-home{display:flex;align-items:center;justify-content:flex-start;width:100%;min-height:44px;margin:0 0 2px;padding:9px 13px;border:1px solid #b8d2e5;border-radius:10px;background:#f3f8fc;color:#31566f;font-size:13px;font-weight:800;text-align:left;cursor:pointer}
+#app .hd-owner-home:hover{background:#e8f2f9}
+</style>
+
+<script id="hdOwnerHomeReturnV9Script">
+(function(){
+"use strict";
+window.ownerDashboard=function(){
+  try{if(typeof ensureSyncBadge==="function")ensureSyncBadge()}catch(_){}
+  var app=document.getElementById("app");if(!app)return;
+  var items=[["👥 Manage Dealers","showDealerManager"],["📦 Manage Products","manageProducts"],["👥 Manage Staff","manageStaff"],["🔐 Manage Login Access","manageLoginAccess"],["↕️ Change Home Screen Order","manageHomeScreenOrder"],["💜 Manage UPI IDs","hdOpenPaymentUPIManager"]];
+  app.innerHTML='<div class="hd-owner-buttons-only"><button type="button" class="hd-owner-home" onclick="home()">← Home</button>'+items.map(function(item){return '<button type="button" class="hd-owner-action" onclick="'+item[1]+'()">'+item[0]+'</button>'}).join("")+'</div>';
+  try{if(typeof updateSyncBadge==="function")updateSyncBadge()}catch(_){}
+};
+window.addEventListener("pageshow",function(event){if(!event.persisted)return;try{localStorage.setItem("hdCurrentPage",JSON.stringify({hdPage:"home",hdArgs:[]}))}catch(_){}try{if(typeof window.home==="function")window.home()}catch(error){console.warn("Could not return to Home on app reopen",error)}});
+})();
+
+</script>
+<style id="hdHomeDoubleBackExitV10">
+.hd-home-back-exit-toast{position:fixed;left:50%;bottom:max(20px,env(safe-area-inset-bottom));z-index:20000;max-width:calc(100vw - 32px);padding:11px 16px;border:1px solid #244d69;border-radius:24px;background:#244d69;color:#fff;font-size:13px;font-weight:800;text-align:center;box-shadow:0 6px 18px #102a3d33;opacity:0;pointer-events:none;transform:translate(-50%,12px);transition:opacity .18s,transform .18s}.hd-home-back-exit-toast.show{opacity:1;transform:translate(-50%,0)}
+</style>
+
+<script id="hdHomeDoubleBackExitV10Script">
+(function(){
+"use strict";
+var lastHomeBackAt=0,lastHandledAt=0,doubleTapTimer=null,toastTimer=null;
+var popupSelector='dialog[open],[role="dialog"],[aria-modal="true"],[class*="modal"],[class*="Modal"],[class*="overlay"],[class*="Overlay"],[class*="popup"],[class*="Popup"]';
+function visible(el){if(!el||!el.isConnected||el.hidden||el.getAttribute("aria-hidden")==="true")return false;var s=getComputedStyle(el),r=el.getBoundingClientRect();return s.display!=="none"&&s.visibility!=="hidden"&&r.width>0&&r.height>0}
+function popups(){return Array.from(document.querySelectorAll(popupSelector)).filter(visible)}
+function stop(e){if(!e)return;if(e.preventDefault)e.preventDefault();if(e.stopPropagation)e.stopPropagation();if(e.stopImmediatePropagation)e.stopImmediatePropagation()}
+function showToast(message){var el=document.getElementById("hdHomeBackExitToastV10");if(!el){el=document.createElement("div");el.id="hdHomeBackExitToastV10";el.className="hd-home-back-exit-toast";el.setAttribute("role","status");el.setAttribute("aria-live","polite");document.body.appendChild(el)}el.textContent=message;el.classList.add("show");clearTimeout(toastTimer);toastTimer=setTimeout(function(){el.classList.remove("show")},2300)}
+function homeVisible(){return !!document.querySelector("#app .home-grid")||!!document.querySelector("#app .home-hero")}
+function restoreHomeEntry(){try{history.pushState({hdPage:"home",hdArgs:[]},"",location.href)}catch(_){}try{localStorage.setItem("hdCurrentPage",JSON.stringify({hdPage:"home",hdArgs:[]}))}catch(_){}}
+function nativeExit(){try{var cap=window.Capacitor;if(cap&&cap.Plugins&&cap.Plugins.App&&typeof cap.Plugins.App.exitApp==="function"){Promise.resolve(cap.Plugins.App.exitApp()).catch(function(e){console.warn("Native app exit failed",e)});return true}if(cap&&cap.App&&typeof cap.App.exitApp==="function"){Promise.resolve(cap.App.exitApp()).catch(function(e){console.warn("Native app exit failed",e)});return true}}catch(e){console.warn("Capacitor app exit is unavailable",e)}try{if(window.navigator&&navigator.app&&typeof navigator.app.exitApp==="function"){navigator.app.exitApp();return true}}catch(e){console.warn("Cordova app exit is unavailable",e)}try{window.close();if(window.closed)return true}catch(_){}return false}
+function closeTopPopup(){var list=popups();if(!list.length)return false;var top=list[list.length-1],buttons=Array.from(top.querySelectorAll("button,[role=button]")),close=buttons.find(function(b){var t=((b.getAttribute("aria-label")||"")+" "+(b.getAttribute("title")||"")+" "+(b.textContent||"")).trim();return /close|dismiss|cancel|done|^(x|×|✕)$/i.test(t)});if(close){close.click();return true}top.remove();return true}
+function onHomeBack(e,source){if(closeTopPopup()){stop(e);return true}if(!homeVisible())return false;stop(e);var now=Date.now();if(now-lastHandledAt<350)return true;lastHandledAt=now;if(now-lastHomeBackAt<=2000){lastHomeBackAt=0;clearTimeout(doubleTapTimer);var didExit=nativeExit();if(!didExit){showToast("This browser cannot force-close the app. Close Happy Drops from Android Recent Apps.");restoreHomeEntry()}return true}lastHomeBackAt=now;restoreHomeEntry();showToast("Press Back again to close Happy Drops");clearTimeout(doubleTapTimer);doubleTapTimer=setTimeout(function(){lastHomeBackAt=0},2200);return true}
+window.addEventListener("popstate",function(e){onHomeBack(e,"history")},true);
+document.addEventListener("backbutton",function(e){onHomeBack(e,"native")},true);
+document.addEventListener("keydown",function(e){if(e.key==="Escape"||e.key==="Back"||e.key==="GoBack"||e.keyCode===4)onHomeBack(e,"keyboard")},true);
 })();
 
 </script>
